@@ -328,34 +328,39 @@
                 <div class="grid md:grid-cols-2 gap-12">
                     <div class="glass-luxury champagne-glow p-10 rounded-2xl transition-all duration-500 hover:scale-105">
                         <h2 class="text-3xl font-heading font-semibold text-platinum mb-8">Send us a <em class="italic text-champagne font-light">message</em></h2>
-                        <form class="space-y-6">
+                        <form name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field" class="space-y-6">
+                            <!-- Honeypot field for spam protection -->
+                            <div style="display: none;">
+                                <label>Don't fill this out if you're human: <input name="bot-field" /></label>
+                            </div>
+                            
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Name</label>
-                                <input type="text" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Your full name">
+                                <input type="text" name="name" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Your full name">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Organization</label>
-                                <input type="text" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Your organization">
+                                <input type="text" name="organization" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Your organization">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Email</label>
-                                <input type="email" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="your.email@domain.com">
+                                <input type="email" name="email" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="your.email@domain.com">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Phone</label>
-                                <input type="tel" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="(555) 123-4567">
+                                <input type="tel" name="phone" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="(555) 123-4567">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Message</label>
-                                <textarea rows="4" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Tell us about your laboratory needs..."></textarea>
+                                <textarea rows="4" name="message" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Tell us about your laboratory needs..."></textarea>
                             </div>
                             
                             <button type="submit" class="w-full premium-btn px-8 py-4 rounded-lg font-semibold">
-                                Submit
+                                Send Message
                             </button>
                         </form>
                         
@@ -572,10 +577,11 @@
         });
 
         // Form submission
-        document.querySelector('form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Thank you for your message! We will contact you shortly.');
-            this.reset();
+        // Netlify Forms handles form submission automatically
+        // Optional: Add custom success handling
+        document.querySelector('form[name="contact"]').addEventListener('submit', function(e) {
+            // Let Netlify handle the submission
+            // You can add custom analytics or tracking here if needed
         });
     </script>
 </body>
