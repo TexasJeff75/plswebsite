@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Proximity Lab Services — Your Lab, Our Expertise</title>
+    <meta name="description" content="Experienced lab builders and operators delivering accuracy, scale, and profit optimization.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'midnight': '#0B1426',
+                        'midnight-light': '#1A2332',
+                        'platinum': '#E5E7EB',
+                        'platinum-light': '#F9FAFB',
+                        'champagne': '#D4AF37',
+                        'champagne-light': '#F4E6A1',
+                        'electric': '#00D4FF',
+                        'electric-dim': '#0099CC'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    },
+                    backgroundImage: {
+                        'luxury-gradient': 'linear-gradient(135deg, #0B1426 0%, #1A2332 35%, #2D3748 70%, #1A2332 100%)',
+                        'platinum-gradient': 'linear-gradient(135deg, #F9FAFB 0%, #E5E7EB 50%, #D1D5DB 100%)',
+                        'electric-gradient': 'linear-gradient(135deg, #00D4FF 0%, #0099CC 100%)',
+                        'champagne-gradient': 'linear-gradient(135deg, #F4E6A1 0%, #D4AF37 100%)',
+                        'neural-pattern': "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><radialGradient id=\"g\"><stop offset=\"0%\" stop-color=\"%23ffffff\" stop-opacity=\"0.03\"/><stop offset=\"100%\" stop-color=\"%23ffffff\" stop-opacity=\"0\"/></radialGradient></defs><circle cx=\"20\" cy=\"20\" r=\"2\" fill=\"url(%23g)\"/><circle cx=\"80\" cy=\"30\" r=\"1.5\" fill=\"url(%23g)\"/><circle cx=\"40\" cy=\"70\" r=\"1\" fill=\"url(%23g)\"/><circle cx=\"90\" cy=\"80\" r=\"2.5\" fill=\"url(%23g)\"/></svg>')"
+                    },
+                    animation: {
+                        'float-slow': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 2s infinite',
+                        'pulse-elegant': 'pulseElegant 3s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'neural-glow': 'neuralGlow 4s ease-in-out infinite alternate',
+                        'liquid-metal': 'liquidMetal 8s ease-in-out infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Color Palette */
+        :root {
+            --midnight: #0B1426;
+            --platinum: #E5E7EB;
+            --champagne: #D4AF37;
+            --electric: #00D4FF;
+        }
+
+        /* Background Imagery Animations */
+        @keyframes dnaHelix {
+            0% { transform: rotate(0deg) scale(1); opacity: 0.3; }
+            50% { transform: rotate(180deg) scale(1.1); opacity: 0.5; }
+            100% { transform: rotate(360deg) scale(1); opacity: 0.3; }
+        }
+
+        @keyframes neuralPulse {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+
+        @keyframes liquidMetal {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* DNA Helix Background */
+        .dna-helix::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 60% 20%, rgba(212, 175, 55, 0.1) 0%, transparent 50%);
+            animation: dnaHelix 20s linear infinite;
+            z-index: 0;
+        }
+
+        /* Neural Network Background */
+        .neural-network::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(2px 2px at 100px 50px, var(--electric), transparent),
+                radial-gradient(2px 2px at 200px 150px, var(--champagne), transparent),
+                radial-gradient(1px 1px at 300px 100px, var(--electric), transparent),
+                radial-gradient(1px 1px at 150px 200px, var(--champagne), transparent),
+                radial-gradient(2px 2px at 350px 250px, var(--electric), transparent);
+            animation: neuralPulse 8s ease-in-out infinite;
+            z-index: 0;
+        }
+
+        /* Background Video Styles */
+        .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .video-background video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.15;
+        }
+
+        .video-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, 
+                rgba(11, 20, 38, 0.8) 0%, 
+                rgba(26, 35, 50, 0.7) 50%, 
+                rgba(11, 20, 38, 0.8) 100%);
+            z-index: -1;
+        }
+
+        /* Glass Luxury Cards */
+        .glass-luxury {
+            background: rgba(229, 231, 235, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(229, 231, 235, 0.1);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .champagne-glow {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .champagne-glow:hover {
+            animation: glowPulse 2s ease-in-out infinite;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(212, 175, 55, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .champagne-glow::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg, 
+                transparent, 
+                rgba(212, 175, 55, 0.1), 
+                transparent
+            );
+            transition: all 0.5s;
+            transform: translateX(-100%);
+        }
+
+        .champagne-glow:hover::after {
+            animation: shimmer 1.5s ease-in-out;
+        }
+
+        /* Premium Buttons */
+        .premium-btn {
+            background: linear-gradient(135deg, var(--champagne), #B8860B);
+            color: var(--midnight);
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .premium-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 10px 25px rgba(212, 175, 55, 0.4),
+                0 0 15px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Navigation Links */
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--champagne), var(--electric));
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        /* Liquid Metal Text Effect */
+        .liquid-metal {
+            background: linear-gradient(45deg, #E5E7EB, #D4AF37, #00D4FF, #E5E7EB);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: liquidMetal 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .nav-sticky {
+            backdrop-filter: blur(10px);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+    </style>
+</head>
+<body class="font-body bg-midnight text-platinum">
+    <!-- Background Video -->
+    <div class="video-background">
+        <video autoplay muted loop playsinline>
+            <source src="https://videos.pexels.com/video-files/3195394/3195394-uhd_2560_1440_25fps.mp4" type="video/mp4">
+            <source src="https://videos.pexels.com/video-files/3195394/3195394-hd_1920_1080_25fps.mp4" type="video/mp4">
+        </video>
+    </div>
+    <div class="video-overlay"></div>
+
+    <!-- Header -->
+    <header id="header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-md bg-midnight/80">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <a href="/">
+                        <img src="/public/Proximity Logo Updated v2.png" alt="Proximity Lab Services" class="h-20 w-auto filter brightness-150 contrast-125 saturate-110 drop-shadow-lg hover:brightness-160 hover:scale-105 transition-all duration-300">
+                    </a>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8 relative z-10">
+                    <a href="/" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Home</a>
+                    <a href="why-proximity.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Why Proximity</a>
+                    <a href="services.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Services</a>
+                    <a href="compliance.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Compliance</a>
+                    <a href="about.html" class="nav-link text-champagne font-medium">About</a>
+                    <a href="contact.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Contact</a>
+                </nav>
+                <a href="https://calendly.com/robert-castaneda-proximitylabservices"
+                   class="premium-btn px-6 py-3 rounded-lg font-medium relative z-10"
+                   onclick="openCalendlyModal(event)">
+                    Schedule a Call
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="bg-midnight text-platinum pt-24 pb-16 relative overflow-hidden dna-helix">
+        <div class="container mx-auto px-6">
+            <div class="max-w-4xl mx-auto text-center py-16 relative z-10">
+                <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight text-platinum">
+                    Your Lab, Our Expertise
+                </h1>
+                <p class="text-xl md:text-2xl text-platinum/90 leading-relaxed font-light italic">
+                    Built by operators who understand the <em class="text-champagne">complexities</em> of laboratory operations
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="py-20 relative overflow-hidden bg-midnight/50">
+        <div class="container mx-auto px-6">
+            <div class="max-w-4xl mx-auto relative z-10">
+                <div class="grid md:grid-cols-2 gap-12 items-center mb-16 ">
+                    <div>
+                        <p class="text-xl text-platinum/80 mb-8 leading-relaxed">
+                            Proximity Lab Services was created by operators who have built and scaled <em class="text-champagne">high-complexity</em> labs. We remove the friction of capital expense, staffing, and compliance—so you can deliver faster results, better patient care, and <em class="text-champagne">stronger margins</em>.
+                        </p>
+                        
+                        <div class="space-y-8">
+                            <div>
+                                <h3 class="text-2xl font-heading font-semibold text-champagne mb-3"><em class="italic font-light">Mission</em></h3>
+                                <p class="text-platinum/70 leading-relaxed">Accuracy, scalability, and <em class="text-champagne">profit optimization</em> for providers.</p>
+                            </div>
+                            
+                            <div>
+                                <h3 class="text-2xl font-heading font-semibold text-champagne mb-3"><em class="italic font-light">Approach</em></h3>
+                                <p class="text-platinum/70 leading-relaxed">Standardized, validated builds tailored to your <em class="text-champagne">test menu</em> and volume.</p>
+                            </div>
+                            
+                            <div>
+                                <h3 class="text-2xl font-heading font-semibold text-champagne mb-3"><em class="italic font-light">Outcome</em></h3>
+                                <p class="text-platinum/70 leading-relaxed">Reliable turnaround times, <em class="text-champagne">predictable costs</em>, measurable growth.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-luxury champagne-glow p-10 rounded-2xl transition-all duration-500 hover:scale-105">
+                        <h3 class="text-3xl font-heading font-semibold mb-6 text-platinum">Ready to <em class="italic text-champagne font-light">Get Started</em>?</h3>
+                        <p class="text-platinum/80 mb-8 text-lg">Let's discuss how we can build your <em class="text-champagne">ideal</em> laboratory solution and accelerate your growth.</p>
+                        <a href="contact.html" class="premium-btn px-8 py-4 rounded-lg font-semibold inline-block">
+                            Start Now
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Additional Content -->
+                <div class="grid md:grid-cols-3 gap-8 ">
+                    <div class="text-center glass-luxury champagne-glow p-8 rounded-2xl transition-all duration-500 hover:scale-105">
+                        <div class="w-16 h-16 bg-champagne/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                            <svg class="w-8 h-8 text-electric" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-heading font-semibold text-platinum mb-4">Proven <em class="italic text-champagne font-light">Experience</em></h4>
+                        <p class="text-platinum/70">Decades of combined experience in <em class="text-champagne">laboratory operations</em> and regulatory compliance.</p>
+                    </div>
+                    
+                    <div class="text-center glass-luxury champagne-glow p-8 rounded-2xl transition-all duration-500 hover:scale-105">
+                        <div class="w-16 h-16 bg-champagne/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                            <svg class="w-8 h-8 text-electric" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-heading font-semibold text-platinum mb-4">Rapid <em class="italic text-champagne font-light">Deployment</em></h4>
+                        <p class="text-platinum/70">Industry-leading setup times with <em class="text-champagne">validated processes</em> and comprehensive support.</p>
+                    </div>
+                    
+                    <div class="text-center glass-luxury champagne-glow p-8 rounded-2xl transition-all duration-500 hover:scale-105">
+                        <div class="w-16 h-16 bg-champagne/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                            <svg class="w-8 h-8 text-electric" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-heading font-semibold text-platinum mb-4">Cost <em class="italic text-champagne font-light">Optimization</em></h4>
+                        <p class="text-platinum/70">Transparent pricing models designed for <em class="text-champagne">predictable growth</em> and profitability.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 relative overflow-hidden bg-gradient-to-r from-champagne via-electric to-midnight">
+        <div class="container mx-auto px-6 text-center">
+            <div class="max-w-4xl mx-auto">
+                <!-- Calendar Icon -->
+                <div class="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 mx-auto">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+                    Ready to Transform Your Lab?
+                </h2>
+                <p class="text-xl text-white/90 mb-12 leading-relaxed">
+                    Schedule a consultation with our team to discuss how Proximity Lab Services<br>
+                    can enhance your practice and improve patient outcomes.
+                </p>
+
+                <!-- Benefits -->
+                <div class="flex flex-wrap justify-center gap-8 mb-12">
+                    <div class="flex items-center text-white">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        30-minute consultation
+                    </div>
+                    <div class="flex items-center text-white">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        Expert laboratory team
+                    </div>
+                    <div class="flex items-center text-white">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Flexible scheduling
+                    </div>
+                </div>
+
+                <!-- CTA Button -->
+                <div class="mb-6">
+                    <a href="https://calendly.com/robert-castaneda-proximitylabservices"
+                       class="inline-block bg-white text-midnight px-10 py-4 rounded-lg font-semibold text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-lg">
+                        Schedule Your Consultation
+                    </a>
+                </div>
+
+                <!-- Alternative Contact -->
+                <p class="text-white/80">
+                    Or call us directly at <strong class="text-white">(210) 316-1792</strong>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-midnight text-platinum py-16 border-t border-platinum/10 relative overflow-hidden neural-network">
+        <div class="container mx-auto px-6">
+            <div class="max-w-6xl mx-auto relative z-10">
+                <div class="grid md:grid-cols-3 gap-8 mb-12">
+                    <div>
+                        <div class="mb-6">
+                            <img src="/public/Proximity Logo Updated v2.png" alt="Proximity Lab Services" class="h-24 w-auto filter brightness-150 contrast-125 saturate-110 drop-shadow-lg hover:brightness-160 hover:scale-105 transition-all duration-300">
+                        </div>
+                        <p class="text-platinum/80 mb-6">
+                            <em class="text-champagne">Premium, compliant</em> laboratory solutions designed for exponential growth.
+                        </p>
+                        <a href="https://calendly.com/robert-castaneda-proximitylabservices" class="premium-btn px-6 py-3 rounded-lg font-medium inline-block" onclick="openCalendlyModal(event)">Schedule a Call</a>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-xl font-heading font-semibold mb-4 text-champagne">Quick Links</h4>
+                        <ul class="space-y-2">
+                            <li><a href="why-proximity.html" class="nav-link text-platinum/80 hover:text-champagne transition-colors">Why Proximity</a></li>
+                            <li><a href="services.html" class="nav-link text-platinum/80 hover:text-champagne transition-colors">Services</a></li>
+                            <li><a href="compliance.html" class="nav-link text-platinum/80 hover:text-champagne transition-colors">Compliance & Security</a></li>
+                            <li><a href="about.html" class="nav-link text-platinum/80 hover:text-champagne transition-colors">About</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-xl font-heading font-semibold mb-4 text-champagne">Contact Info</h4>
+                        <div class="space-y-2 text-platinum/80">
+                            <p>16922 Telge Rd., Suite 2</p>
+                            <p>Cypress, TX 77429</p>
+                            <p class="pt-2">(210) 316-1792</p>
+                            <p><a href="mailto:info@proximitylabservices.com" class="hover:text-champagne transition-colors">info@proximitylabservices.com</a></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Compliance Badges -->
+                <div class="border-t border-platinum/10 pt-8 mb-8">
+                    <div class="flex flex-wrap justify-center gap-8 text-sm text-platinum/60">
+                        <span class="flex items-center">
+                            <div class="w-2 h-2 bg-champagne rounded-full mr-2"></div>
+                            CLIA Certified
+                        </span>
+                        <span class="flex items-center">
+                            <div class="w-2 h-2 bg-champagne rounded-full mr-2"></div>
+                            CAP/API Proficiency
+                        </span>
+                        <span class="flex items-center">
+                            <div class="w-2 h-2 bg-champagne rounded-full mr-2"></div>
+                            HIPAA Compliant
+                        </span>
+                        <span class="flex items-center">
+                            <div class="w-2 h-2 bg-champagne rounded-full mr-2"></div>
+                            Chain-of-Custody Protocols
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="text-center text-platinum/60 text-sm">
+                    <p>&copy; 2025 Proximity Lab Services, LLC. All rights reserved.</p>
+                    <div class="mt-2">
+                        <a href="#" class="hover:text-champagne transition-colors">Privacy Policy</a>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-platinum/10">
+                        <a href="https://calendly.com/robert-castaneda-proximitylabservices" 
+                           class="premium-btn px-6 py-3 rounded-lg font-medium inline-block"
+                           onclick="openCalendlyModal(event)">
+                            Distribution Opportunities
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Calendly Modal -->
+    <div id="calendlyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-luxury rounded-2xl w-full max-w-4xl h-[80vh] relative">
+            <button onclick="closeCalendlyModal()" class="absolute top-4 right-4 z-10 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+            <div id="calendlyWidget" class="w-full h-full rounded-2xl overflow-hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // Calendly modal functionality
+        function openCalendlyModal(event) {
+            event.preventDefault();
+            const modal = document.getElementById('calendlyModal');
+            const widget = document.getElementById('calendlyWidget');
+            
+            // Load Calendly widget if not already loaded
+            if (!widget.innerHTML.trim()) {
+                widget.innerHTML = '<div class="calendly-inline-widget" data-url="https://calendly.com/robert-castaneda-proximitylabservices" style="min-width:320px;height:100%;"></div>';
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = 'https://assets.calendly.com/assets/external/widget.js';
+                script.async = true;
+                document.body.appendChild(script);
+            }
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCalendlyModal() {
+            const modal = document.getElementById('calendlyModal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('calendlyModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeCalendlyModal();
+            }
+        });
+
+        // Sticky header functionality
+        window.addEventListener('scroll', function() {
+            const header = document.getElementById('header');
+            if (window.scrollY > 100) {
+                header.classList.add('nav-sticky');
+            } else {
+                header.classList.remove('nav-sticky');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Redirect rules for Netlify
+/why-proximity     /why-proximity.html     200
+/services          /services.html          200
+/compliance        /compliance.html        200
+/about             /about.html             200
+/contact           /contact.html           200
+
+# Fallback for any other routes
+/*                 /index.html             404
