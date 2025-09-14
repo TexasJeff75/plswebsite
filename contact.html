@@ -334,6 +334,11 @@
                                 <label>Don't fill this out if you're human: <input name="bot-field" /></label>
                             </div>
                             
+                            <!-- Hidden fields for email configuration -->
+                            <input type="hidden" name="form-name" value="contact" />
+                            <input type="hidden" name="subject" value="New Proximity Website Contact" />
+                            <input type="hidden" name="to" value="robert.castaneda@proximitylabservices.com,jeff.lutz@proximitylabservices.com" />
+                            
                             <div>
                                 <label class="block text-sm font-medium text-champagne mb-2">Name</label>
                                 <input type="text" name="name" required class="elegant-input w-full px-4 py-3 rounded-lg" placeholder="Your full name">
@@ -362,6 +367,12 @@
                             <button type="submit" class="w-full premium-btn px-8 py-4 rounded-lg font-semibold">
                                 Send Message
                             </button>
+                            
+                            <div class="mt-4 text-center">
+                                <p class="text-sm text-platinum/60">
+                                    You'll receive a confirmation email after submitting
+                                </p>
+                            </div>
                         </form>
                         
                         <div class="mt-8 pt-8 border-t border-platinum/20 text-center">
@@ -577,11 +588,20 @@
         });
 
         // Form submission
-        // Netlify Forms handles form submission automatically
-        // Optional: Add custom success handling
+        // Enhanced form submission with success feedback
         document.querySelector('form[name="contact"]').addEventListener('submit', function(e) {
+            // Show loading state
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = 'Sending...';
+            submitButton.disabled = true;
+            
             // Let Netlify handle the submission
-            // You can add custom analytics or tracking here if needed
+            // The form will redirect to a success page or show success message
+            setTimeout(() => {
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            }, 2000);
         });
     </script>
 </body>
