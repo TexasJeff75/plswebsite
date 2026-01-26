@@ -2,15 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Color Palette */
-:root {
-    --midnight: #0B1426;
-    --platinum: #E5E7EB;
-    --champagne: #D4AF37;
-    --electric: #00D4FF;
-    --bright-blue: #00A8FF;
-    --logo-purple: #6B46C1;
-    --vibrant-blue: #0EA5E9;
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100;
+  }
 }
 
 /* Keyframe Animations */
