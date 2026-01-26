@@ -1,42 +1,57 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './contexts/AuthContext';
+import Login from './components/Login';
+import Layout from './components/Layout';
+import Dashboard from './components/Dashboard';
+import Facilities from './components/Facilities';
+import FacilityDetail from './components/FacilityDetail';
+import Users from './components/Users';
+import ProtectedRoute from './components/ProtectedRoute';
 
-function TrackerApp() {
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
+
+function App() {
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-teal-500 mb-2">
-            Deployment Tracker
-          </h1>
-          <p className="text-slate-400">
-            Comprehensive facility deployment tracking system
-          </p>
-        </header>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h2 className="text-2xl font-semibold mb-4">System Ready</h2>
-          <p className="text-slate-300 mb-4">
-            Database schema configured with:
-          </p>
-          <ul className="space-y-2 text-slate-400">
-            <li>✓ Facilities tracking (30 facilities)</li>
-            <li>✓ Milestone management (270 milestones)</li>
-            <li>✓ Equipment tracking</li>
-            <li>✓ User roles and permissions</li>
-            <li>✓ Notes and documentation system</li>
-          </ul>
-          <div className="mt-6 p-4 bg-teal-900/20 border border-teal-700 rounded">
-            <p className="text-teal-400 text-sm">
-              Full application implementation available - React components, authentication,
-              dashboard, and all tracking features can be developed incrementally.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="facilities" element={<Facilities />} />
+              <Route path="facilities/:id" element={<FacilityDetail />} />
+              <Route path="users" element={
+                <ProtectedRoute requireAdmin>
+                  <Users />
+                </ProtectedRoute>
+              } />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
 const root = createRoot(document.getElementById('root'));
-root.render(<TrackerApp />);
+root.render(<App />);
