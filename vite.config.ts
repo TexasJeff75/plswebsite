@@ -10,7 +10,8 @@ export default defineConfig({
         contact: 'contact.html',
         compliance: 'compliance.html',
         services: 'services.html',
-        'why-proximity': 'why-proximity.html'
+        'why-proximity': 'why-proximity.html',
+        'deployment-tracker': 'deployment-tracker.html'
       }
     }
   }

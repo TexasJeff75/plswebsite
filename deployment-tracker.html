@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Tracker — Proximity Lab Services</title>
+    <meta name="description" content="Track and monitor deployments across all environments.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'midnight': '#0B1426',
+                        'midnight-light': '#1A2332',
+                        'platinum': '#E5E7EB',
+                        'platinum-light': '#F9FAFB',
+                        'champagne': '#D4AF37',
+                        'champagne-light': '#F4E6A1',
+                        'electric': '#00D4FF',
+                        'electric-dim': '#0099CC',
+                        'bright-blue': '#00A8FF',
+                        'logo-purple': '#6B46C1',
+                        'vibrant-blue': '#0EA5E9'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/src/index.css">
+</head>
+<body class="font-body bg-midnight text-platinum">
+    <div class="video-background">
+        <video autoplay muted loop playsinline>
+            <source src="https://videos.pexels.com/video-files/3195394/3195394-uhd_2560_1440_25fps.mp4" type="video/mp4">
+            <source src="https://videos.pexels.com/video-files/3195394/3195394-hd_1920_1080_25fps.mp4" type="video/mp4">
+        </video>
+    </div>
+    <div class="video-overlay"></div>
+
+    <header id="header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-md bg-midnight/80">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <a href="/">
+                        <img src="/public/Proximity Logo Updated v2.png" alt="Proximity Lab Services" class="h-20 w-auto filter brightness-150 contrast-125 saturate-110 drop-shadow-lg hover:brightness-160 hover:scale-105 transition-all duration-300">
+                    </a>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8 relative z-10">
+                    <a href="/" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Home</a>
+                    <a href="why-proximity.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Why Proximity</a>
+                    <a href="services.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Services</a>
+                    <a href="compliance.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Compliance</a>
+                    <a href="about.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">About</a>
+                    <a href="contact.html" class="nav-link text-platinum hover:text-champagne transition-colors font-medium">Contact</a>
+                    <a href="deployment-tracker.html" class="nav-link text-champagne font-medium">Deployments</a>
+                </nav>
+                <a href="https://calendly.com/robert-castaneda-proximitylabservices"
+                   class="premium-btn px-6 py-3 rounded-lg font-medium relative z-10"
+                   onclick="openCalendlyModal(event)">
+                    Schedule a Call
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <section class="pt-32 pb-16 relative overflow-hidden dna-helix min-h-screen">
+        <div class="container mx-auto px-6">
+            <div class="max-w-7xl mx-auto relative z-10">
+                <div class="text-center mb-12">
+                    <h1 class="text-5xl md:text-6xl font-bold mb-6 text-platinum">
+                        Deployment <em class="italic text-champagne font-light">Tracker</em>
+                    </h1>
+                    <p class="text-xl text-platinum/80 mb-8">
+                        Monitor and track deployments across all environments in real-time
+                    </p>
+                </div>
+
+                <div class="glass-luxury rounded-2xl p-8 mb-8">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
+                        <div class="flex flex-wrap gap-4">
+                            <button id="filterAll" class="filter-btn active px-6 py-2 rounded-lg font-medium transition-all">
+                                All
+                            </button>
+                            <button id="filterPending" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                                Pending
+                            </button>
+                            <button id="filterInProgress" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                                In Progress
+                            </button>
+                            <button id="filterCompleted" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                                Completed
+                            </button>
+                            <button id="filterFailed" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                                Failed
+                            </button>
+                        </div>
+                        <button id="addDeploymentBtn" class="premium-btn px-6 py-3 rounded-lg font-medium whitespace-nowrap">
+                            + Add Deployment
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Total Deployments</h3>
+                                <svg class="w-5 h-5 text-electric" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                </svg>
+                            </div>
+                            <p id="totalCount" class="text-3xl font-bold text-champagne">0</p>
+                        </div>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Completed</h3>
+                                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p id="completedCount" class="text-3xl font-bold text-green-400">0</p>
+                        </div>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">In Progress</h3>
+                                <svg class="w-5 h-5 text-bright-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p id="inProgressCount" class="text-3xl font-bold text-bright-blue">0</p>
+                        </div>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Failed</h3>
+                                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p id="failedCount" class="text-3xl font-bold text-red-400">0</p>
+                        </div>
+                    </div>
+
+                    <div id="deploymentsContainer" class="space-y-4">
+                        <div class="text-center py-12">
+                            <svg class="w-16 h-16 mx-auto text-platinum/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-platinum/50 text-lg">Loading deployments...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="deploymentModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="glass-luxury rounded-2xl w-full max-w-2xl relative p-8">
+            <button onclick="closeDeploymentModal()" class="absolute top-4 right-4 w-10 h-10 bg-champagne/20 text-platinum rounded-full flex items-center justify-center hover:bg-champagne/30 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+
+            <h2 class="text-3xl font-bold text-platinum mb-6">Add New Deployment</h2>
+
+            <form id="deploymentForm" class="space-y-6">
+                <div>
+                    <label for="projectName" class="block text-platinum/80 mb-2 font-medium">Project Name</label>
+                    <input type="text" id="projectName" name="projectName" required
+                           class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="version" class="block text-platinum/80 mb-2 font-medium">Version</label>
+                        <input type="text" id="version" name="version" required placeholder="e.g., v1.2.3"
+                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                    </div>
+
+                    <div>
+                        <label for="environment" class="block text-platinum/80 mb-2 font-medium">Environment</label>
+                        <select id="environment" name="environment" required
+                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                            <option value="">Select Environment</option>
+                            <option value="development">Development</option>
+                            <option value="staging">Staging</option>
+                            <option value="production">Production</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="status" class="block text-platinum/80 mb-2 font-medium">Status</label>
+                        <select id="status" name="status" required
+                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                            <option value="rolled_back">Rolled Back</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="deployedBy" class="block text-platinum/80 mb-2 font-medium">Deployed By</label>
+                        <input type="text" id="deployedBy" name="deployedBy" required
+                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-platinum/80 mb-2 font-medium">Notes (Optional)</label>
+                    <textarea id="notes" name="notes" rows="4"
+                              class="elegant-input w-full px-4 py-3 rounded-lg outline-none resize-none"
+                              placeholder="Additional deployment notes..."></textarea>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" class="premium-btn flex-1 px-6 py-3 rounded-lg font-medium">
+                        Add Deployment
+                    </button>
+                    <button type="button" onclick="closeDeploymentModal()"
+                            class="glass-luxury border border-platinum/20 text-platinum flex-1 px-6 py-3 rounded-lg font-medium hover:bg-platinum/5 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="calendlyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-luxury rounded-2xl w-full max-w-4xl h-[80vh] relative">
+            <button onclick="closeCalendlyModal()" class="absolute top-4 right-4 z-10 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+            <div id="calendlyWidget" class="w-full h-full rounded-2xl overflow-hidden"></div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/js/deployment-tracker.js"></script>
+    <script>
+        function openCalendlyModal(event) {
+            event.preventDefault();
+            const modal = document.getElementById('calendlyModal');
+            const widget = document.getElementById('calendlyWidget');
+
+            if (!widget.innerHTML.trim()) {
+                widget.innerHTML = '<div class="calendly-inline-widget" data-url="https://calendly.com/robert-castaneda-proximitylabservices" style="min-width:320px;height:100%;"></div>';
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = 'https://assets.calendly.com/assets/external/widget.js';
+                script.async = true;
+                document.body.appendChild(script);
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCalendlyModal() {
+            const modal = document.getElementById('calendlyModal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        document.getElementById('calendlyModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeCalendlyModal();
+            }
+        });
+
+        window.addEventListener('scroll', function() {
+            const header = document.getElementById('header');
+            if (window.scrollY > 100) {
+                header.classList.add('nav-sticky');
+            } else {
+                header.classList.remove('nav-sticky');
+            }
+        });
+
+        function closeDeploymentModal() {
+            document.getElementById('deploymentModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    </script>
+</body>
+</html>
