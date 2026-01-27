@@ -3,9 +3,9 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProtectedRoute({ children, requireAdmin = false, requireEditor = false }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isAdmin, isEditor } = useAuth();
 
-  console.log('ProtectedRoute:', { loading, hasUser: !!user, role: profile?.role });
+  console.log('ProtectedRoute:', { loading, hasUser: !!user, role: profile?.role, isAdmin, isEditor });
 
   if (loading) {
     return (
@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && profile?.role !== 'Admin') {
+  if (requireAdmin && !isAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700 max-w-md">
@@ -40,7 +40,7 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
     );
   }
 
-  if (requireEditor && profile?.role === 'Viewer') {
+  if (requireEditor && !isEditor) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700 max-w-md">
