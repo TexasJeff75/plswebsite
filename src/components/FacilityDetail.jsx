@@ -86,7 +86,7 @@ export default function FacilityDetail() {
   const configLabel = facilityStatsService.getConfigurationLabel(facility.site_configuration);
 
   const tabs = [
-    { label: 'Overview', component: <OverviewTab facility={facility} /> },
+    { label: 'Overview', component: <OverviewTab facility={facility} isEditor={isEditor} /> },
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
     { label: 'Personnel', component: <PersonnelTab facility={facility} isEditor={isEditor} /> },
     { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} /> },
