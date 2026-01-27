@@ -4,6 +4,7 @@
 /compliance        /compliance.html        200
 /about             /about.html             200
 /contact           /contact.html           200
+/tracker           /tracker.html           200
 
 # Fallback for any other routes
 /*                 /index.html             404
