@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           setUser(session.user);
-          await fetchUserProfile(session.user.id);
+          await fetchUserProfile(session.user);
         }
 
         clearTimeout(timeoutId);
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
           setUser(currentUser);
 
           if (currentUser) {
-            await fetchUserProfile(currentUser.id);
+            await fetchUserProfile(currentUser);
           } else {
             setProfile(null);
           }
@@ -69,16 +69,36 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  async function fetchUserProfile(userId) {
+  async function fetchUserProfile(authUser) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('user_roles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', authUser.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
+      }
+
+      if (!data && authUser.email) {
+        const { data: emailData, error: emailError } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('email', authUser.email)
+          .maybeSingle();
+
+        if (emailError && emailError.code !== 'PGRST116') {
+          throw emailError;
+        }
+
+        if (emailData) {
+          data = emailData;
+          await supabase
+            .from('user_roles')
+            .update({ user_id: authUser.id })
+            .eq('id', emailData.id);
+        }
       }
 
       setProfile(data || { role: 'Viewer' });
