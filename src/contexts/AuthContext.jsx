@@ -127,7 +127,10 @@ export const AuthProvider = ({ children }) => {
     signOut,
     isAdmin: profile?.role === 'Admin',
     isEditor: profile?.role === 'Editor' || profile?.role === 'Admin',
-    isViewer: !!profile
+    isViewer: !!profile,
+    isStaff: profile?.user_type === 'staff' || profile?.user_type === 'admin',
+    isCustomer: profile?.user_type === 'customer',
+    organizationId: profile?.organization_id
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
