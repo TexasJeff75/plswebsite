@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('AuthProvider: Initializing...');
-    checkUser();
 
     const timeoutId = setTimeout(() => {
       console.warn('Auth check timeout - forcing loading to false');
@@ -49,29 +48,6 @@ export const AuthProvider = ({ children }) => {
       authListener?.subscription?.unsubscribe();
     };
   }, []);
-
-  async function checkUser() {
-    try {
-      console.log('Checking user session...');
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error) {
-        console.error('Error getting user:', error);
-      }
-
-      console.log('User session result:', user?.email || 'No user');
-      setUser(user);
-
-      if (user) {
-        await fetchUserProfile(user.id);
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-    } finally {
-      console.log('Auth check complete, setting loading to false');
-      setLoading(false);
-    }
-  }
 
   async function fetchUserProfile(userId) {
     try {
