@@ -43,26 +43,30 @@ function cacheCoordinates(address, coordinates) {
 async function geocodeAddress(address) {
   const cached = getCachedCoordinates(address);
   if (cached) {
+    console.log('Using cached coordinates for:', address);
     return cached;
   }
 
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  console.log('Geocoding address:', address);
+  await new Promise(resolve => setTimeout(resolve, 1100));
 
   try {
     const response = await fetch(
       `${NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
       {
         headers: {
-          'User-Agent': 'DeploymentTracker/1.0'
+          'User-Agent': 'ProximityDeploymentTracker/1.0'
         }
       }
     );
 
     if (!response.ok) {
+      console.error(`Geocoding failed with status ${response.status} for:`, address);
       throw new Error(`Geocoding failed: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('Geocoding response for', address, ':', data);
 
     if (data && data.length > 0) {
       const coordinates = {
@@ -71,9 +75,11 @@ async function geocodeAddress(address) {
       };
 
       cacheCoordinates(address, coordinates);
+      console.log('Successfully geocoded:', address, coordinates);
       return coordinates;
     }
 
+    console.warn('No results found for address:', address);
     return null;
   } catch (error) {
     console.error('Geocoding error for address:', address, error);
@@ -81,27 +87,47 @@ async function geocodeAddress(address) {
   }
 }
 
-export async function geocodeFacilities(facilities) {
+export async function geocodeFacilities(facilities, onProgress) {
   const results = [];
+  console.log(`Starting geocoding for ${facilities.length} facilities`);
 
-  for (const facility of facilities) {
+  for (let i = 0; i < facilities.length; i++) {
+    const facility = facilities[i];
     const address = facility.address || `${facility.city}, ${facility.state}`;
 
-    if (!address || address === ', ') {
+    console.log(`Processing facility ${i + 1}/${facilities.length}:`, facility.name, '-', address);
+
+    if (!address || address === ', ' || address === 'undefined, undefined') {
+      console.warn('Skipping facility with invalid address:', facility.name);
+      if (onProgress) {
+        onProgress(i + 1, facilities.length);
+      }
       continue;
     }
 
-    const coordinates = await geocodeAddress(address);
+    try {
+      const coordinates = await geocodeAddress(address);
 
-    if (coordinates) {
-      results.push({
-        ...facility,
-        latitude: coordinates.lat,
-        longitude: coordinates.lng
-      });
+      if (coordinates) {
+        results.push({
+          ...facility,
+          latitude: coordinates.lat,
+          longitude: coordinates.lng
+        });
+        console.log(`✓ Geocoded ${facility.name}`);
+      } else {
+        console.warn(`✗ Could not geocode ${facility.name}`);
+      }
+    } catch (error) {
+      console.error(`Error geocoding ${facility.name}:`, error);
+    }
+
+    if (onProgress) {
+      onProgress(i + 1, facilities.length);
     }
   }
 
+  console.log(`Geocoding complete. Successfully geocoded ${results.length} out of ${facilities.length} facilities`);
   return results;
 }
 

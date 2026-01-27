@@ -67,6 +67,7 @@ export default function MapView() {
   const [facilitiesWithCoordinates, setFacilitiesWithCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [geocoding, setGeocoding] = useState(false);
+  const [geocodingProgress, setGeocodingProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState(null);
 
@@ -77,15 +78,26 @@ export default function MapView() {
   async function loadFacilities() {
     try {
       setLoading(true);
+      console.log('Loading facilities from database...');
       const data = await facilitiesService.getAll({});
+      console.log('Loaded facilities:', data);
       setFacilities(data);
+      setLoading(false);
 
-      setGeocoding(true);
-      const geocoded = await geocodingService.geocodeFacilities(data);
-      setFacilitiesWithCoordinates(geocoded);
+      if (data && data.length > 0) {
+        setGeocoding(true);
+        setGeocodingProgress({ current: 0, total: data.length });
+
+        const geocoded = await geocodingService.geocodeFacilities(data, (current, total) => {
+          setGeocodingProgress({ current, total });
+        });
+
+        console.log('Geocoded facilities:', geocoded);
+        setFacilitiesWithCoordinates(geocoded);
+        setGeocoding(false);
+      }
     } catch (error) {
       console.error('Error loading facilities:', error);
-    } finally {
       setLoading(false);
       setGeocoding(false);
     }
@@ -183,7 +195,9 @@ export default function MapView() {
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <Loader2 className="w-8 h-8 text-teal-500 animate-spin mb-3"/>
                 <p className="text-slate-400 text-sm">Geocoding addresses...</p>
-                <p className="text-slate-500 text-xs mt-1">This may take a moment</p>
+                <p className="text-slate-500 text-xs mt-1">
+                  {geocodingProgress.current} / {geocodingProgress.total}
+                </p>
               </div>
             ) : filteredFacilities.length === 0 ? (
               <div className="text-center py-12 px-4">
@@ -239,8 +253,14 @@ export default function MapView() {
                   Converting addresses to map coordinates...
                 </p>
                 <p className="text-slate-500 text-xs mt-2">
-                  {facilitiesWithCoordinates.length} of {facilities.length} completed
+                  {geocodingProgress.current} of {geocodingProgress.total} processed
                 </p>
+                <div className="w-64 mx-auto mt-4 bg-slate-800 rounded-full h-2">
+                  <div
+                    className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${geocodingProgress.total > 0 ? (geocodingProgress.current / geocodingProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
               </div>
             </div>
           ) : facilitiesWithCoordinates.length > 0 ? (
