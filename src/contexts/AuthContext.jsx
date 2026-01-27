@@ -88,20 +88,32 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const signInWithMicrosoft = async () => {
+  const signIn = async (email, password) => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          scopes: 'email profile openid',
-          redirectTo: `${window.location.origin}/tracker.html`
-        }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
 
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
-      console.error('Error signing in with Microsoft:', error);
+      console.error('Error signing in:', error);
+      return { data: null, error };
+    }
+  };
+
+  const signUp = async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error signing up:', error);
       return { data: null, error };
     }
   };
@@ -123,7 +135,8 @@ export const AuthProvider = ({ children }) => {
     user,
     profile,
     loading,
-    signInWithMicrosoft,
+    signIn,
+    signUp,
     signOut,
     isAdmin: profile?.role === 'Admin',
     isEditor: profile?.role === 'Editor' || profile?.role === 'Admin',
