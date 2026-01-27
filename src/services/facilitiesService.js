@@ -45,9 +45,17 @@ export const facilitiesService = {
         responsibilities(*, user_roles!responsibilities_user_id_fkey(display_name, email))
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching facility:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Facility not found');
+    }
+
     return data;
   },
 

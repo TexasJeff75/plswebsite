@@ -9,6 +9,7 @@ export default function FacilityDetail() {
   const { isEditor } = useAuth();
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadFacility();
@@ -16,10 +17,15 @@ export default function FacilityDetail() {
 
   async function loadFacility() {
     try {
+      setLoading(true);
+      setError(null);
+      console.log('Loading facility with ID:', id);
       const data = await facilitiesService.getById(id);
+      console.log('Facility loaded:', data);
       setFacility(data);
-    } catch (error) {
-      console.error('Error loading facility:', error);
+    } catch (err) {
+      console.error('Error loading facility:', err);
+      setError(err.message || 'Failed to load facility');
     } finally {
       setLoading(false);
     }
@@ -49,6 +55,20 @@ export default function FacilityDetail() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"/>
           <p className="text-slate-400">Loading facility details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 max-w-md mx-auto">
+          <p className="text-red-400 font-medium mb-2">Error Loading Facility</p>
+          <p className="text-slate-400 text-sm mb-4">{error}</p>
+          <Link to="/facilities" className="text-teal-400 hover:text-teal-300 inline-block">
+            ← Back to Facilities
+          </Link>
         </div>
       </div>
     );
