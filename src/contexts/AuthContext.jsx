@@ -24,10 +24,30 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }, 5000);
 
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Initial session check:', { hasSession: !!session, error });
+
+        if (session?.user) {
+          setUser(session.user);
+          await fetchUserProfile(session.user.id);
+        }
+
+        clearTimeout(timeoutId);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        clearTimeout(timeoutId);
         (async () => {
           const currentUser = session?.user ?? null;
           setUser(currentUser);
