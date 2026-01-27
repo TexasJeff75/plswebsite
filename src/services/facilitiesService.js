@@ -42,7 +42,16 @@ export const facilitiesService = {
         equipment(*),
         notes(*),
         documents(*),
-        responsibilities(*)
+        responsibilities(*),
+        regulatory_info(*),
+        personnel_info(*),
+        trained_personnel(*),
+        integration_info(
+          *,
+          interface_status(*)
+        ),
+        facility_readiness_info(*),
+        training_info(*)
       `)
       .eq('id', id)
       .maybeSingle();
