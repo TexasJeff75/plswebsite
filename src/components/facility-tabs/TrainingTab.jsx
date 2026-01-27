@@ -18,6 +18,7 @@ export default function TrainingTab({ facility, isEditor }) {
       setTraining(data || {});
     } catch (error) {
       console.error('Error loading training:', error);
+      setTraining({});
     } finally {
       setLoading(false);
     }

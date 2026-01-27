@@ -27,9 +27,11 @@ export default function PersonnelTab({ facility, isEditor }) {
         personnelService.getTrainedPersonnel(facility.id),
       ]);
       setPersonnel(personnelData || {});
-      setTrainedPersonnel(trainedData);
+      setTrainedPersonnel(trainedData || []);
     } catch (error) {
       console.error('Error loading personnel:', error);
+      setPersonnel({});
+      setTrainedPersonnel([]);
     } finally {
       setLoading(false);
     }

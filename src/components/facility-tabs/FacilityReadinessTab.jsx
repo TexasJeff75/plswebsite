@@ -18,6 +18,7 @@ export default function FacilityReadinessTab({ facility, isEditor }) {
       setReadiness(data || {});
     } catch (error) {
       console.error('Error loading facility readiness:', error);
+      setReadiness({});
     } finally {
       setLoading(false);
     }

@@ -19,10 +19,12 @@ export default function IntegrationTab({ facility, isEditor }) {
       setIntegration(integData || {});
       if (integData?.id) {
         const interfaceData = await integrationService.getInterfaceStatus(integData.id);
-        setInterfaces(interfaceData);
+        setInterfaces(interfaceData || []);
       }
     } catch (error) {
       console.error('Error loading integration:', error);
+      setIntegration({});
+      setInterfaces([]);
     } finally {
       setLoading(false);
     }

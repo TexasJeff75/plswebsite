@@ -18,6 +18,7 @@ export default function RegulatoryTab({ facility, isEditor }) {
       setRegulatory(data || {});
     } catch (error) {
       console.error('Error loading regulatory info:', error);
+      setRegulatory({});
     } finally {
       setLoading(false);
     }
