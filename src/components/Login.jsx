@@ -6,6 +6,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  console.log('Login component rendering');
+
   const handleSignIn = async () => {
     try {
       setLoading(true);

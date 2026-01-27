@@ -17,31 +17,49 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing...');
     checkUser();
 
+    const timeoutId = setTimeout(() => {
+      console.warn('Auth check timeout - forcing loading to false');
+      setLoading(false);
+    }, 5000);
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        clearTimeout(timeoutId);
+        (async () => {
+          const currentUser = session?.user ?? null;
+          setUser(currentUser);
 
-        if (currentUser) {
-          await fetchUserProfile(currentUser.id);
-        } else {
-          setProfile(null);
-        }
+          if (currentUser) {
+            await fetchUserProfile(currentUser.id);
+          } else {
+            setProfile(null);
+          }
 
-        setLoading(false);
+          setLoading(false);
+        })();
       }
     );
 
     return () => {
+      clearTimeout(timeoutId);
       authListener?.subscription?.unsubscribe();
     };
   }, []);
 
   async function checkUser() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Checking user session...');
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error('Error getting user:', error);
+      }
+
+      console.log('User session result:', user?.email || 'No user');
       setUser(user);
 
       if (user) {
@@ -50,6 +68,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error checking user:', error);
     } finally {
+      console.log('Auth check complete, setting loading to false');
       setLoading(false);
     }
   }

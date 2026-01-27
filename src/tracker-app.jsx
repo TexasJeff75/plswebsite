@@ -22,6 +22,8 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  console.log('Tracker App: Mounting');
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

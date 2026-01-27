@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 export default function ProtectedRoute({ children, requireAdmin = false, requireEditor = false }) {
   const { user, profile, loading } = useAuth();
 
+  console.log('ProtectedRoute:', { loading, hasUser: !!user, role: profile?.role });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
