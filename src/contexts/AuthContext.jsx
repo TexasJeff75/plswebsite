@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
         provider: 'azure',
         options: {
           scopes: 'email profile openid',
-          redirectTo: `${window.location.origin}/tracker.html`
+          redirectTo: `${window.location.origin}/tracker.html#/dashboard`
         }
       });
 
