@@ -1,65 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import Map, { Marker, Popup } from 'react-map-gl';
 import { MapPin, Search, Loader2 } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+const STATUS_COLORS = {
+  'Live': '#10b981',
+  'In Progress': '#3b82f6',
+  'Not Started': '#6b7280',
+  'Blocked': '#ef4444'
+};
 
-function createCustomIcon(status) {
-  const colors = {
-    'Live': '#10b981',
-    'In Progress': '#3b82f6',
-    'Not Started': '#6b7280',
-    'Blocked': '#ef4444'
-  };
+function CustomMarker({ facility, onClick, isSelected }) {
+  const color = STATUS_COLORS[facility.status] || '#6b7280';
 
-  const color = colors[status] || '#6b7280';
-
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `
-      <div style="
-        width: 14px;
-        height: 14px;
-        background-color: ${color};
-        border: 2px solid rgba(255, 255, 255, 0.9);
-        border-radius: 50%;
-        box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-      "></div>
-    `,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    popupAnchor: [0, -7]
-  });
-}
-
-function MapController({ facilities, selectedFacility }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (selectedFacility && selectedFacility.latitude && selectedFacility.longitude) {
-      map.flyTo([selectedFacility.latitude, selectedFacility.longitude], 10, {
-        duration: 1.5
-      });
-    } else if (facilities.length > 0) {
-      const validFacilities = facilities.filter(f => f.latitude && f.longitude);
-      if (validFacilities.length > 0) {
-        const bounds = validFacilities.map(f => [f.latitude, f.longitude]);
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
-    }
-  }, [selectedFacility, facilities, map]);
-
-  return null;
+  return (
+    <Marker
+      longitude={facility.longitude}
+      latitude={facility.latitude}
+      anchor="center"
+      onClick={(e) => {
+        e.originalEvent.stopPropagation();
+        onClick(facility);
+      }}
+    >
+      <div
+        className="cursor-pointer transition-transform hover:scale-125"
+        style={{
+          width: isSelected ? '18px' : '14px',
+          height: isSelected ? '18px' : '14px',
+          backgroundColor: color,
+          border: '2px solid rgba(255, 255, 255, 0.9)',
+          borderRadius: '50%',
+          boxShadow: isSelected
+            ? '0 0 12px rgba(0, 0, 0, 0.7), 0 0 6px ' + color
+            : '0 0 8px rgba(0, 0, 0, 0.5)',
+        }}
+      />
+    </Marker>
+  );
 }
 
 export default function MapView() {
@@ -70,10 +51,23 @@ export default function MapView() {
   const [geocodingProgress, setGeocodingProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [popupInfo, setPopupInfo] = useState(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     loadFacilities();
   }, []);
+
+  useEffect(() => {
+    if (mapRef.current && selectedFacility?.latitude && selectedFacility?.longitude) {
+      mapRef.current.flyTo({
+        center: [selectedFacility.longitude, selectedFacility.latitude],
+        zoom: 10,
+        duration: 1500
+      });
+      setPopupInfo(selectedFacility);
+    }
+  }, [selectedFacility]);
 
   async function loadFacilities() {
     try {
@@ -264,60 +258,70 @@ export default function MapView() {
               </div>
             </div>
           ) : facilitiesWithCoordinates.length > 0 ? (
-            <MapContainer
-              center={[39.8283, -98.5795]}
-              zoom={4}
-              style={{ height: '100%', width: '100%' }}
-              className="z-0"
+            <Map
+              ref={mapRef}
+              initialViewState={{
+                longitude: -98.5795,
+                latitude: 39.8283,
+                zoom: 4
+              }}
+              style={{ width: '100%', height: '100%' }}
+              mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+              mapLib={import('maplibre-gl')}
             >
-              <TileLayer
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
-                maxZoom={17}
-              />
-              <MapController facilities={facilitiesWithCoordinates} selectedFacility={selectedFacility} />
               {facilitiesWithCoordinates.map(facility => (
-                <Marker
+                <CustomMarker
                   key={facility.id}
-                  position={[facility.latitude, facility.longitude]}
-                  icon={createCustomIcon(facility.status)}
-                >
-                  <Popup>
-                    <div className="p-2 min-w-[200px]">
-                      <h3 className="font-bold text-sm mb-2">{facility.name}</h3>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Status:</span>
-                          <span className="font-medium">{facility.status}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Location:</span>
-                          <span>{facility.city}, {facility.state}</span>
-                        </div>
-                        {facility.county && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">County:</span>
-                            <span>{facility.county}</span>
-                          </div>
-                        )}
-                        {facility.phase && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">Phase:</span>
-                            <span>{facility.phase}</span>
-                          </div>
-                        )}
-                      </div>
-                      <Link
-                        to={`/facilities/${facility.id}`}
-                        className="mt-3 block w-full text-center px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded text-xs font-medium transition-colors"
-                      >
-                        View Details
-                      </Link>
-                    </div>
-                  </Popup>
-                </Marker>
+                  facility={facility}
+                  onClick={setPopupInfo}
+                  isSelected={popupInfo?.id === facility.id}
+                />
               ))}
-            </MapContainer>
+
+              {popupInfo && (
+                <Popup
+                  longitude={popupInfo.longitude}
+                  latitude={popupInfo.latitude}
+                  anchor="bottom"
+                  onClose={() => setPopupInfo(null)}
+                  closeButton={true}
+                  closeOnClick={false}
+                  className="facility-popup"
+                >
+                  <div className="p-2 min-w-[200px]">
+                    <h3 className="font-bold text-sm mb-2">{popupInfo.name}</h3>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Status:</span>
+                        <span className="font-medium">{popupInfo.status}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Location:</span>
+                        <span>{popupInfo.city}, {popupInfo.state}</span>
+                      </div>
+                      {popupInfo.county && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">County:</span>
+                          <span>{popupInfo.county}</span>
+                        </div>
+                      )}
+                      {popupInfo.phase && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Phase:</span>
+                          <span>{popupInfo.phase}</span>
+                        </div>
+                      )}
+                    </div>
+                    <Link
+                      to={`/facilities/${popupInfo.id}`}
+                      className="mt-3 block w-full text-center px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded text-xs font-medium transition-colors"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+                </Popup>
+              )}
+            </Map>
           ) : (
             <div className="flex items-center justify-center h-full bg-slate-950">
               <div className="text-center">
