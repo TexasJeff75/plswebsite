@@ -93,12 +93,21 @@ export async function geocodeFacilities(facilities, onProgress) {
 
   for (let i = 0; i < facilities.length; i++) {
     const facility = facilities[i];
-    const address = facility.address || `${facility.city}, ${facility.state}`;
+
+    // Build a more specific address with all available location data
+    let addressParts = [];
+    if (facility.address) addressParts.push(facility.address);
+    if (facility.city) addressParts.push(facility.city);
+    if (facility.county) addressParts.push(facility.county);
+    if (facility.state) addressParts.push(facility.state);
+    addressParts.push('USA');
+
+    const address = addressParts.join(', ');
 
     console.log(`Processing facility ${i + 1}/${facilities.length}:`, facility.name, '-', address);
 
-    if (!address || address === ', ' || address === 'undefined, undefined') {
-      console.warn('Skipping facility with invalid address:', facility.name);
+    if (!address || address === 'USA' || (!facility.city && !facility.address)) {
+      console.warn('Skipping facility with insufficient location data:', facility.name);
       if (onProgress) {
         onProgress(i + 1, facilities.length);
       }
@@ -114,7 +123,7 @@ export async function geocodeFacilities(facilities, onProgress) {
           latitude: coordinates.lat,
           longitude: coordinates.lng
         });
-        console.log(`✓ Geocoded ${facility.name}`);
+        console.log(`✓ Geocoded ${facility.name} to [${coordinates.lat}, ${coordinates.lng}]`);
       } else {
         console.warn(`✗ Could not geocode ${facility.name}`);
       }
