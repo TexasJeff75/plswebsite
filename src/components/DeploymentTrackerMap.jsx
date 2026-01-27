@@ -261,38 +261,33 @@ export default function DeploymentTrackerMap() {
         }
       `}</style>
 
-      <div className="flex-none bg-slate-900 border-b border-slate-800 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">ML</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">AMA Mini Lab Network</h1>
-              <p className="text-slate-400 text-sm">Point-of-Care Deployment Tracker</p>
-            </div>
+      <div className="flex-none bg-slate-900 border-b border-slate-800 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-white">Point-of-Care Deployment Tracker</h1>
+            <p className="text-slate-400 text-xs">AMA Mini Lab Network - 30 Facilities</p>
           </div>
 
-          <div className="flex gap-3">
-            <div className="text-center bg-slate-800/50 px-4 py-2 rounded-lg">
-              <div className="text-xl font-bold text-white">{statusCounts.total}</div>
-              <div className="text-xs text-slate-400">Total</div>
+          <div className="flex gap-2">
+            <div className="text-center bg-slate-800/50 px-3 py-1.5 rounded text-xs">
+              <div className="font-bold text-white">{statusCounts.total}</div>
+              <div className="text-slate-400 text-xs">Total</div>
             </div>
-            <div className="text-center bg-teal-500/20 px-4 py-2 rounded-lg border border-teal-500/30">
-              <div className="text-xl font-bold text-teal-400">{statusCounts.live}</div>
-              <div className="text-xs text-teal-300">Live</div>
+            <div className="text-center bg-teal-500/20 px-3 py-1.5 rounded border border-teal-500/30 text-xs">
+              <div className="font-bold text-teal-400">{statusCounts.live}</div>
+              <div className="text-teal-300 text-xs">Live</div>
             </div>
-            <div className="text-center bg-amber-500/20 px-4 py-2 rounded-lg border border-amber-500/30">
-              <div className="text-xl font-bold text-amber-400">{statusCounts.inProgress}</div>
-              <div className="text-xs text-amber-300">In Progress</div>
+            <div className="text-center bg-amber-500/20 px-3 py-1.5 rounded border border-amber-500/30 text-xs">
+              <div className="font-bold text-amber-400">{statusCounts.inProgress}</div>
+              <div className="text-amber-300 text-xs">In Progress</div>
             </div>
-            <div className="text-center bg-red-500/20 px-4 py-2 rounded-lg border border-red-500/30">
-              <div className="text-xl font-bold text-red-400">{statusCounts.blocked}</div>
-              <div className="text-xs text-red-300">Blocked</div>
+            <div className="text-center bg-red-500/20 px-3 py-1.5 rounded border border-red-500/30 text-xs">
+              <div className="font-bold text-red-400">{statusCounts.blocked}</div>
+              <div className="text-red-300 text-xs">Blocked</div>
             </div>
-            <div className="text-center bg-slate-700/50 px-4 py-2 rounded-lg">
-              <div className="text-xl font-bold text-slate-300">{statusCounts.notStarted}</div>
-              <div className="text-xs text-slate-400">Not Started</div>
+            <div className="text-center bg-slate-700/50 px-3 py-1.5 rounded text-xs">
+              <div className="font-bold text-slate-300">{statusCounts.notStarted}</div>
+              <div className="text-slate-400 text-xs">Not Started</div>
             </div>
           </div>
         </div>
