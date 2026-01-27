@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Map, { Marker, Popup } from 'react-map-gl';
-import { MapPin, Search, Loader2 } from 'lucide-react';
+import { MapPin, Search, Loader2, Map as MapIcon, Layers } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -9,9 +9,16 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 const STATUS_COLORS = {
   'Live': '#10b981',
   'In Progress': '#3b82f6',
-  'Not Started': '#6b7280',
+  'Not Started': '#f59e0b',
   'Blocked': '#ef4444'
 };
+
+const MAP_STYLES = [
+  { id: 'positron', name: 'Light Streets', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+  { id: 'dark-matter', name: 'Dark Streets', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+  { id: 'voyager', name: 'Voyager', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+  { id: 'osm', name: 'OpenStreetMap', url: 'https://tiles.openfreemap.org/styles/liberty' }
+];
 
 function CustomMarker({ facility, onClick, isSelected }) {
   const color = STATUS_COLORS[facility.status] || '#6b7280';
@@ -27,16 +34,17 @@ function CustomMarker({ facility, onClick, isSelected }) {
       }}
     >
       <div
-        className="cursor-pointer transition-transform hover:scale-125"
+        className="cursor-pointer transition-all hover:scale-150"
         style={{
-          width: isSelected ? '18px' : '14px',
-          height: isSelected ? '18px' : '14px',
+          width: isSelected ? '24px' : '16px',
+          height: isSelected ? '24px' : '16px',
           backgroundColor: color,
-          border: '2px solid rgba(255, 255, 255, 0.9)',
+          border: '3px solid rgba(255, 255, 255, 0.95)',
           borderRadius: '50%',
           boxShadow: isSelected
-            ? '0 0 12px rgba(0, 0, 0, 0.7), 0 0 6px ' + color
-            : '0 0 8px rgba(0, 0, 0, 0.5)',
+            ? `0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px ${color}, 0 4px 8px rgba(0, 0, 0, 0.4)`
+            : `0 0 12px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)`,
+          transition: 'all 0.2s ease-in-out'
         }}
       />
     </Marker>
@@ -52,6 +60,7 @@ export default function MapView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState(null);
   const [popupInfo, setPopupInfo] = useState(null);
+  const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -118,10 +127,10 @@ export default function MapView() {
     const colors = {
       'Live': 'bg-green-500/20 text-green-400 border-green-500/30',
       'In Progress': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      'Not Started': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      'Not Started': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
       'Blocked': 'bg-red-500/20 text-red-400 border-red-500/30'
     };
-    return colors[status] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+    return colors[status] || 'bg-amber-500/20 text-amber-400 border-amber-500/30';
   };
 
   return (
@@ -146,20 +155,20 @@ export default function MapView() {
 
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded text-xs">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-green-400">Live ({statusCounts.live})</span>
+            <div className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-lg shadow-green-500/50"></div>
+            <span className="text-green-400 font-medium">Live ({statusCounts.live})</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="text-blue-400">In Progress ({statusCounts.inProgress})</span>
+            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shadow-lg shadow-blue-500/50"></div>
+            <span className="text-blue-400 font-medium">In Progress ({statusCounts.inProgress})</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-500/10 border border-slate-500/20 rounded text-xs">
-            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
-            <span className="text-slate-400">Not Started ({statusCounts.notStarted})</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded text-xs">
+            <div className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50"></div>
+            <span className="text-amber-400 font-medium">Not Started ({statusCounts.notStarted})</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded text-xs">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span className="text-red-400">Blocked ({statusCounts.blocked})</span>
+            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg shadow-red-500/50"></div>
+            <span className="text-red-400 font-medium">Blocked ({statusCounts.blocked})</span>
           </div>
         </div>
       </div>
@@ -258,17 +267,18 @@ export default function MapView() {
               </div>
             </div>
           ) : facilitiesWithCoordinates.length > 0 ? (
-            <Map
-              ref={mapRef}
-              initialViewState={{
-                longitude: -98.5795,
-                latitude: 39.8283,
-                zoom: 4
-              }}
-              style={{ width: '100%', height: '100%' }}
-              mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
-              mapLib={import('maplibre-gl')}
-            >
+            <div className="relative w-full h-full">
+              <Map
+                ref={mapRef}
+                initialViewState={{
+                  longitude: -98.5795,
+                  latitude: 39.8283,
+                  zoom: 4
+                }}
+                style={{ width: '100%', height: '100%' }}
+                mapStyle={mapStyle}
+                mapLib={import('maplibre-gl')}
+              >
               {facilitiesWithCoordinates.map(facility => (
                 <CustomMarker
                   key={facility.id}
@@ -321,7 +331,30 @@ export default function MapView() {
                   </div>
                 </Popup>
               )}
-            </Map>
+              </Map>
+
+              <div className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-2xl p-3 z-10">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-teal-400" />
+                  <h3 className="text-white text-xs font-semibold uppercase tracking-wide">Map Style</h3>
+                </div>
+                <div className="space-y-1.5">
+                  {MAP_STYLES.map(style => (
+                    <button
+                      key={style.id}
+                      onClick={() => setMapStyle(style.url)}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${
+                        mapStyle === style.url
+                          ? 'bg-teal-500 text-white font-medium shadow-lg ring-2 ring-teal-400/50'
+                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white hover:ring-1 hover:ring-slate-600'
+                      }`}
+                    >
+                      {style.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full bg-slate-950">
               <div className="text-center">
