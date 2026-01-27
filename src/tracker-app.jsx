@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import Facilities from './components/Facilities';
 import FacilityDetail from './components/FacilityDetail';
 import MapView from './components/MapView';
+import DeploymentTrackerMap from './components/DeploymentTrackerMap';
 import Users from './components/Users';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
@@ -78,11 +79,12 @@ function App() {
                   <Layout />
                 </ProtectedRoute>
               }>
-                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route index element={<Navigate to="/tracker" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="facilities" element={<Facilities />} />
                 <Route path="facilities/:id" element={<FacilityDetail />} />
                 <Route path="map" element={<MapView />} />
+                <Route path="tracker" element={<DeploymentTrackerMap />} />
                 <Route path="users" element={
                   <ProtectedRoute requireAdmin>
                     <Users />

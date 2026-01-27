@@ -142,5 +142,51 @@ export const facilitiesService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async createMilestone(milestone) {
+    const { data, error } = await supabase
+      .from('milestones')
+      .insert([milestone])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateMilestone(id, updates) {
+    const { data, error } = await supabase
+      .from('milestones')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createEquipment(equipment) {
+    const { data, error } = await supabase
+      .from('equipment')
+      .insert([equipment])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateEquipment(id, updates) {
+    const { data, error } = await supabase
+      .from('equipment')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 };
