@@ -3,10 +3,11 @@ import { Calendar, AlertTriangle, Activity, Edit2, Save, X } from 'lucide-react'
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
 
-export default function OverviewTab({ facility, isEditor }) {
+export default function OverviewTab({ facility, isEditor, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   if (!facility) return null;
 
@@ -35,14 +36,15 @@ export default function OverviewTab({ facility, isEditor }) {
   };
 
   const startEditing = () => {
+    setError(null);
     setEditedData({
       site_configuration: facility.site_configuration || '',
       deployment_phase: facility.deployment_phase || '',
-      projected_deployment_date: facility.projected_deployment_date || null,
-      actual_deployment_date: facility.actual_deployment_date || null,
-      projected_go_live_date: facility.projected_go_live_date || null,
-      actual_go_live_date: facility.actual_go_live_date || null,
-      service_fee_start_date: facility.service_fee_start_date || null,
+      projected_deployment_date: facility.projected_deployment_date || '',
+      actual_deployment_date: facility.actual_deployment_date || '',
+      projected_go_live_date: facility.projected_go_live_date || '',
+      actual_go_live_date: facility.actual_go_live_date || '',
+      service_fee_start_date: facility.service_fee_start_date || '',
     });
     setIsEditing(true);
   };
@@ -50,86 +52,99 @@ export default function OverviewTab({ facility, isEditor }) {
   const cancelEditing = () => {
     setIsEditing(false);
     setEditedData({});
+    setError(null);
   };
 
   const saveChanges = async () => {
     try {
       setSaving(true);
-      await facilitiesService.update(facility.id, editedData);
-      window.location.reload();
-    } catch (error) {
-      console.error('Error saving changes:', error);
-      alert('Failed to save changes');
+      setError(null);
+      const updatedFacility = await facilitiesService.update(facility.id, editedData);
+      setIsEditing(false);
+      if (onUpdate) {
+        onUpdate(updatedFacility);
+      }
+    } catch (err) {
+      console.error('Error saving changes:', err);
+      setError(err.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {isEditor && (
         <div className="flex justify-end gap-2">
           {!isEditing ? (
             <button
               onClick={startEditing}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-sm font-medium transition-colors"
             >
-              <Edit2 className="w-4 h-4" />
-              Edit Overview
+              <Edit2 className="w-3.5 h-3.5" />
+              Edit
             </button>
           ) : (
             <>
               <button
                 onClick={cancelEditing}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3" />
                 Cancel
               </button>
               <button
                 onClick={saveChanges}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
               >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
+                <Save className="w-3 h-3" />
+                {saving ? 'Saving...' : 'Save'}
               </button>
             </>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800 p-4 rounded-lg">
-          <p className="text-slate-400 text-sm mb-2">Configuration</p>
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 rounded p-3 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Configuration</p>
           {isEditing ? (
             <select
               value={editedData.site_configuration}
               onChange={(e) => setEditedData({ ...editedData, site_configuration: e.target.value })}
-              className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
             >
+              <option value="">Select</option>
               <option value="standard">Standard</option>
               <option value="premium">Premium</option>
               <option value="enterprise">Enterprise</option>
               <option value="custom">Custom</option>
             </select>
           ) : (
-            <p className="text-white font-semibold">{facilityStatsService.getConfigurationLabel(facility.site_configuration)}</p>
+            <p className="text-white font-medium text-sm">{facilityStatsService.getConfigurationLabel(facility.site_configuration)}</p>
           )}
         </div>
-        <div className="bg-slate-800 p-4 rounded-lg">
-          <p className="text-slate-400 text-sm mb-2">Monthly Fee</p>
-          <p className="text-white font-semibold">${facilityStatsService.getMonthlyCost(facility)}</p>
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Monthly Fee</p>
+          <p className="text-white font-medium text-sm">${facilityStatsService.getMonthlyCost(facility)}</p>
         </div>
-        <div className="bg-slate-800 p-4 rounded-lg">
-          <p className="text-slate-400 text-sm mb-2">Deployment Phase</p>
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Phase</p>
           {isEditing ? (
             <select
               value={editedData.deployment_phase}
               onChange={(e) => setEditedData({ ...editedData, deployment_phase: e.target.value })}
-              className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
             >
+              <option value="">Select</option>
               <option value="planning">Planning</option>
               <option value="deployment">Deployment</option>
               <option value="testing">Testing</option>
@@ -137,102 +152,69 @@ export default function OverviewTab({ facility, isEditor }) {
               <option value="operational">Operational</option>
             </select>
           ) : (
-            <p className="text-white font-semibold">{facility.deployment_phase?.toUpperCase()}</p>
+            <p className="text-white font-medium text-sm uppercase">{facility.deployment_phase}</p>
           )}
         </div>
-        <div className="bg-slate-800 p-4 rounded-lg">
-          <p className="text-slate-400 text-sm mb-2">Overall Status</p>
-          <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${statusColor} ${statusTextColor}`}>
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Status</p>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${statusColor} ${statusTextColor}`}>
             {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1).replace('_', ' ')}
           </span>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-white font-semibold mb-4">Key Dates</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-800 p-4 rounded-lg flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-teal-400 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(editedData.projected_deployment_date)}
-                  onChange={(e) => setEditedData({ ...editedData, projected_deployment_date: e.target.value || null })}
-                  className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                />
-              ) : (
-                <p className="text-white font-semibold">{formatDate(facility.projected_deployment_date)}</p>
-              )}
+      {isEditing && (
+        <div>
+          <h3 className="text-white font-semibold mb-3 text-sm">Key Dates</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-slate-800 p-2 rounded">
+              <label className="text-slate-400 text-xs block mb-1">Proj. Deployment</label>
+              <input
+                type="date"
+                value={formatDateForInput(editedData.projected_deployment_date)}
+                onChange={(e) => setEditedData({ ...editedData, projected_deployment_date: e.target.value })}
+                className="w-full bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+              />
             </div>
-          </div>
-          <div className="bg-slate-800 p-4 rounded-lg flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-teal-400 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-slate-400 text-xs mb-1">Actual Deployment</p>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(editedData.actual_deployment_date)}
-                  onChange={(e) => setEditedData({ ...editedData, actual_deployment_date: e.target.value || null })}
-                  className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                />
-              ) : (
-                <p className="text-white font-semibold">{formatDate(facility.actual_deployment_date)}</p>
-              )}
+            <div className="bg-slate-800 p-2 rounded">
+              <label className="text-slate-400 text-xs block mb-1">Act. Deployment</label>
+              <input
+                type="date"
+                value={formatDateForInput(editedData.actual_deployment_date)}
+                onChange={(e) => setEditedData({ ...editedData, actual_deployment_date: e.target.value })}
+                className="w-full bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+              />
             </div>
-          </div>
-          <div className="bg-slate-800 p-4 rounded-lg flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-teal-400 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-slate-400 text-xs mb-1">Projected Go-Live</p>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(editedData.projected_go_live_date)}
-                  onChange={(e) => setEditedData({ ...editedData, projected_go_live_date: e.target.value || null })}
-                  className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                />
-              ) : (
-                <p className="text-white font-semibold">{formatDate(facility.projected_go_live_date)}</p>
-              )}
+            <div className="bg-slate-800 p-2 rounded">
+              <label className="text-slate-400 text-xs block mb-1">Proj. Go-Live</label>
+              <input
+                type="date"
+                value={formatDateForInput(editedData.projected_go_live_date)}
+                onChange={(e) => setEditedData({ ...editedData, projected_go_live_date: e.target.value })}
+                className="w-full bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+              />
             </div>
-          </div>
-          <div className="bg-slate-800 p-4 rounded-lg flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-teal-400 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-slate-400 text-xs mb-1">Actual Go-Live</p>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(editedData.actual_go_live_date)}
-                  onChange={(e) => setEditedData({ ...editedData, actual_go_live_date: e.target.value || null })}
-                  className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                />
-              ) : (
-                <p className="text-white font-semibold">{formatDate(facility.actual_go_live_date)}</p>
-              )}
+            <div className="bg-slate-800 p-2 rounded">
+              <label className="text-slate-400 text-xs block mb-1">Act. Go-Live</label>
+              <input
+                type="date"
+                value={formatDateForInput(editedData.actual_go_live_date)}
+                onChange={(e) => setEditedData({ ...editedData, actual_go_live_date: e.target.value })}
+                className="w-full bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+              />
             </div>
-          </div>
-          <div className="bg-slate-800 p-4 rounded-lg flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-teal-400 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-slate-400 text-xs mb-1">Service Fee Start</p>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(editedData.service_fee_start_date)}
-                  onChange={(e) => setEditedData({ ...editedData, service_fee_start_date: e.target.value || null })}
-                  className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                />
-              ) : (
-                <p className="text-white font-semibold">{formatDate(facility.service_fee_start_date)}</p>
-              )}
+            <div className="bg-slate-800 p-2 rounded col-span-2">
+              <label className="text-slate-400 text-xs block mb-1">Service Fee Start</label>
+              <input
+                type="date"
+                value={formatDateForInput(editedData.service_fee_start_date)}
+                onChange={(e) => setEditedData({ ...editedData, service_fee_start_date: e.target.value })}
+                className="w-full bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div>
         <h3 className="text-white font-semibold mb-4">Overall Progress: {completionPercentage}%</h3>
