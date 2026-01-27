@@ -85,18 +85,53 @@ export default function MapView() {
       const data = await facilitiesService.getAll({});
       console.log('Loaded facilities:', data);
       setFacilities(data);
+
+      const facilitiesWithCoords = data.filter(f =>
+        f.latitude != null && f.longitude != null
+      );
+
+      const facilitiesWithoutCoords = data.filter(f =>
+        f.latitude == null || f.longitude == null
+      );
+
+      console.log(`${facilitiesWithCoords.length} facilities have coordinates`);
+      console.log(`${facilitiesWithoutCoords.length} facilities need geocoding`);
+
+      setFacilitiesWithCoordinates(facilitiesWithCoords);
       setLoading(false);
 
-      if (data && data.length > 0) {
+      if (facilitiesWithoutCoords.length > 0) {
         setGeocoding(true);
-        setGeocodingProgress({ current: 0, total: data.length });
+        setGeocodingProgress({ current: 0, total: facilitiesWithoutCoords.length });
 
-        const geocoded = await geocodingService.geocodeFacilities(data, (current, total) => {
-          setGeocodingProgress({ current, total });
-        });
+        const geocoded = await geocodingService.geocodeFacilities(
+          facilitiesWithoutCoords,
+          (current, total) => {
+            setGeocodingProgress({ current, total });
+          }
+        );
 
         console.log('Geocoded facilities:', geocoded);
-        setFacilitiesWithCoordinates(geocoded);
+
+        for (const facility of geocoded) {
+          if (facility.latitude && facility.longitude) {
+            console.log(`Saving coordinates for ${facility.name}:`, facility.latitude, facility.longitude);
+            await facilitiesService.update(facility.id, {
+              latitude: facility.latitude,
+              longitude: facility.longitude
+            });
+          }
+        }
+
+        const allFacilitiesWithCoords = [...facilitiesWithCoords, ...geocoded].filter(f =>
+          f.latitude != null &&
+          f.longitude != null &&
+          !isNaN(f.latitude) &&
+          !isNaN(f.longitude)
+        );
+
+        console.log('Total facilities with valid coordinates:', allFacilitiesWithCoords.length);
+        setFacilitiesWithCoordinates(allFacilitiesWithCoords);
         setGeocoding(false);
       }
     } catch (error) {
@@ -278,15 +313,19 @@ export default function MapView() {
                 style={{ width: '100%', height: '100%' }}
                 mapStyle={mapStyle}
                 mapLib={import('maplibre-gl')}
+                reuseMaps={false}
               >
-              {facilitiesWithCoordinates.map(facility => (
-                <CustomMarker
-                  key={facility.id}
-                  facility={facility}
-                  onClick={setPopupInfo}
-                  isSelected={popupInfo?.id === facility.id}
-                />
-              ))}
+              {facilitiesWithCoordinates.map(facility => {
+                console.log('Rendering marker for:', facility.name, 'at', facility.latitude, facility.longitude);
+                return (
+                  <CustomMarker
+                    key={facility.id}
+                    facility={facility}
+                    onClick={setPopupInfo}
+                    isSelected={popupInfo?.id === facility.id}
+                  />
+                );
+              })}
 
               {popupInfo && (
                 <Popup
@@ -338,11 +377,14 @@ export default function MapView() {
                   <Layers className="w-4 h-4 text-teal-400" />
                   <h3 className="text-white text-xs font-semibold uppercase tracking-wide">Map Style</h3>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 mb-3">
                   {MAP_STYLES.map(style => (
                     <button
                       key={style.id}
-                      onClick={() => setMapStyle(style.url)}
+                      onClick={() => {
+                        console.log('Changing map style to:', style.name);
+                        setMapStyle(style.url);
+                      }}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${
                         mapStyle === style.url
                           ? 'bg-teal-500 text-white font-medium shadow-lg ring-2 ring-teal-400/50'
@@ -352,6 +394,9 @@ export default function MapView() {
                       {style.name}
                     </button>
                   ))}
+                </div>
+                <div className="text-xs text-slate-400 pt-2 border-t border-slate-700">
+                  {facilitiesWithCoordinates.length} pins on map
                 </div>
               </div>
             </div>
