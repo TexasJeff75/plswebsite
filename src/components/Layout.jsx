@@ -31,7 +31,9 @@ export default function Layout() {
     )},
   ];
 
-  if (profile?.role === 'Admin') {
+  const isAdmin = ['Proximity Admin', 'Proximity Staff', 'Customer Admin'].includes(profile?.role);
+
+  if (isAdmin) {
     navItems.push({
       path: '/users',
       label: 'Users',

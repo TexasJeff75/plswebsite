@@ -134,6 +134,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isProximityStaff = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(profile?.role);
+  const isCustomerAdmin = profile?.role === 'Customer Admin';
+  const isCustomerViewer = profile?.role === 'Customer Viewer';
+  const canEdit = isProximityStaff || isCustomerAdmin;
+  const canView = !!profile;
+
   const value = {
     user,
     profile,
@@ -141,11 +147,11 @@ export const AuthProvider = ({ children }) => {
     signInWithMicrosoft,
     signInWithPassword,
     signOut,
-    isAdmin: profile?.role === 'Admin',
-    isEditor: profile?.role === 'Editor' || profile?.role === 'Admin',
-    isViewer: !!profile,
-    isStaff: profile?.user_type === 'staff' || profile?.user_type === 'admin',
-    isCustomer: profile?.user_type === 'customer',
+    isAdmin: isProximityStaff || isCustomerAdmin,
+    isEditor: canEdit,
+    isViewer: canView,
+    isStaff: isProximityStaff,
+    isCustomer: isCustomerAdmin || isCustomerViewer,
     organizationId: profile?.organization_id
   };
 
