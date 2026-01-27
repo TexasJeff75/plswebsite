@@ -41,17 +41,7 @@ export const facilitiesService = {
         milestones(*),
         equipment(*),
         notes(*),
-        documents(*),
-        responsibilities(*),
-        regulatory_info(*),
-        personnel_info(*),
-        trained_personnel(*),
-        integration_info(
-          *,
-          interface_status(*)
-        ),
-        facility_readiness_info(*),
-        training_info(*)
+        documents(*)
       `)
       .eq('id', id)
       .maybeSingle();
