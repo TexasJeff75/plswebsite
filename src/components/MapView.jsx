@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin, Search, Loader2 } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
+import { geocodingService } from '../services/geocodingService';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -63,7 +64,9 @@ function MapController({ facilities, selectedFacility }) {
 
 export default function MapView() {
   const [facilities, setFacilities] = useState([]);
+  const [facilitiesWithCoordinates, setFacilitiesWithCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [geocoding, setGeocoding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState(null);
 
@@ -76,14 +79,17 @@ export default function MapView() {
       setLoading(true);
       const data = await facilitiesService.getAll({});
       setFacilities(data);
+
+      setGeocoding(true);
+      const geocoded = await geocodingService.geocodeFacilities(data);
+      setFacilitiesWithCoordinates(geocoded);
     } catch (error) {
       console.error('Error loading facilities:', error);
     } finally {
       setLoading(false);
+      setGeocoding(false);
     }
   }
-
-  const facilitiesWithCoordinates = facilities.filter(f => f.latitude && f.longitude);
 
   const filteredFacilities = facilities.filter(facility =>
     facility.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -169,8 +175,15 @@ export default function MapView() {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin"/>
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin mb-3"/>
+                <p className="text-slate-400 text-sm">Loading facilities...</p>
+              </div>
+            ) : geocoding ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <Loader2 className="w-8 h-8 text-teal-500 animate-spin mb-3"/>
+                <p className="text-slate-400 text-sm">Geocoding addresses...</p>
+                <p className="text-slate-500 text-xs mt-1">This may take a moment</p>
               </div>
             ) : filteredFacilities.length === 0 ? (
               <div className="text-center py-12 px-4">
@@ -217,7 +230,20 @@ export default function MapView() {
         </div>
 
         <div className="flex-1 relative">
-          {facilitiesWithCoordinates.length > 0 ? (
+          {geocoding ? (
+            <div className="flex items-center justify-center h-full bg-slate-950">
+              <div className="text-center">
+                <Loader2 className="w-16 h-16 mx-auto text-teal-500 animate-spin mb-4" />
+                <h3 className="text-white text-lg font-medium mb-2">Geocoding Facilities</h3>
+                <p className="text-slate-400 text-sm">
+                  Converting addresses to map coordinates...
+                </p>
+                <p className="text-slate-500 text-xs mt-2">
+                  {facilitiesWithCoordinates.length} of {facilities.length} completed
+                </p>
+              </div>
+            </div>
+          ) : facilitiesWithCoordinates.length > 0 ? (
             <MapContainer
               center={[39.8283, -98.5795]}
               zoom={4}
