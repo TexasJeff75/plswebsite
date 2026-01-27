@@ -106,6 +106,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInWithPassword = async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error signing in with password:', error);
+      return { data: null, error };
+    }
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -124,6 +139,7 @@ export const AuthProvider = ({ children }) => {
     profile,
     loading,
     signInWithMicrosoft,
+    signInWithPassword,
     signOut,
     isAdmin: profile?.role === 'Admin',
     isEditor: profile?.role === 'Editor' || profile?.role === 'Admin',
