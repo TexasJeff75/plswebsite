@@ -40,9 +40,9 @@ export const facilitiesService = {
         *,
         milestones(*),
         equipment(*),
-        notes(*, user_roles!notes_created_by_fkey(display_name, email)),
+        notes(*),
         documents(*),
-        responsibilities(*, user_roles!responsibilities_user_id_fkey(display_name, email))
+        responsibilities(*)
       `)
       .eq('id', id)
       .maybeSingle();
