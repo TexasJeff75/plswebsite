@@ -14,6 +14,7 @@ import Organizations from './components/Organizations';
 import OrganizationDetail from './components/OrganizationDetail';
 import SupportTickets from './components/SupportTickets';
 import TicketDetail from './components/TicketDetail';
+import Reports from './components/Reports';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -90,6 +91,7 @@ function App() {
                 <Route path="organizations/:id" element={<OrganizationDetail />} />
                 <Route path="support" element={<SupportTickets />} />
                 <Route path="support/:id" element={<TicketDetail />} />
+                <Route path="reports" element={<Reports />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
                 <Route path="users" element={
                   <ProtectedRoute requireAdmin>

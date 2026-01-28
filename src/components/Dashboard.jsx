@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
-import { Users, Building2, DollarSign, CheckCircle2, Ticket, TrendingUp, TrendingDown, AlertCircle, Clock, UserX } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { dashboardService } from '../services/dashboardService';
+import { Users, Building2, DollarSign, CheckCircle2, Ticket, TrendingUp, AlertCircle, Clock } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
 export default function Dashboard() {
   const [clients, setClients] = useState([]);
@@ -12,18 +16,42 @@ export default function Dashboard() {
   const [complianceOverview, setComplianceOverview] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [revenueData, setRevenueData] = useState([]);
+  const [deploymentData, setDeploymentData] = useState([]);
+  const [complianceData, setComplianceData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
+  const [clientSitesData, setClientSitesData] = useState([]);
+
   useEffect(() => {
     loadDashboardData();
   }, []);
 
   async function loadDashboardData() {
     try {
-      const [clientsData, facilityStats] = await Promise.all([
+      const [
+        clientsData,
+        facilityStats,
+        revenue,
+        deployments,
+        compliance,
+        sitesByStatus,
+        sitesByClient
+      ] = await Promise.all([
         organizationsService.getWithStats(),
-        facilitiesService.getStats()
+        facilitiesService.getStats(),
+        dashboardService.getRevenueData(),
+        dashboardService.getDeploymentVelocity(),
+        dashboardService.getComplianceTrend(),
+        dashboardService.getSitesByStatus(),
+        dashboardService.getSitesByClient()
       ]);
 
       setClients(clientsData);
+      setRevenueData(revenue);
+      setDeploymentData(deployments);
+      setComplianceData(compliance);
+      setStatusData(sitesByStatus);
+      setClientSitesData(sitesByClient);
 
       const totalSites = clientsData.reduce((sum, client) => sum + client.totalFacilities, 0);
       const activeSites = clientsData.reduce((sum, client) => sum + client.liveFacilities, 0);
@@ -116,6 +144,31 @@ export default function Dashboard() {
     return `$${amount.toFixed(0)}`;
   };
 
+  const totalSites = statusData.reduce((sum, d) => sum + d.value, 0);
+
+  const clientTypeColors = {
+    mini_lab_network: '#14b8a6',
+    hosted_lab: '#3b82f6',
+    hybrid: '#06b6d4',
+    standard: '#64748b'
+  };
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl">
+          <p className="text-slate-300 text-sm font-medium mb-1">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {entry.name === 'mrr' ? formatCurrency(entry.value) : entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -190,89 +243,138 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl">
-          <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Clients</h2>
-            <Link to="/facilities" className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1">
-              View All →
-            </Link>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Revenue Trend (MRR)</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(value) => `$${value / 1000}K`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="mrr"
+                  stroke="#14b8a6"
+                  strokeWidth={2}
+                  dot={{ fill: '#14b8a6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#14b8a6' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Client</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sites</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Compliance</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">MRR</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {clients.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-slate-400">
-                      No clients found
-                    </td>
-                  </tr>
-                ) : (
-                  clients.map(client => {
-                    const badge = getClientTypeBadge(client.client_type);
-                    const initials = client.name
-                      .split(' ')
-                      .map(word => word[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 3);
+        </div>
 
-                    return (
-                      <tr key={client.id} className="hover:bg-slate-700/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 ${badge.color} rounded-lg flex items-center justify-center text-white font-bold text-sm`}>
-                              {initials}
-                            </div>
-                            <div>
-                              <div className="text-white font-medium">{client.name}</div>
-                              <div className="text-slate-400 text-xs">
-                                {client.totalFacilities} site{client.totalFacilities !== 1 ? 's' : ''} • {client.region || 'National'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 ${badge.color} text-white rounded-full text-xs font-semibold`}>
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-white font-medium">
-                          {client.liveFacilities} / {client.totalFacilities}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-slate-700 rounded-full h-2 w-24">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  client.complianceScore >= 90 ? 'bg-green-500' :
-                                  client.complianceScore >= 70 ? 'bg-amber-500' :
-                                  'bg-red-500'
-                                }`}
-                                style={{ width: `${client.complianceScore}%` }}
-                              />
-                            </div>
-                            <span className="text-white text-sm font-medium">{client.complianceScore}%</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-teal-400 font-semibold">
-                          {formatCurrency(client.monthly_recurring_revenue || 0)}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Deployment Velocity</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={deploymentData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="deployments" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Compliance Trend</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={complianceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#10b981' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Sites by Status</h3>
+          <div className="h-64 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={{ stroke: '#64748b' }}
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-3xl font-bold text-white">{totalSites}</span>
+              <span className="text-sm text-slate-400">Total</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Sites by Client</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={clientSitesData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  width={140}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl">
+                          <p className="text-white text-sm font-medium">{payload[0].payload.fullName}</p>
+                          <p className="text-teal-400 text-sm">{payload[0].value} sites</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar
+                  dataKey="sites"
+                  radius={[0, 4, 4, 0]}
+                  fill="#14b8a6"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -280,8 +382,8 @@ export default function Dashboard() {
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl">
             <div className="p-6 border-b border-slate-700 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Critical Alerts</h2>
-              <Link to="/facilities" className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1">
-                View All →
+              <Link to="/support" className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1">
+                View All
               </Link>
             </div>
             <div className="p-4 space-y-3">
