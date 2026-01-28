@@ -253,7 +253,7 @@ export default function DeploymentTrackerMap() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950">
+    <div className="h-[calc(100vh-4rem)] flex flex-col bg-slate-950">
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
