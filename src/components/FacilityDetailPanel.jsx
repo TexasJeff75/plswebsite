@@ -1,35 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { X } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 
-const MILESTONE_NAMES = [
-  'Site Assessment',
-  'CLIA Certificate Obtained',
-  'Lab Director Assigned',
-  'Equipment Ordered',
-  'Equipment Installed',
-  'Network/LIS Integration',
-  'Staff Training Complete',
-  'Competency Assessment Done',
-  'Go-Live'
-];
 
-const EQUIPMENT_DEVICES = [
-  { name: 'Siemens epoc', type: 'blood_gas' },
-  { name: 'Diatron Abacus 3', type: 'cbc' },
-  { name: 'Clarity Platinum', type: 'urinalysis' },
-  { name: 'Cepheid GeneXpert', type: 'molecular' }
-];
-
-const EQUIPMENT_STATUSES = ['not_ordered', 'ordered', 'shipped', 'delivered', 'installed', 'validated'];
-const MILESTONE_STATUSES = ['not_started', 'in_progress', 'complete', 'blocked'];
-
-export default function FacilityDetailPanel({ facility, onClose, onSave }) {
+export default function FacilityDetailPanel({ facility, onClose }) {
   const [milestones, setMilestones] = useState([]);
   const [equipment, setEquipment] = useState([]);
-  const [notes, setNotes] = useState(facility.general_notes || '');
-  const [projectedGoLive, setProjectedGoLive] = useState(facility.projected_go_live || '');
-  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,80 +33,68 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
     }
   };
 
-  const handleMilestoneStatusChange = async (milestoneId, newStatus) => {
-    const updated = milestones.map(m =>
-      m.id === milestoneId ? { ...m, status: newStatus } : m
-    );
-    setMilestones(updated);
-  };
-
-  const handleMilestoneDateChange = (milestoneId, date) => {
-    const updated = milestones.map(m =>
-      m.id === milestoneId ? { ...m, completion_date: date } : m
-    );
-    setMilestones(updated);
-  };
-
-  const handleMilestoneNotesChange = (milestoneId, notesText) => {
-    const updated = milestones.map(m =>
-      m.id === milestoneId ? { ...m, notes: notesText } : m
-    );
-    setMilestones(updated);
-  };
-
-  const handleEquipmentStatusChange = async (equipmentId, newStatus) => {
-    const updated = equipment.map(e =>
-      e.id === equipmentId ? { ...e, status: newStatus } : e
-    );
-    setEquipment(updated);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await facilitiesService.update(facility.id, {
-        general_notes: notes,
-        projected_go_live: projectedGoLive || null
-      });
-
-      for (const milestone of milestones) {
-        await facilitiesService.updateMilestone(milestone.id, {
-          status: milestone.status,
-          completion_date: milestone.completion_date,
-          notes: milestone.notes
-        });
-      }
-
-      for (const item of equipment) {
-        await facilitiesService.updateEquipment(item.id, {
-          status: item.status,
-          delivery_date: item.delivery_date
-        });
-      }
-
-      setSaving(false);
-      onSave?.();
-      onClose();
-    } catch (error) {
-      console.error('Error saving facility:', error);
-      setSaving(false);
+  const getEquipmentStatusLight = (status) => {
+    switch (status) {
+      case 'validated':
+      case 'installed':
+        return <div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />;
+      case 'delivered':
+      case 'shipped':
+        return <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/50" />;
+      case 'ordered':
+        return <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/50" />;
+      default:
+        return <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />;
     }
   };
 
-  const getMilestoneIcon = (status) => {
+  const getEquipmentStatusLabel = (status) => {
+    switch (status) {
+      case 'not_ordered':
+        return 'Not Ordered';
+      case 'ordered':
+        return 'Ordered';
+      case 'shipped':
+        return 'Shipped';
+      case 'delivered':
+        return 'Delivered';
+      case 'installed':
+        return 'Installed';
+      case 'validated':
+        return 'Validated';
+      default:
+        return 'Not Ordered';
+    }
+  };
+
+  const getStatusLight = (status) => {
     switch (status) {
       case 'complete':
-        return <CheckCircle2 className="w-5 h-5 text-teal-400" />;
+        return <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />;
       case 'in_progress':
-        return <Clock className="w-5 h-5 text-amber-400" />;
+        return <div className="w-4 h-4 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/50" />;
       case 'blocked':
-        return <AlertCircle className="w-5 h-5 text-red-400" />;
+        return <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />;
       default:
-        return <div className="w-5 h-5 rounded-full border-2 border-slate-600" />;
+        return <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'complete':
+        return 'Complete';
+      case 'in_progress':
+        return 'In Progress';
+      case 'blocked':
+        return 'Blocked';
+      default:
+        return 'Not Started';
     }
   };
 
   const completedCount = milestones.filter(m => m.status === 'complete').length;
+  const totalMilestones = milestones.length;
 
   return (
     <>
@@ -163,7 +127,7 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
              facility.status === 'blocked' ? 'Blocked' : 'Unknown'}
           </span>
           <span className="text-sm text-slate-400">
-            {completedCount}/{MILESTONE_NAMES.length} complete
+            {completedCount}/{totalMilestones} complete
           </span>
         </div>
 
@@ -186,45 +150,16 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
               <div className="text-center py-4 text-slate-400 text-sm">No milestones found</div>
             ) : (
               milestones.map((milestone, idx) => (
-                <div key={milestone.id} className="bg-slate-800/50 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    {getMilestoneIcon(milestone.status)}
-                    <span className="text-sm font-medium text-white">{idx + 1}. {milestone.name}</span>
+                <div key={milestone.id} className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {getStatusLight(milestone.status)}
+                      <span className="text-sm font-medium text-white">{idx + 1}. {milestone.name}</span>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {getStatusLabel(milestone.status)}
+                    </span>
                   </div>
-
-                  <select
-                    value={milestone.status || 'not_started'}
-                    onChange={(e) => handleMilestoneStatusChange(milestone.id, e.target.value)}
-                    className="w-full px-2 py-1.5 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    {MILESTONE_STATUSES.map(status => (
-                      <option key={status} value={status}>
-                        {status === 'not_started' ? 'Not Started' :
-                         status === 'in_progress' ? 'In Progress' :
-                         status === 'complete' ? 'Complete' :
-                         status === 'blocked' ? 'Blocked' : status}
-                      </option>
-                    ))}
-                  </select>
-
-                  {(milestone.status === 'complete' || milestone.status === 'blocked') && (
-                    <input
-                      type="date"
-                      value={milestone.completion_date || ''}
-                      onChange={(e) => handleMilestoneDateChange(milestone.id, e.target.value)}
-                      className="w-full px-2 py-1.5 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  )}
-
-                  {milestone.status === 'blocked' && (
-                    <textarea
-                      value={milestone.notes || ''}
-                      onChange={(e) => handleMilestoneNotesChange(milestone.id, e.target.value)}
-                      placeholder="Blocking reason..."
-                      className="w-full px-2 py-1.5 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                      rows="2"
-                    />
-                  )}
                 </div>
               ))
             )}
@@ -233,66 +168,43 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
 
         <div>
           <h3 className="text-sm font-semibold text-white mb-3">Equipment Tracking</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {equipment.map(item => (
-              <div key={item.id} className="bg-slate-800/50 rounded-lg p-2">
-                <p className="text-xs font-medium text-white mb-2">{item.name}</p>
-                <select
-                  value={item.status || 'not_ordered'}
-                  onChange={(e) => handleEquipmentStatusChange(item.id, e.target.value)}
-                  className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  {EQUIPMENT_STATUSES.map(status => (
-                    <option key={status} value={status}>
-                      {status === 'not_ordered' ? 'Not Ordered' :
-                       status === 'ordered' ? 'Ordered' :
-                       status === 'shipped' ? 'Shipped' :
-                       status === 'delivered' ? 'Delivered' :
-                       status === 'installed' ? 'Installed' :
-                       status === 'validated' ? 'Validated' : status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+          <div className="space-y-2">
+            {equipment.length === 0 ? (
+              <div className="text-center py-4 text-slate-400 text-sm">No equipment found</div>
+            ) : (
+              equipment.map(item => (
+                <div key={item.id} className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {getEquipmentStatusLight(item.status)}
+                      <span className="text-sm font-medium text-white">{item.name}</span>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {getEquipmentStatusLabel(item.status)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-white mb-2">General Notes</h3>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add notes about this facility..."
-            className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-            rows="4"
-          />
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold text-white mb-2">Projected Go-Live</h3>
-          <input
-            type="date"
-            value={projectedGoLive}
-            onChange={(e) => setProjectedGoLive(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-        </div>
+        {facility.projected_go_live && (
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-2">Projected Go-Live</h3>
+            <div className="bg-slate-800/50 rounded-lg p-3">
+              <p className="text-sm text-white">{new Date(facility.projected_go_live).toLocaleDateString()}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex-none border-t border-slate-700 p-4 bg-slate-800/50 flex gap-3">
+      <div className="flex-none border-t border-slate-700 p-4 bg-slate-800/50">
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+          className="w-full px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
         >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {saving ? 'Saving...' : 'Save'}
+          Close
         </button>
       </div>
       </div>
