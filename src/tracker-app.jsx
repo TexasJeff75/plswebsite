@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { OrganizationProvider } from './contexts/OrganizationContext';
 import Login from './components/Login';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -78,8 +79,9 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <HashRouter>
-            <Routes>
+          <OrganizationProvider>
+            <HashRouter>
+              <Routes>
               <Route path="/login" element={<Login />} />
 
               <Route path="/" element={
@@ -115,8 +117,9 @@ function App() {
               </Route>
 
               <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </HashRouter>
+              </Routes>
+            </HashRouter>
+          </OrganizationProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

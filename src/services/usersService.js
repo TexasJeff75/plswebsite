@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 
+const INTERNAL_ROLES = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
+
 export const usersService = {
   async getAll() {
     const { data, error } = await supabase
@@ -28,10 +30,33 @@ export const usersService = {
     return data;
   },
 
-  async update(id, updates) {
+  async getByUserId(userId) {
     const { data, error } = await supabase
       .from('user_roles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .select(`
+        *,
+        organization:organizations(id, name)
+      `)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id, updates) {
+    const updateData = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    if (updates.role) {
+      updateData.is_internal = INTERNAL_ROLES.includes(updates.role);
+    }
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

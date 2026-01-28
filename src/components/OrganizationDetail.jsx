@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
+import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
 import { supabase } from '../lib/supabase';
 import {
   ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare,
   Activity, MapPin, Phone, Mail, Calendar, DollarSign, CheckCircle2,
-  AlertCircle, Plus, Pencil, ExternalLink, Clock
+  AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 export default function OrganizationDetail() {
   const { id } = useParams();
@@ -74,9 +76,10 @@ export default function OrganizationDetail() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Building2 },
     { id: 'sites', label: 'Sites', icon: MapPin },
+    { id: 'users', label: 'Users', icon: Users },
     { id: 'contracts', label: 'Contracts', icon: FileText },
     { id: 'billing', label: 'Billing', icon: CreditCard },
-    { id: 'contacts', label: 'Contacts', icon: Users },
+    { id: 'contacts', label: 'Contacts', icon: Mail },
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'activity', label: 'Activity', icon: Activity }
   ];
@@ -174,6 +177,9 @@ export default function OrganizationDetail() {
         )}
         {activeTab === 'sites' && (
           <SitesTab organization={organization} facilities={facilities} onRefresh={loadOrganization} />
+        )}
+        {activeTab === 'users' && (
+          <UsersTab organization={organization} />
         )}
         {activeTab === 'contracts' && (
           <ContractsTab organization={organization} />
@@ -737,6 +743,244 @@ function ActivityTab({ organization }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function UsersTab({ organization }) {
+  const { isInternalUser } = useOrganization();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [allUsers, setAllUsers] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedRole, setSelectedRole] = useState('viewer');
+
+  useEffect(() => {
+    loadUsers();
+  }, [organization.id]);
+
+  async function loadUsers() {
+    try {
+      setLoading(true);
+      const assignedUsers = await organizationAssignmentsService.getUsersForOrganization(organization.id);
+      setUsers(assignedUsers);
+
+      if (isInternalUser) {
+        const { data: allUserRoles } = await supabase
+          .from('user_roles')
+          .select('*')
+          .order('display_name');
+        setAllUsers(allUserRoles || []);
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddUser() {
+    if (!selectedUserId) return;
+
+    try {
+      await organizationAssignmentsService.assignUserToOrganization(
+        selectedUserId,
+        organization.id,
+        selectedRole,
+        false
+      );
+      setShowAddModal(false);
+      setSelectedUserId('');
+      setSelectedRole('viewer');
+      loadUsers();
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('Failed to add user');
+    }
+  }
+
+  async function handleRemoveUser(userId) {
+    if (!confirm('Remove this user from the organization?')) return;
+
+    try {
+      await organizationAssignmentsService.removeAssignment(userId, organization.id);
+      loadUsers();
+    } catch (error) {
+      console.error('Error removing user:', error);
+      alert('Failed to remove user');
+    }
+  }
+
+  const getRoleBadge = (role) => {
+    const badges = {
+      customer_admin: 'bg-green-500/20 text-green-400',
+      customer_user: 'bg-blue-500/20 text-blue-400',
+      viewer: 'bg-slate-500/20 text-slate-400'
+    };
+    return badges[role] || badges.viewer;
+  };
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      customer_admin: 'Admin',
+      customer_user: 'User',
+      viewer: 'Viewer'
+    };
+    return labels[role] || 'Viewer';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const availableUsers = allUsers.filter(
+    u => !users.find(assigned => assigned.user_id === u.user_id)
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">
+          Users ({users.length})
+        </h3>
+        {isInternalUser && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add User
+          </button>
+        )}
+      </div>
+
+      {users.length === 0 ? (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
+          <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+          <p className="text-slate-400 mb-4">No users assigned to this organization</p>
+          {isInternalUser && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+            >
+              <UserPlus className="w-4 h-4" />
+              Add First User
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Access Level</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned</th>
+                {isInternalUser && (
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700">
+              {users.map(user => (
+                <tr key={user.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-white font-medium">{user.display_name}</p>
+                      <p className="text-slate-400 text-sm">{user.email}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-slate-300 text-sm">{user.role}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleBadge(user.org_role)}`}>
+                      {getRoleLabel(user.org_role)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-400 text-sm">
+                    {user.assigned_at ? format(new Date(user.assigned_at), 'MMM d, yyyy') : '-'}
+                  </td>
+                  {isInternalUser && (
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleRemoveUser(user.user_id)}
+                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                        title="Remove user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showAddModal && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowAddModal(false)} />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h3 className="text-lg font-semibold text-white">Add User to Organization</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Select User</label>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Choose a user...</option>
+                    {availableUsers.map(user => (
+                      <option key={user.user_id} value={user.user_id}>
+                        {user.display_name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Access Level</label>
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="customer_admin">Admin - Full access</option>
+                    <option value="customer_user">User - Can edit</option>
+                    <option value="viewer">Viewer - Read only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-700 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddUser}
+                  disabled={!selectedUserId}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded font-medium transition-colors"
+                >
+                  Add User
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
