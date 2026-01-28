@@ -114,13 +114,10 @@ export const dashboardService = {
 
     const avgScore = facilities.length > 0 ? Math.round(baseScore / facilities.length) : 0;
 
-    return months.map(({ month }, index) => {
-      const variance = Math.random() * 10 - 5;
-      const score = Math.min(100, Math.max(0, avgScore + variance + (index * 2)));
-
+    return months.map(({ month }) => {
       return {
         name: month,
-        score: Math.round(score)
+        score: avgScore
       };
     });
   },
