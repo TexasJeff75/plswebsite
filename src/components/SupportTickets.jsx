@@ -39,17 +39,32 @@ export default function SupportTickets() {
 
   async function loadData() {
     try {
-      const [ticketsData, statsData, orgsData, staffData] = await Promise.all([
+      const results = await Promise.allSettled([
         supportService.getTickets(),
         supportService.getStats(),
         organizationsService.getAll(),
         supportService.getStaffUsers()
       ]);
 
-      setTickets(ticketsData);
-      setStats(statsData);
-      setOrganizations(orgsData);
-      setStaffUsers(staffData);
+      if (results[0].status === 'fulfilled') {
+        setTickets(results[0].value);
+      } else {
+        console.error('Error loading tickets:', results[0].reason);
+      }
+
+      if (results[1].status === 'fulfilled') {
+        setStats(results[1].value);
+      }
+
+      if (results[2].status === 'fulfilled') {
+        setOrganizations(results[2].value);
+      } else {
+        console.error('Error loading organizations:', results[2].reason);
+      }
+
+      if (results[3].status === 'fulfilled') {
+        setStaffUsers(results[3].value);
+      }
     } catch (error) {
       console.error('Error loading support data:', error);
     } finally {
@@ -365,8 +380,8 @@ export default function SupportTickets() {
                         {ticket.category || '-'}
                       </td>
                       <td className="px-6 py-4 text-slate-300 text-sm">
-                        {ticket.assignee?.raw_user_meta_data?.display_name ||
-                         ticket.assignee?.email?.split('@')[0] || '-'}
+                        {staffUsers.find(s => s.user_id === ticket.assigned_to)?.display_name ||
+                         staffUsers.find(s => s.user_id === ticket.assigned_to)?.email?.split('@')[0] || '-'}
                       </td>
                       <td className="px-6 py-4 text-slate-400 text-sm">
                         {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}

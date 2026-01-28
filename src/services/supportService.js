@@ -7,8 +7,7 @@ export const supportService = {
       .select(`
         *,
         organization:organizations(id, name),
-        site:facilities(id, name, city, state),
-        assignee:assigned_to(id, email, raw_user_meta_data)
+        site:facilities(id, name, city, state)
       `)
       .order('created_at', { ascending: false });
 
@@ -44,13 +43,22 @@ export const supportService = {
       .select(`
         *,
         organization:organizations(id, name),
-        site:facilities(id, name, city, state),
-        assignee:assigned_to(id, email, raw_user_meta_data)
+        site:facilities(id, name, city, state)
       `)
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw error;
+
+    if (data && data.assigned_to) {
+      const { data: assigneeData } = await supabase
+        .from('user_roles')
+        .select('user_id, display_name, email')
+        .eq('user_id', data.assigned_to)
+        .maybeSingle();
+      data.assignee = assigneeData;
+    }
+
     return data;
   },
 
