@@ -110,11 +110,12 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithMicrosoft = async () => {
     try {
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           scopes: 'email profile openid',
-          redirectTo: `${window.location.origin}/tracker.html`
+          redirectTo: `${siteUrl}/tracker.html`
         }
       });
 
