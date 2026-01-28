@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supportService } from '../services/supportService';
+import { organizationsService } from '../services/organizationsService';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Send, Building2, MapPin, Calendar, Clock,
@@ -15,6 +17,8 @@ export default function TicketDetail() {
   const [ticket, setTicket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -28,22 +32,39 @@ export default function TicketDetail() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (ticket?.organization_id) {
+      loadSites(ticket.organization_id);
+    }
+  }, [ticket?.organization_id]);
+
   async function loadTicket() {
     try {
-      const [ticketData, messagesData, staffData] = await Promise.all([
+      const [ticketData, messagesData, staffData, orgsData] = await Promise.all([
         supportService.getTicketById(id),
         supportService.getTicketMessages(id),
-        supportService.getStaffUsers()
+        supportService.getStaffUsers(),
+        organizationsService.getAll()
       ]);
 
       setTicket(ticketData);
       setMessages(messagesData);
       setStaffUsers(staffData);
+      setOrganizations(orgsData);
     } catch (error) {
       console.error('Error loading ticket:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadSites(orgId) {
+    const { data } = await supabase
+      .from('facilities')
+      .select('id, name, city, state')
+      .eq('organization_id', orgId)
+      .order('name');
+    setSites(data || []);
   }
 
   function scrollToBottom() {
@@ -68,8 +89,22 @@ export default function TicketDetail() {
 
   async function handleUpdateTicket(field, value) {
     try {
-      const updated = await supportService.updateTicket(id, { [field]: value });
+      const updates = { [field]: value };
+
+      if (field === 'organization_id') {
+        updates.site_id = null;
+        loadSites(value);
+      }
+
+      const updated = await supportService.updateTicket(id, updates);
       setTicket(prev => ({ ...prev, ...updated }));
+
+      if (field === 'organization_id') {
+        const org = organizations.find(o => o.id === value);
+        if (org) {
+          setTicket(prev => ({ ...prev, organization: org }));
+        }
+      }
     } catch (error) {
       console.error('Error updating ticket:', error);
     }
@@ -288,42 +323,63 @@ export default function TicketDetail() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Client</label>
+                <div className="relative">
+                  <select
+                    value={ticket.organization_id || ''}
+                    onChange={(e) => handleUpdateTicket('organization_id', e.target.value)}
+                    className="w-full appearance-none px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 cursor-pointer"
+                  >
+                    <option value="">Select client</option>
+                    {organizations.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Site</label>
+                <div className="relative">
+                  <select
+                    value={ticket.site_id || ''}
+                    onChange={(e) => handleUpdateTicket('site_id', e.target.value || null)}
+                    className="w-full appearance-none px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 cursor-pointer"
+                    disabled={!ticket.organization_id}
+                  >
+                    <option value="">Select site (optional)</option>
+                    {sites.map(site => (
+                      <option key={site.id} value={site.id}>
+                        {site.name} - {site.city}, {site.state}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Category</label>
+                <div className="relative">
+                  <select
+                    value={ticket.category || 'other'}
+                    onChange={(e) => handleUpdateTicket('category', e.target.value)}
+                    className="w-full appearance-none px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 cursor-pointer"
+                  >
+                    <option value="equipment">Equipment</option>
+                    <option value="lis">LIS</option>
+                    <option value="compliance">Compliance</option>
+                    <option value="training">Training</option>
+                    <option value="billing">Billing</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
               <div className="border-t border-slate-700 pt-4">
-                <div className="flex items-start gap-3 mb-3">
-                  <Building2 className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-400">Client</p>
-                    <Link
-                      to={`/organizations/${ticket.organization_id}`}
-                      className="text-teal-400 hover:text-teal-300 text-sm"
-                    >
-                      {ticket.organization?.name || '-'}
-                    </Link>
-                  </div>
-                </div>
-
-                {ticket.site && (
-                  <div className="flex items-start gap-3 mb-3">
-                    <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-slate-400">Site</p>
-                      <Link
-                        to={`/facilities/${ticket.site_id}`}
-                        className="text-teal-400 hover:text-teal-300 text-sm"
-                      >
-                        {ticket.site.name}
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3 mb-3">
-                  <AlertCircle className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-400">Category</p>
-                    <p className="text-white text-sm capitalize">{ticket.category || '-'}</p>
-                  </div>
-                </div>
 
                 <div className="flex items-start gap-3 mb-3">
                   <Calendar className="w-4 h-4 text-slate-400 mt-0.5" />
