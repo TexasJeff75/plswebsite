@@ -9,6 +9,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openTicketsCount, setOpenTicketsCount] = useState(0);
 
   useEffect(() => {
@@ -87,101 +88,123 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <nav className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <Link to="/dashboard" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                  </svg>
-                </div>
-                <span className="text-white font-semibold text-lg">Deployment Tracker</span>
-              </Link>
-
-              <div className="hidden md:flex items-center gap-1">
-                {navItems.map(item => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      location.pathname.startsWith(item.path)
-                        ? 'bg-teal-500/10 text-teal-400'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                    {item.badge > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                ))}
-              </div>
+    <div className="min-h-screen bg-slate-900 flex">
+      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300 fixed h-full z-30`}>
+        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
             </div>
+            {!sidebarCollapsed && (
+              <span className="text-white font-semibold text-sm">Deployment Tracker</span>
+            )}
+          </Link>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+          >
+            <svg className={`w-5 h-5 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+            </svg>
+          </button>
+        </div>
 
-            <div className="flex items-center gap-3">
-              <NotificationBell />
-
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700 transition-colors"
-                >
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-white">
-                    {user?.user_metadata?.full_name || user?.email}
-                  </p>
-                  <p className="text-xs text-slate-400">{profile?.role || 'User'}</p>
-                </div>
-                <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center">
-                  <span className="text-slate-900 font-semibold">
-                    {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
-                  </span>
-                </div>
-              </button>
-
-              {showUserMenu && (
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map(item => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
+                location.pathname.startsWith(item.path)
+                  ? 'bg-teal-500/10 text-teal-400'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
+              }`}
+              title={sidebarCollapsed ? item.label : undefined}
+            >
+              <span className="flex-shrink-0">{item.icon}</span>
+              {!sidebarCollapsed && (
                 <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowUserMenu(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20">
-                    <div className="p-4 border-b border-slate-700">
-                      <p className="text-sm font-medium text-white truncate">
-                        {user?.user_metadata?.full_name || user?.email}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">{user?.email}</p>
-                      <p className="text-xs text-teal-400 mt-1">
-                        Role: {profile?.role || 'Viewer'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full px-4 py-3 text-left text-red-400 hover:bg-slate-700 transition-colors flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                      </svg>
-                      Sign Out
-                    </button>
-                  </div>
+                  <span className="text-sm font-medium">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
+                      {item.badge}
+                    </span>
+                  )}
                 </>
               )}
+              {sidebarCollapsed && item.badge > 0 && (
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[18px] text-center">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="p-3 border-t border-slate-700">
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+            >
+              <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-slate-900 font-semibold text-sm">
+                  {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+                </span>
               </div>
-            </div>
+              {!sidebarCollapsed && (
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user?.user_metadata?.full_name || user?.email}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate">{profile?.role || 'User'}</p>
+                </div>
+              )}
+            </button>
+
+            {showUserMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowUserMenu(false)}
+                />
+                <div className={`absolute ${sidebarCollapsed ? 'left-full ml-2' : 'left-0'} bottom-full mb-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50`}>
+                  <div className="p-4 border-b border-slate-700">
+                    <p className="text-sm font-medium text-white truncate">
+                      {user?.user_metadata?.full_name || user?.email}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1 truncate">{user?.email}</p>
+                    <p className="text-xs text-teal-400 mt-1">
+                      Role: {profile?.role || 'Viewer'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-slate-700 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </nav>
+      </aside>
 
-      <main className={location.pathname === '/tracker' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
-        <Outlet />
-      </main>
+      <div className={`flex-1 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
+        <header className="bg-slate-800 border-b border-slate-700 h-14 flex items-center justify-end px-6 sticky top-0 z-20">
+          <NotificationBell />
+        </header>
+
+        <main className={location.pathname === '/tracker' ? '' : 'p-6'}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
