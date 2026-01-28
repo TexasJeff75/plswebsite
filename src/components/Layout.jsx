@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supportService } from '../services/supportService';
+import NotificationBell from './NotificationBell';
 
 export default function Layout() {
   const { user, profile, signOut } = useAuth();
@@ -113,11 +114,14 @@ export default function Layout() {
               </div>
             </div>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700 transition-colors"
-              >
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700 transition-colors"
+                >
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-white">
                     {user?.user_metadata?.full_name || user?.email}
@@ -159,6 +163,7 @@ export default function Layout() {
                   </div>
                 </>
               )}
+              </div>
             </div>
           </div>
         </div>
