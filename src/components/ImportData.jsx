@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, Download, MapPin, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, Download, MapPin, Loader2, Building2 } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
+import { organizationsService } from '../services/organizationsService';
 
 const MILESTONE_NAMES = [
   'Site Assessment',
@@ -112,7 +113,23 @@ export default function ImportData({ onImportComplete, onClose }) {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeProgress, setGeocodeProgress] = useState({ current: 0, total: 0 });
   const [facilitiesNeedingGeocode, setFacilitiesNeedingGeocode] = useState(0);
+  const [organizations, setOrganizations] = useState([]);
+  const [selectedOrganization, setSelectedOrganization] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    loadOrganizations();
+  }, []);
+
+  async function loadOrganizations() {
+    try {
+      const data = await organizationsService.getAll();
+      const customers = data.filter(org => org.type === 'customer');
+      setOrganizations(customers);
+    } catch (error) {
+      console.error('Error loading organizations:', error);
+    }
+  }
 
   const downloadTemplate = () => {
     const csv = generateTemplateCSV();
@@ -357,7 +374,8 @@ export default function ImportData({ onImportComplete, onClose }) {
             contact_name: getMappedValue(row, 'contact_name') || null,
             contact_email: getMappedValue(row, 'contact_email') || null,
             contact_phone: getMappedValue(row, 'contact_phone') || null,
-            general_notes: getMappedValue(row, 'general_notes') || null
+            general_notes: getMappedValue(row, 'general_notes') || null,
+            organization_id: selectedOrganization || null
           };
 
           if (!facilityData.name) {
@@ -370,9 +388,9 @@ export default function ImportData({ onImportComplete, onClose }) {
           for (let j = 0; j < MILESTONE_NAMES.length; j++) {
             await facilitiesService.createMilestone({
               facility_id: facility.id,
-              milestone_number: j + 1,
+              milestone_order: j + 1,
               name: MILESTONE_NAMES[j],
-              status: 'not_started',
+              status: 'Not Started',
               completion_date: null,
               notes: null
             });
@@ -381,11 +399,9 @@ export default function ImportData({ onImportComplete, onClose }) {
           for (const device of EQUIPMENT_DEVICES) {
             await facilitiesService.createEquipment({
               facility_id: facility.id,
-              device_name: device.name,
-              device_type: device.type,
-              status: 'not_ordered',
-              order_date: null,
-              delivery_date: null
+              name: device.name,
+              equipment_type: device.type,
+              status: 'Not Ordered'
             });
           }
 
@@ -502,6 +518,30 @@ export default function ImportData({ onImportComplete, onClose }) {
                   <h3 className="font-medium text-teal-400">File validated successfully</h3>
                 </div>
                 <p className="text-sm text-teal-300">{data.length} facilities ready to import</p>
+              </div>
+
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Building2 className="w-5 h-5 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <label className="font-medium text-white mb-2 block">
+                      Assign to Client <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={selectedOrganization}
+                      onChange={(e) => setSelectedOrganization(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">Select a client...</option>
+                      {organizations.map(org => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-sm text-slate-400 mt-2">
+                      All imported facilities will be assigned to this client organization.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {facilitiesNeedingGeocode > 0 && (
@@ -682,10 +722,10 @@ export default function ImportData({ onImportComplete, onClose }) {
           {step === 'preview' && (
             <button
               onClick={handleImport}
-              disabled={importing || geocoding}
+              disabled={importing || geocoding || !selectedOrganization}
               className="flex-1 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Import {data?.length} Facilities
+              {!selectedOrganization ? 'Select a Client First' : `Import ${data?.length} Facilities`}
             </button>
           )}
           {step === 'upload' && (
