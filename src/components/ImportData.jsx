@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, FileText, Download } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, Download, MapPin, Loader2 } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
+import { geocodingService } from '../services/geocodingService';
 
 const MILESTONE_NAMES = [
   'Site Assessment',
@@ -108,6 +109,9 @@ export default function ImportData({ onImportComplete, onClose }) {
   const [importMode, setImportMode] = useState('merge');
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeProgress, setGeocodeProgress] = useState({ current: 0, total: 0 });
+  const [facilitiesNeedingGeocode, setFacilitiesNeedingGeocode] = useState(0);
   const fileInputRef = useRef(null);
 
   const downloadTemplate = () => {
@@ -208,12 +212,101 @@ export default function ImportData({ onImportComplete, onClose }) {
         return;
       }
 
+      const needsGeocode = parsedData.filter(row => {
+        const lat = row[mapping.latitude];
+        const lng = row[mapping.longitude];
+        return !lat || !lng || lat === '' || lng === '';
+      }).length;
+      setFacilitiesNeedingGeocode(needsGeocode);
+
       setFile(selectedFile);
       setData(parsedData);
       setValidationErrors([]);
       setStep('preview');
     } catch (error) {
       setValidationErrors([`Error reading file: ${error.message}`]);
+    }
+  };
+
+  const handleGeocode = async () => {
+    if (!data) return;
+
+    const facilitiesToGeocode = data.filter(row => {
+      const lat = getMappedValue(row, 'latitude');
+      const lng = getMappedValue(row, 'longitude');
+      return !lat || !lng;
+    }).map(row => ({
+      name: getMappedValue(row, 'name'),
+      address: getMappedValue(row, 'address'),
+      city: getMappedValue(row, 'city'),
+      county: getMappedValue(row, 'county'),
+      state: getMappedValue(row, 'state')
+    }));
+
+    if (facilitiesToGeocode.length === 0) {
+      setValidationWarnings(['All facilities already have coordinates.']);
+      return;
+    }
+
+    setGeocoding(true);
+    setGeocodeProgress({ current: 0, total: facilitiesToGeocode.length });
+
+    try {
+      const geocodedResults = await geocodingService.geocodeFacilities(
+        facilitiesToGeocode,
+        (current, total) => setGeocodeProgress({ current, total })
+      );
+
+      const geocodeMap = {};
+      geocodedResults.forEach(result => {
+        if (result.latitude && result.longitude) {
+          geocodeMap[result.name] = { lat: result.latitude, lng: result.longitude };
+        }
+      });
+
+      const updatedData = data.map(row => {
+        const name = getMappedValue(row, 'name');
+        const existingLat = getMappedValue(row, 'latitude');
+        const existingLng = getMappedValue(row, 'longitude');
+
+        if ((!existingLat || !existingLng) && geocodeMap[name]) {
+          const latCol = columnMapping.latitude || 'latitude';
+          const lngCol = columnMapping.longitude || 'longitude';
+          return {
+            ...row,
+            [latCol]: geocodeMap[name].lat.toString(),
+            [lngCol]: geocodeMap[name].lng.toString()
+          };
+        }
+        return row;
+      });
+
+      if (!columnMapping.latitude) {
+        setColumnMapping(prev => ({ ...prev, latitude: 'latitude' }));
+      }
+      if (!columnMapping.longitude) {
+        setColumnMapping(prev => ({ ...prev, longitude: 'longitude' }));
+      }
+
+      setData(updatedData);
+
+      const remainingWithoutCoords = updatedData.filter(row => {
+        const lat = row[columnMapping.latitude || 'latitude'];
+        const lng = row[columnMapping.longitude || 'longitude'];
+        return !lat || !lng;
+      }).length;
+
+      setFacilitiesNeedingGeocode(remainingWithoutCoords);
+
+      const successCount = geocodedResults.length;
+      setValidationWarnings([
+        `Geocoded ${successCount} of ${facilitiesToGeocode.length} facilities.`,
+        ...(remainingWithoutCoords > 0 ? [`${remainingWithoutCoords} facilities still missing coordinates.`] : [])
+      ]);
+    } catch (error) {
+      setValidationErrors([`Geocoding failed: ${error.message}`]);
+    } finally {
+      setGeocoding(false);
     }
   };
 
@@ -411,6 +504,54 @@ export default function ImportData({ onImportComplete, onClose }) {
                 <p className="text-sm text-teal-300">{data.length} facilities ready to import</p>
               </div>
 
+              {facilitiesNeedingGeocode > 0 && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-blue-400 mb-1">
+                        {facilitiesNeedingGeocode} facilities missing coordinates
+                      </h3>
+                      <p className="text-sm text-blue-300 mb-3">
+                        Facilities without coordinates won't appear on the map. Click below to automatically look up coordinates based on addresses.
+                      </p>
+                      <button
+                        onClick={handleGeocode}
+                        disabled={geocoding}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {geocoding ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Geocoding {geocodeProgress.current} / {geocodeProgress.total}...
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="w-4 h-4" />
+                            Add Coordinates Automatically
+                          </>
+                        )}
+                      </button>
+                      {geocoding && (
+                        <div className="mt-3">
+                          <div className="w-full bg-slate-800 rounded-full h-1.5">
+                            <div
+                              className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                              style={{
+                                width: `${geocodeProgress.total > 0 ? (geocodeProgress.current / geocodeProgress.total) * 100 : 0}%`
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-blue-300/70 mt-1">
+                            Using OpenStreetMap (rate limited to 1 request/second)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {validationWarnings.length > 0 && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                   <div className="flex items-start gap-2 mb-2">
@@ -541,7 +682,7 @@ export default function ImportData({ onImportComplete, onClose }) {
           {step === 'preview' && (
             <button
               onClick={handleImport}
-              disabled={importing}
+              disabled={importing || geocoding}
               className="flex-1 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Import {data?.length} Facilities
