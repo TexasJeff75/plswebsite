@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import Map, { Marker, Popup } from 'react-map-gl';
 import { MapPin, Search, Loader2, Map as MapIcon, Layers } from 'lucide-react';
@@ -20,47 +20,56 @@ const MAP_STYLES = [
   { id: 'osm', name: 'OpenStreetMap', url: 'https://tiles.openfreemap.org/styles/liberty' }
 ];
 
-function CustomMarker({ facility, onClick, isSelected }) {
-  const color = STATUS_COLORS[facility.status] || '#6b7280';
+const MarkerDot = memo(function MarkerDot({ color, isSelected }) {
   const size = isSelected ? 20 : 14;
+  return (
+    <div
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        backgroundColor: color,
+        border: '3px solid rgba(255, 255, 255, 0.95)',
+        borderRadius: '50%',
+        boxShadow: isSelected
+          ? `0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px ${color}, 0 4px 8px rgba(0, 0, 0, 0.4)`
+          : `0 0 12px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)`
+      }}
+    />
+  );
+});
+
+const CustomMarker = memo(function CustomMarker({ facility, onClick, isSelected }) {
+  const color = STATUS_COLORS[facility.status] || '#6b7280';
+
+  const handleClick = useCallback((e) => {
+    e.stopPropagation();
+    onClick(facility);
+  }, [facility, onClick]);
 
   return (
     <Marker
       longitude={facility.longitude}
       latitude={facility.latitude}
-      anchor="center"
-      style={{ cursor: 'pointer' }}
+      offset={[0, 0]}
     >
       <div
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick(facility);
-        }}
+        onClick={handleClick}
         style={{
-          width: '30px',
-          height: '30px',
+          width: '28px',
+          height: '28px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          cursor: 'pointer',
+          marginLeft: '-14px',
+          marginTop: '-14px'
         }}
       >
-        <div
-          style={{
-            width: `${size}px`,
-            height: `${size}px`,
-            backgroundColor: color,
-            border: '3px solid rgba(255, 255, 255, 0.95)',
-            borderRadius: '50%',
-            boxShadow: isSelected
-              ? `0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px ${color}, 0 4px 8px rgba(0, 0, 0, 0.4)`
-              : `0 0 12px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)`,
-            pointerEvents: 'none'
-          }}
-        />
+        <MarkerDot color={color} isSelected={isSelected} />
       </div>
     </Marker>
   );
-}
+});
 
 export default function MapView() {
   const [facilities, setFacilities] = useState([]);
@@ -73,6 +82,10 @@ export default function MapView() {
   const [popupInfo, setPopupInfo] = useState(null);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
   const mapRef = useRef(null);
+
+  const handleMarkerClick = useCallback((facility) => {
+    setPopupInfo(facility);
+  }, []);
 
   useEffect(() => {
     loadFacilities();
@@ -326,17 +339,14 @@ export default function MapView() {
                 mapLib={import('maplibre-gl')}
                 reuseMaps={false}
               >
-              {facilitiesWithCoordinates.map(facility => {
-                console.log('Rendering marker for:', facility.name, 'at', facility.latitude, facility.longitude);
-                return (
-                  <CustomMarker
-                    key={facility.id}
-                    facility={facility}
-                    onClick={setPopupInfo}
-                    isSelected={popupInfo?.id === facility.id}
-                  />
-                );
-              })}
+              {facilitiesWithCoordinates.map(facility => (
+                <CustomMarker
+                  key={facility.id}
+                  facility={facility}
+                  onClick={handleMarkerClick}
+                  isSelected={popupInfo?.id === facility.id}
+                />
+              ))}
 
               {popupInfo && (
                 <Popup

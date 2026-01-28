@@ -260,3 +260,16 @@
 .maplibregl-popup-anchor-top .maplibregl-popup-tip {
     border-bottom-color: white;
 }
+
+/* Fix marker hover movement - disable all transitions */
+.maplibregl-marker,
+.maplibregl-marker *,
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+    transition: none !important;
+}
+
+/* Custom marker dot styling */
+.map-marker-dot {
+    pointer-events: auto;
+}
