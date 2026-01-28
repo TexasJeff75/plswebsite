@@ -22,32 +22,42 @@ const MAP_STYLES = [
 
 function CustomMarker({ facility, onClick, isSelected }) {
   const color = STATUS_COLORS[facility.status] || '#6b7280';
-  const size = isSelected ? 24 : 16;
+  const size = isSelected ? 20 : 14;
 
   return (
     <Marker
       longitude={facility.longitude}
       latitude={facility.latitude}
       anchor="center"
+      style={{ cursor: 'pointer' }}
     >
       <div
         onClick={(e) => {
           e.stopPropagation();
           onClick(facility);
         }}
-        className="cursor-pointer"
         style={{
-          width: `${size}px`,
-          height: `${size}px`,
-          backgroundColor: color,
-          border: '3px solid rgba(255, 255, 255, 0.95)',
-          borderRadius: '50%',
-          boxShadow: isSelected
-            ? `0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px ${color}, 0 4px 8px rgba(0, 0, 0, 0.4)`
-            : `0 0 12px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)`,
-          transform: 'translate(0, 0)'
+          width: '30px',
+          height: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
-      />
+      >
+        <div
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            backgroundColor: color,
+            border: '3px solid rgba(255, 255, 255, 0.95)',
+            borderRadius: '50%',
+            boxShadow: isSelected
+              ? `0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px ${color}, 0 4px 8px rgba(0, 0, 0, 0.4)`
+              : `0 0 12px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3)`,
+            pointerEvents: 'none'
+          }}
+        />
+      </div>
     </Marker>
   );
 }
