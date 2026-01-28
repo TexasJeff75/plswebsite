@@ -22,6 +22,63 @@ export const organizationsService = {
     return data;
   },
 
+  async getWithStats() {
+    const { data: orgs, error: orgsError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('type', 'customer')
+      .order('name');
+
+    if (orgsError) throw orgsError;
+
+    const orgsWithStats = await Promise.all(
+      orgs.map(async (org) => {
+        const [facilitiesRes, ticketsRes] = await Promise.all([
+          supabase
+            .from('facilities')
+            .select('id, deployment_phase, last_compliance_review_date, site_configuration')
+            .eq('organization_id', org.id),
+          supabase
+            .from('support_tickets')
+            .select('id, status, priority')
+            .eq('organization_id', org.id)
+        ]);
+
+        const facilities = facilitiesRes.data || [];
+        const tickets = ticketsRes.data || [];
+
+        const liveFacilities = facilities.filter(f => f.deployment_phase === 'live').length;
+        const totalFacilities = facilities.length;
+
+        const openTickets = tickets.filter(t =>
+          ['open', 'in_progress'].includes(t.status)
+        ).length;
+
+        const criticalTickets = tickets.filter(t =>
+          t.priority === 'critical' && ['open', 'in_progress'].includes(t.status)
+        ).length;
+
+        const facilitiesWithCompliance = facilities.filter(f =>
+          f.last_compliance_review_date
+        ).length;
+        const complianceScore = totalFacilities > 0
+          ? Math.round((facilitiesWithCompliance / totalFacilities) * 100)
+          : 0;
+
+        return {
+          ...org,
+          totalFacilities,
+          liveFacilities,
+          openTickets,
+          criticalTickets,
+          complianceScore
+        };
+      })
+    );
+
+    return orgsWithStats;
+  },
+
   async create(organization) {
     const { data, error } = await supabase
       .from('organizations')
