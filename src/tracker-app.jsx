@@ -17,6 +17,8 @@ import TicketDetail from './components/TicketDetail';
 import Reports from './components/Reports';
 import Notifications from './components/Notifications';
 import Templates from './components/Templates';
+import ReferenceData from './components/ReferenceData';
+import Settings from './components/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -101,12 +103,15 @@ function App() {
                     <Users />
                   </ProtectedRoute>
                 } />
-                <Route path="settings" element={<Navigate to="/settings/templates" replace />} />
-                <Route path="settings/templates" element={
+                <Route path="settings" element={
                   <ProtectedRoute requireAdmin>
-                    <Templates />
+                    <Settings />
                   </ProtectedRoute>
-                } />
+                }>
+                  <Route index element={<Navigate to="/settings/templates" replace />} />
+                  <Route path="templates" element={<Templates />} />
+                  <Route path="reference-data" element={<ReferenceData />} />
+                </Route>
               </Route>
 
               <Route path="*" element={<Navigate to="/login" replace />} />

@@ -1,24 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { templatesService } from '../../services/templatesService';
+import ReferenceSelect from '../ui/ReferenceSelect';
+import ReferenceBadge, { ReferenceText } from '../ui/ReferenceBadge';
 import {
   Plus, Edit2, Trash2, X, ChevronDown, Check, Loader2
 } from 'lucide-react';
-
-const CATEGORIES = [
-  { id: 'regulatory', label: 'Regulatory' },
-  { id: 'equipment', label: 'Equipment' },
-  { id: 'integration', label: 'Integration' },
-  { id: 'training', label: 'Training' },
-  { id: 'go_live', label: 'Go Live' },
-  { id: 'custom', label: 'Custom' },
-];
-
-const RESPONSIBLE_PARTIES = [
-  { id: 'AMA', label: 'AMA' },
-  { id: 'Proximity', label: 'Proximity' },
-  { id: 'Facility', label: 'Facility' },
-  { id: 'Vendor', label: 'Vendor' },
-];
 
 const APPLIES_TO = [
   { id: 'both', label: 'Both (Waived & Moderate)' },
@@ -200,12 +186,10 @@ export default function MilestoneTemplatesTab() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getCategoryStyle(template.category)}`}>
-                        {CATEGORIES.find(c => c.id === template.category)?.label || template.category}
-                      </span>
+                      <ReferenceBadge category="milestone_category" code={template.category} />
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      {template.responsible_party_default || '-'}
+                      <ReferenceText category="responsible_party" code={template.responsible_party_default?.toLowerCase()} />
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {template.sla_hours ? `${template.sla_hours}h` : '-'}
@@ -277,34 +261,21 @@ export default function MilestoneTemplatesTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
-                  <div className="relative">
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
-                    >
-                      {CATEGORIES.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
+                  <ReferenceSelect
+                    category="milestone_category"
+                    value={formData.category}
+                    onChange={(value) => setFormData({ ...formData, category: value || 'regulatory' })}
+                    showColors
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Responsible Party</label>
-                  <div className="relative">
-                    <select
-                      value={formData.responsible_party_default}
-                      onChange={(e) => setFormData({ ...formData, responsible_party_default: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
-                    >
-                      {RESPONSIBLE_PARTIES.map(party => (
-                        <option key={party.id} value={party.id}>{party.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
+                  <ReferenceSelect
+                    category="responsible_party"
+                    value={formData.responsible_party_default?.toLowerCase()}
+                    onChange={(value) => setFormData({ ...formData, responsible_party_default: value })}
+                  />
                 </div>
               </div>
 
@@ -399,14 +370,3 @@ export default function MilestoneTemplatesTab() {
   );
 }
 
-function getCategoryStyle(category) {
-  const styles = {
-    regulatory: 'bg-blue-500/10 text-blue-400',
-    equipment: 'bg-amber-500/10 text-amber-400',
-    integration: 'bg-cyan-500/10 text-cyan-400',
-    training: 'bg-emerald-500/10 text-emerald-400',
-    go_live: 'bg-teal-500/10 text-teal-400',
-    custom: 'bg-slate-500/10 text-slate-400'
-  };
-  return styles[category] || styles.custom;
-}

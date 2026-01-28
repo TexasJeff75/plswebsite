@@ -14,14 +14,7 @@ export default function Templates() {
   const [activeTab, setActiveTab] = useState('deployment');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Template Management</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Configure deployment templates, milestone workflows, and equipment catalog
-        </p>
-      </div>
-
+    <div className="space-y-4">
       <div className="border-b border-slate-700">
         <div className="flex gap-1">
           {TABS.map(tab => {
