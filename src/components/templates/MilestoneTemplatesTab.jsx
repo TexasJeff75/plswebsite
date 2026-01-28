@@ -131,11 +131,6 @@ export default function MilestoneTemplatesTab() {
 
   const availableDependencies = templates.filter(t => t.id !== editingTemplate?.id);
 
-  const groupedTemplates = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = templates.filter(t => t.category === cat.id);
-    return acc;
-  }, {});
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
