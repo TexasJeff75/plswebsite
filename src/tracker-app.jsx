@@ -16,6 +16,7 @@ import SupportTickets from './components/SupportTickets';
 import TicketDetail from './components/TicketDetail';
 import Reports from './components/Reports';
 import Notifications from './components/Notifications';
+import Templates from './components/Templates';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -98,6 +99,12 @@ function App() {
                 <Route path="users" element={
                   <ProtectedRoute requireAdmin>
                     <Users />
+                  </ProtectedRoute>
+                } />
+                <Route path="settings" element={<Navigate to="/settings/templates" replace />} />
+                <Route path="settings/templates" element={
+                  <ProtectedRoute requireAdmin>
+                    <Templates />
                   </ProtectedRoute>
                 } />
               </Route>
