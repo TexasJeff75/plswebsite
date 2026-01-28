@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Package, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Package, CheckCircle2, AlertCircle, Save, Loader2 } from 'lucide-react';
+import { facilitiesService } from '../../services/facilitiesService';
 
 const EQUIPMENT_TYPES = [
   { id: 'genexpert', name: 'Cepheid GeneXpert V2' },
@@ -19,13 +20,20 @@ const STATUS_LABELS = {
   operational: 'Operational',
 };
 
-export default function EquipmentTab({ facility, isEditor }) {
+export default function EquipmentTab({ facility, isEditor, onUpdate }) {
   const [equipment, setEquipment] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+  const [editedEquipment, setEditedEquipment] = useState({});
+  const [savingIds, setSavingIds] = useState(new Set());
+  const [saveSuccess, setSaveSuccess] = useState(new Set());
 
   useEffect(() => {
     if (facility?.equipment) {
       setEquipment(facility.equipment);
+      const initial = {};
+      facility.equipment.forEach(eq => {
+        initial[eq.equipment_type] = { ...eq };
+      });
+      setEditedEquipment(initial);
     }
   }, [facility?.equipment]);
 
@@ -33,20 +41,75 @@ export default function EquipmentTab({ facility, isEditor }) {
     const colors = {
       not_ordered: 'bg-slate-700',
       ordered: 'bg-blue-700',
-      shipped: 'bg-indigo-700',
-      delivered: 'bg-cyan-700',
-      installed: 'bg-purple-700',
+      shipped: 'bg-cyan-700',
+      delivered: 'bg-teal-700',
+      installed: 'bg-emerald-700',
       validated: 'bg-amber-700',
       operational: 'bg-green-700',
     };
     return colors[status] || 'bg-slate-700';
   };
 
-  const handleStatusChange = async (equipmentId, newStatus) => {
+  const handleFieldChange = (equipmentType, field, value) => {
+    setEditedEquipment(prev => ({
+      ...prev,
+      [equipmentType]: {
+        ...prev[equipmentType],
+        [field]: value
+      }
+    }));
+    setSaveSuccess(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(equipmentType);
+      return newSet;
+    });
+  };
+
+  const handleSave = async (equipmentType) => {
     try {
-      setEditingId(null);
+      setSavingIds(prev => new Set(prev).add(equipmentType));
+
+      const equipmentData = editedEquipment[equipmentType];
+      const existingEquipment = equipment.find(e => e.equipment_type === equipmentType);
+
+      let result;
+      if (existingEquipment?.id) {
+        result = await facilitiesService.updateEquipment(existingEquipment.id, equipmentData);
+      } else {
+        result = await facilitiesService.createEquipment({
+          ...equipmentData,
+          facility_id: facility.id,
+          equipment_type: equipmentType,
+          display_name: EQUIPMENT_TYPES.find(t => t.id === equipmentType)?.name
+        });
+      }
+
+      setEquipment(prev => {
+        const updated = prev.filter(e => e.equipment_type !== equipmentType);
+        return [...updated, result];
+      });
+
+      setSaveSuccess(prev => new Set(prev).add(equipmentType));
+      setTimeout(() => {
+        setSaveSuccess(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(equipmentType);
+          return newSet;
+        });
+      }, 3000);
+
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (error) {
-      console.error('Error updating equipment status:', error);
+      console.error('Error saving equipment:', error);
+      alert('Failed to save equipment. Please try again.');
+    } finally {
+      setSavingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(equipmentType);
+        return newSet;
+      });
     }
   };
 
@@ -58,11 +121,13 @@ export default function EquipmentTab({ facility, isEditor }) {
       </div>
 
       {EQUIPMENT_TYPES.map(type => {
-        const equip = equipment.find(e => e.equipment_type === type.id) || {
+        const equip = editedEquipment[type.id] || {
           equipment_type: type.id,
           display_name: type.name,
           equipment_status: 'not_ordered',
         };
+        const isSaving = savingIds.has(type.id);
+        const showSuccess = saveSuccess.has(type.id);
 
         return (
           <div key={type.id} className="bg-slate-800 rounded-lg p-6 space-y-4">
@@ -71,9 +136,35 @@ export default function EquipmentTab({ facility, isEditor }) {
                 <h4 className="text-white font-semibold text-lg">{type.name}</h4>
                 <p className="text-slate-400 text-xs mt-1">Equipment Type: {type.id}</p>
               </div>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold text-white ${getStatusColor(equip.equipment_status)}`}>
-                {STATUS_LABELS[equip.equipment_status] || 'Unknown'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold text-white ${getStatusColor(equip.equipment_status)}`}>
+                  {STATUS_LABELS[equip.equipment_status] || 'Unknown'}
+                </span>
+                {isEditor && (
+                  <button
+                    onClick={() => handleSave(type.id)}
+                    disabled={isSaving}
+                    className="px-4 py-1 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : showSuccess ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Saved
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Status Progression */}
@@ -103,6 +194,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <label className="text-slate-400 text-xs mb-1 block">Procurement Method</label>
                   <select
                     value={equip.procurement_method || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'procurement_method', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   >
@@ -117,6 +209,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="text"
                     value={equip.order_number || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'order_number', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -126,6 +219,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="date"
                     value={equip.order_date || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'order_date', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -142,6 +236,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="text"
                     value={equip.carrier || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'carrier', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -151,6 +246,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="text"
                     value={equip.tracking_number || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'tracking_number', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -160,6 +256,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="date"
                     value={equip.ship_date || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'ship_date', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -169,6 +266,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="date"
                     value={equip.delivery_date || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'delivery_date', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -185,6 +283,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="text"
                     value={equip.serial_number || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'serial_number', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -194,6 +293,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="text"
                     value={equip.installed_by || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'installed_by', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -203,6 +303,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="date"
                     value={equip.installed_date || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'installed_date', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -220,6 +321,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                     <input
                       type="checkbox"
                       checked={equip.initial_qc_performed || false}
+                      onChange={(e) => handleFieldChange(type.id, 'initial_qc_performed', e.target.checked)}
                       disabled={!isEditor}
                       className="w-4 h-4"
                     />
@@ -233,6 +335,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                   <input
                     type="date"
                     value={equip.initial_qc_date || ''}
+                    onChange={(e) => handleFieldChange(type.id, 'initial_qc_date', e.target.value)}
                     disabled={!isEditor}
                     className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                   />
@@ -243,6 +346,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                     <input
                       type="checkbox"
                       checked={equip.initial_qc_acceptable || false}
+                      onChange={(e) => handleFieldChange(type.id, 'initial_qc_acceptable', e.target.checked)}
                       disabled={!isEditor}
                       className="w-4 h-4"
                     />
@@ -263,6 +367,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                       <input
                         type="checkbox"
                         checked={equip.calibration_verification_complete || false}
+                        onChange={(e) => handleFieldChange(type.id, 'calibration_verification_complete', e.target.checked)}
                         disabled={!isEditor}
                         className="w-4 h-4"
                       />
@@ -276,6 +381,7 @@ export default function EquipmentTab({ facility, isEditor }) {
                     <input
                       type="date"
                       value={equip.calibration_verification_date || ''}
+                      onChange={(e) => handleFieldChange(type.id, 'calibration_verification_date', e.target.value)}
                       disabled={!isEditor}
                       className="w-full bg-slate-600 text-white px-2 py-1 rounded text-sm border border-slate-500 disabled:opacity-50"
                     />
@@ -289,8 +395,10 @@ export default function EquipmentTab({ facility, isEditor }) {
               <label className="text-slate-400 text-sm mb-2 block">Notes</label>
               <textarea
                 value={equip.notes || ''}
+                onChange={(e) => handleFieldChange(type.id, 'notes', e.target.value)}
                 disabled={!isEditor}
                 rows="3"
+                placeholder="Add any additional notes about this equipment..."
                 className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 disabled:opacity-50 text-sm"
               />
             </div>

@@ -89,7 +89,7 @@ export default function FacilityDetail() {
     { label: 'Overview', component: <OverviewTab facility={facility} isEditor={isEditor} /> },
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
     { label: 'Personnel', component: <PersonnelTab facility={facility} isEditor={isEditor} /> },
-    { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} /> },
+    { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Integration', component: <IntegrationTab facility={facility} isEditor={isEditor} /> },
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
     { label: 'Training', component: <TrainingTab facility={facility} isEditor={isEditor} /> },
