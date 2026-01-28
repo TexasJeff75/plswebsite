@@ -6,6 +6,7 @@ export const facilitiesService = {
       .from('facilities')
       .select(`
         *,
+        organization:organizations(id, name),
         milestones(id, status, milestone_order),
         equipment(id, status)
       `)
@@ -27,6 +28,10 @@ export const facilitiesService = {
       query = query.ilike('name', `%${filters.search}%`);
     }
 
+    if (filters.organization_id) {
+      query = query.eq('organization_id', filters.organization_id);
+    }
+
     const { data, error } = await query;
 
     if (error) throw error;
@@ -38,6 +43,7 @@ export const facilitiesService = {
       .from('facilities')
       .select(`
         *,
+        organization:organizations(id, name),
         milestones(*),
         equipment(*),
         notes(*),

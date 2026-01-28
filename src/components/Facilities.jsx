@@ -1,22 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { facilitiesService } from '../services/facilitiesService';
+import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
   const [facilities, setFacilities] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     search: '',
     status: '',
     region: '',
-    phase: ''
+    phase: '',
+    organization_id: ''
   });
+
+  useEffect(() => {
+    loadOrganizations();
+  }, []);
 
   useEffect(() => {
     loadFacilities();
   }, [filters]);
+
+  async function loadOrganizations() {
+    try {
+      const data = await organizationsService.getAll();
+      setOrganizations(data.filter(org => org.type === 'customer'));
+    } catch (error) {
+      console.error('Error loading organizations:', error);
+    }
+  }
 
   async function loadFacilities() {
     try {
@@ -55,7 +71,7 @@ export default function Facilities() {
       </div>
 
       <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <input
             type="text"
             placeholder="Search facilities..."
@@ -63,6 +79,17 @@ export default function Facilities() {
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
+
+          <select
+            value={filters.organization_id}
+            onChange={(e) => setFilters({ ...filters, organization_id: e.target.value })}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">All Clients</option>
+            {organizations.map(org => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
 
           <select
             value={filters.status}
@@ -111,6 +138,7 @@ export default function Facilities() {
               <thead>
                 <tr className="border-b border-slate-700">
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Facility</th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Client</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Location</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Phase</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
@@ -131,6 +159,9 @@ export default function Facilities() {
                         <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400">
                           {facility.name}
                         </Link>
+                      </td>
+                      <td className="py-4 px-4 text-slate-400">
+                        {facility.organization?.name || '-'}
                       </td>
                       <td className="py-4 px-4 text-slate-400">
                         {facility.city}, {facility.state}
