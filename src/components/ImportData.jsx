@@ -354,6 +354,7 @@ export default function ImportData({ onImportComplete, onClose }) {
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
+        const facilityName = getMappedValue(row, 'name') || `Row ${i + 2}`;
 
         try {
           const lat = getMappedValue(row, 'latitude');
@@ -383,37 +384,60 @@ export default function ImportData({ onImportComplete, onClose }) {
             continue;
           }
 
-          const facility = await facilitiesService.create(facilityData);
+          console.log(`[Import] Creating facility: ${facilityName}`, facilityData);
 
-          for (let j = 0; j < MILESTONE_NAMES.length; j++) {
-            await facilitiesService.createMilestone({
-              facility_id: facility.id,
-              milestone_order: j + 1,
-              name: MILESTONE_NAMES[j],
-              status: 'Not Started',
-              completion_date: null,
-              notes: null
-            });
+          let facility;
+          try {
+            facility = await facilitiesService.create(facilityData);
+            console.log(`[Import] Facility created successfully: ${facility.id}`);
+          } catch (facilityError) {
+            console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
+            importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
+            continue;
           }
 
-          for (const device of EQUIPMENT_DEVICES) {
-            await facilitiesService.createEquipment({
-              facility_id: facility.id,
-              name: device.name,
-              equipment_type: device.type,
-              status: 'Not Ordered'
-            });
+          try {
+            for (let j = 0; j < MILESTONE_NAMES.length; j++) {
+              await facilitiesService.createMilestone({
+                facility_id: facility.id,
+                milestone_order: j + 1,
+                name: MILESTONE_NAMES[j],
+                status: 'Not Started',
+                completion_date: null,
+                notes: null
+              });
+            }
+          } catch (milestoneError) {
+            console.error(`[Import] FAILED to create milestones for "${facilityName}":`, milestoneError);
+            importErrors.push(`Row ${i + 2} (${facilityName}): Facility created but milestones failed - ${milestoneError.message}`);
+          }
+
+          try {
+            for (const device of EQUIPMENT_DEVICES) {
+              await facilitiesService.createEquipment({
+                facility_id: facility.id,
+                name: device.name,
+                equipment_type: device.type,
+                status: 'Not Ordered'
+              });
+            }
+          } catch (equipmentError) {
+            console.error(`[Import] FAILED to create equipment for "${facilityName}":`, equipmentError);
+            importErrors.push(`Row ${i + 2} (${facilityName}): Facility created but equipment failed - ${equipmentError.message}`);
           }
 
           successCount++;
         } catch (rowError) {
-          importErrors.push(`Row ${i + 2}: ${rowError.message}`);
+          console.error(`[Import] Unexpected error for row ${i + 2}:`, rowError);
+          importErrors.push(`Row ${i + 2} (${facilityName}): ${rowError.message}`);
         }
 
         setImportProgress({ current: i + 1, total: data.length });
       }
 
+      console.log(`[Import] Complete: ${successCount}/${data.length} successful`);
       if (importErrors.length > 0) {
+        console.log(`[Import] Errors:`, importErrors);
         setValidationWarnings(importErrors);
       }
 
@@ -421,12 +445,14 @@ export default function ImportData({ onImportComplete, onClose }) {
       setStep('complete');
       setImporting(false);
 
-      setTimeout(() => {
-        onImportComplete?.();
-        onClose?.();
-      }, 2500);
+      if (successCount > 0) {
+        setTimeout(() => {
+          onImportComplete?.();
+          onClose?.();
+        }, 2500);
+      }
     } catch (error) {
-      console.error('Import error:', error);
+      console.error('[Import] Fatal error:', error);
       setValidationErrors([`Import failed: ${error.message}`]);
       setImporting(false);
     }
@@ -675,19 +701,26 @@ export default function ImportData({ onImportComplete, onClose }) {
           )}
 
           {step === 'complete' && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <CheckCircle2 className="w-16 h-16 text-teal-400 mb-4" />
-              <h3 className="text-lg font-bold text-white mb-2">Import Complete</h3>
-              <p className="text-slate-400">{importProgress.current} facilities imported successfully</p>
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              {importProgress.current > 0 ? (
+                <CheckCircle2 className="w-16 h-16 text-teal-400 mb-4" />
+              ) : (
+                <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
+              )}
+              <h3 className="text-lg font-bold text-white mb-2">
+                {importProgress.current > 0 ? 'Import Complete' : 'Import Failed'}
+              </h3>
+              <p className="text-slate-400">
+                {importProgress.current} of {importProgress.total} facilities imported successfully
+              </p>
               {validationWarnings.length > 0 && (
-                <div className="mt-4 text-left bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 max-h-32 overflow-y-auto w-full">
-                  <p className="text-xs text-amber-400 font-medium mb-2">Import Notes:</p>
-                  {validationWarnings.slice(0, 5).map((warning, idx) => (
-                    <p key={idx} className="text-xs text-amber-300">{warning}</p>
+                <div className="mt-4 text-left bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 max-h-64 overflow-y-auto w-full">
+                  <p className="text-xs text-amber-400 font-medium mb-2">
+                    {validationWarnings.length} Error(s) - Check browser console for full details:
+                  </p>
+                  {validationWarnings.map((warning, idx) => (
+                    <p key={idx} className="text-xs text-amber-300 mb-1">{warning}</p>
                   ))}
-                  {validationWarnings.length > 5 && (
-                    <p className="text-xs text-amber-500 mt-1">... and {validationWarnings.length - 5} more</p>
-                  )}
                 </div>
               )}
             </div>
