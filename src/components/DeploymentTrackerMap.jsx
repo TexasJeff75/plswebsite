@@ -18,7 +18,7 @@ const MILESTONE_NAMES = [
   'Go-Live'
 ];
 
-const REGIONS = ['All Regions', 'St. Louis Area', 'Kansas City Area', 'Rural Missouri', 'Kansas'];
+const DEFAULT_REGIONS = ['All Regions'];
 
 const STATUS_CONFIG = {
   'not_started': { color: '#6b7280', label: 'Not Started', glow: 'rgba(107, 114, 128, 0.5)' },
@@ -67,6 +67,7 @@ export default function DeploymentTrackerMap() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [regionFilter, setRegionFilter] = useState('All Regions');
+  const [regions, setRegions] = useState(DEFAULT_REGIONS);
 
   const loadFacilities = async () => {
     try {
@@ -83,6 +84,9 @@ export default function DeploymentTrackerMap() {
           totalMilestones: MILESTONE_NAMES.length
         };
       });
+
+      const uniqueRegions = [...new Set(data.filter(f => f.region).map(f => f.region))].sort();
+      setRegions(['All Regions', ...uniqueRegions]);
 
       setFacilities(enrichedData);
       setLoading(false);
@@ -509,7 +513,7 @@ export default function DeploymentTrackerMap() {
               onChange={(e) => setRegionFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
             >
-              {REGIONS.map(region => (
+              {regions.map(region => (
                 <option key={region} value={region}>{region}</option>
               ))}
             </select>

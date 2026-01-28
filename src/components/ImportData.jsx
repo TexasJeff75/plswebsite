@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, FileText, Download } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 
 const MILESTONE_NAMES = [
@@ -21,74 +21,208 @@ const EQUIPMENT_DEVICES = [
   { name: 'Cepheid GeneXpert', type: 'molecular' }
 ];
 
+const REQUIRED_COLUMNS = ['name', 'address', 'city', 'state', 'zip'];
+const OPTIONAL_COLUMNS = ['latitude', 'longitude', 'region', 'status', 'projected_go_live', 'contact_name', 'contact_email', 'contact_phone', 'general_notes', 'county'];
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) return [];
+
+  const headerLine = lines[0];
+  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().trim().replace(/\s+/g, '_'));
+
+  const data = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length === 0 || values.every(v => !v.trim())) continue;
+
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = values[idx]?.trim() || '';
+    });
+    data.push(row);
+  }
+
+  return data;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+
+  return result;
+}
+
+function generateTemplateCSV() {
+  const headers = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
+  const sampleRow = [
+    'Sample Facility Name',
+    '123 Main Street',
+    'Kansas City',
+    'MO',
+    '64101',
+    '39.0997',
+    '-94.5786',
+    'Kansas City Area',
+    'not_started',
+    '2026-06-15',
+    'John Smith',
+    'john.smith@facility.com',
+    '555-123-4567',
+    'Sample notes here',
+    'Jackson'
+  ];
+
+  return [headers.join(','), sampleRow.join(',')].join('\n');
+}
+
 export default function ImportData({ onImportComplete, onClose }) {
   const [step, setStep] = useState('upload');
   const [file, setFile] = useState(null);
   const [data, setData] = useState(null);
+  const [columnMapping, setColumnMapping] = useState({});
+  const [detectedColumns, setDetectedColumns] = useState([]);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [validationWarnings, setValidationWarnings] = useState([]);
   const [importMode, setImportMode] = useState('merge');
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef(null);
 
-  const validateFacilityData = (facility) => {
-    const errors = [];
-    if (!facility.name) errors.push('Missing facility name');
-    if (!facility.address) errors.push('Missing address');
-    if (!facility.city) errors.push('Missing city');
-    if (!facility.state) errors.push('Missing state');
-    if (!facility.zip) errors.push('Missing ZIP code');
-    if (facility.latitude === undefined) errors.push('Missing latitude');
-    if (facility.longitude === undefined) errors.push('Missing longitude');
-    if (!facility.region) errors.push('Missing region');
-    return errors;
+  const downloadTemplate = () => {
+    const csv = generateTemplateCSV();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'facility_import_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  const validateData = (jsonData) => {
-    if (!Array.isArray(jsonData)) {
-      return { valid: false, errors: ['JSON must contain an array of facilities'] };
-    }
-
+  const validateAndMapData = (rawData, columns) => {
     const errors = [];
-    jsonData.forEach((facility, idx) => {
-      const facilityErrors = validateFacilityData(facility);
-      if (facilityErrors.length > 0) {
-        facilityErrors.forEach(err => {
-          errors.push(`Facility ${idx + 1} (${facility.name || 'Unknown'}): ${err}`);
-        });
+    const warnings = [];
+    const mapping = {};
+
+    REQUIRED_COLUMNS.forEach(reqCol => {
+      const match = columns.find(c =>
+        c === reqCol ||
+        c.includes(reqCol) ||
+        reqCol.includes(c) ||
+        (reqCol === 'name' && (c.includes('facility') || c === 'site'))
+      );
+      if (match) {
+        mapping[reqCol] = match;
+      } else {
+        errors.push(`Required column "${reqCol}" not found in file`);
       }
     });
 
-    return { valid: errors.length === 0, errors };
+    OPTIONAL_COLUMNS.forEach(optCol => {
+      const match = columns.find(c =>
+        c === optCol ||
+        c.includes(optCol) ||
+        optCol.includes(c) ||
+        (optCol === 'projected_go_live' && (c.includes('go_live') || c.includes('golive') || c.includes('launch'))) ||
+        (optCol === 'contact_name' && c.includes('contact')) ||
+        (optCol === 'general_notes' && c.includes('notes'))
+      );
+      if (match) {
+        mapping[optCol] = match;
+      }
+    });
+
+    if (!mapping.latitude || !mapping.longitude) {
+      warnings.push('Latitude/longitude columns not found. Facilities may not appear on the map until coordinates are added.');
+    }
+
+    if (!mapping.region) {
+      warnings.push('Region column not found. You may need to assign regions manually.');
+    }
+
+    return { mapping, errors, warnings };
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const jsonData = JSON.parse(event.target.result);
-        const validation = validateData(jsonData);
+    const fileName = selectedFile.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
-        if (validation.valid) {
-          setFile(selectedFile);
-          setData(jsonData);
-          setValidationErrors([]);
-          setStep('preview');
-        } else {
-          setValidationErrors(validation.errors);
-          setFile(null);
-          setData(null);
-        }
-      } catch (error) {
-        setValidationErrors([`Invalid JSON: ${error.message}`]);
-        setFile(null);
-        setData(null);
+    if (!isCSV && !isExcel) {
+      setValidationErrors(['Please upload a CSV or Excel file (.csv, .xlsx, .xls)']);
+      return;
+    }
+
+    try {
+      let parsedData = [];
+
+      if (isCSV) {
+        const text = await selectedFile.text();
+        parsedData = parseCSV(text);
+      } else if (isExcel) {
+        setValidationErrors(['Excel files require the xlsx library. Please convert to CSV format, or use the CSV template.']);
+        return;
       }
-    };
-    reader.readAsText(selectedFile);
+
+      if (parsedData.length === 0) {
+        setValidationErrors(['No data found in file. Please check the file format.']);
+        return;
+      }
+
+      const columns = Object.keys(parsedData[0]);
+      setDetectedColumns(columns);
+
+      const { mapping, errors, warnings } = validateAndMapData(parsedData, columns);
+      setColumnMapping(mapping);
+      setValidationWarnings(warnings);
+
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        return;
+      }
+
+      setFile(selectedFile);
+      setData(parsedData);
+      setValidationErrors([]);
+      setStep('preview');
+    } catch (error) {
+      setValidationErrors([`Error reading file: ${error.message}`]);
+    }
+  };
+
+  const getMappedValue = (row, field) => {
+    const mappedColumn = columnMapping[field];
+    if (!mappedColumn) return null;
+    const value = row[mappedColumn];
+    if (value === '' || value === undefined || value === null) return null;
+    return value;
   };
 
   const handleImport = async () => {
@@ -105,39 +239,41 @@ export default function ImportData({ onImportComplete, onClose }) {
         }
       }
 
+      let successCount = 0;
+      const importErrors = [];
+
       for (let i = 0; i < data.length; i++) {
-        const facilityData = data[i];
+        const row = data[i];
 
-        const facility = await facilitiesService.create({
-          name: facilityData.name,
-          address: facilityData.address,
-          city: facilityData.city,
-          state: facilityData.state,
-          zip: facilityData.zip,
-          latitude: parseFloat(facilityData.latitude),
-          longitude: parseFloat(facilityData.longitude),
-          region: facilityData.region,
-          status: facilityData.status || 'not_started',
-          projected_go_live: facilityData.projected_go_live || null,
-          contact_name: facilityData.contact_name || null,
-          contact_email: facilityData.contact_email || null,
-          contact_phone: facilityData.contact_phone || null,
-          general_notes: facilityData.general_notes || null
-        });
+        try {
+          const lat = getMappedValue(row, 'latitude');
+          const lng = getMappedValue(row, 'longitude');
 
-        if (facilityData.milestones && Array.isArray(facilityData.milestones)) {
-          for (let j = 0; j < facilityData.milestones.length && j < MILESTONE_NAMES.length; j++) {
-            const milestone = facilityData.milestones[j];
-            await facilitiesService.createMilestone({
-              facility_id: facility.id,
-              milestone_number: j + 1,
-              name: MILESTONE_NAMES[j],
-              status: milestone.status || 'not_started',
-              completion_date: milestone.completion_date || null,
-              notes: milestone.notes || null
-            });
+          const facilityData = {
+            name: getMappedValue(row, 'name'),
+            address: getMappedValue(row, 'address'),
+            city: getMappedValue(row, 'city'),
+            state: getMappedValue(row, 'state'),
+            zip: getMappedValue(row, 'zip'),
+            latitude: lat ? parseFloat(lat) : null,
+            longitude: lng ? parseFloat(lng) : null,
+            region: getMappedValue(row, 'region'),
+            county: getMappedValue(row, 'county'),
+            status: getMappedValue(row, 'status') || 'Not Started',
+            projected_go_live: getMappedValue(row, 'projected_go_live') || null,
+            contact_name: getMappedValue(row, 'contact_name') || null,
+            contact_email: getMappedValue(row, 'contact_email') || null,
+            contact_phone: getMappedValue(row, 'contact_phone') || null,
+            general_notes: getMappedValue(row, 'general_notes') || null
+          };
+
+          if (!facilityData.name) {
+            importErrors.push(`Row ${i + 2}: Missing facility name, skipped`);
+            continue;
           }
-        } else {
+
+          const facility = await facilitiesService.create(facilityData);
+
           for (let j = 0; j < MILESTONE_NAMES.length; j++) {
             await facilitiesService.createMilestone({
               facility_id: facility.id,
@@ -148,20 +284,7 @@ export default function ImportData({ onImportComplete, onClose }) {
               notes: null
             });
           }
-        }
 
-        if (facilityData.equipment && Array.isArray(facilityData.equipment)) {
-          for (const equipItem of facilityData.equipment) {
-            await facilitiesService.createEquipment({
-              facility_id: facility.id,
-              device_name: equipItem.device_name,
-              device_type: equipItem.device_type || '',
-              status: equipItem.status || 'not_ordered',
-              order_date: equipItem.order_date || null,
-              delivery_date: equipItem.delivery_date || null
-            });
-          }
-        } else {
           for (const device of EQUIPMENT_DEVICES) {
             await facilitiesService.createEquipment({
               facility_id: facility.id,
@@ -172,17 +295,27 @@ export default function ImportData({ onImportComplete, onClose }) {
               delivery_date: null
             });
           }
+
+          successCount++;
+        } catch (rowError) {
+          importErrors.push(`Row ${i + 2}: ${rowError.message}`);
         }
 
         setImportProgress({ current: i + 1, total: data.length });
       }
 
+      if (importErrors.length > 0) {
+        setValidationWarnings(importErrors);
+      }
+
+      setImportProgress({ current: successCount, total: data.length });
       setStep('complete');
       setImporting(false);
+
       setTimeout(() => {
         onImportComplete?.();
         onClose?.();
-      }, 2000);
+      }, 2500);
     } catch (error) {
       console.error('Import error:', error);
       setValidationErrors([`Import failed: ${error.message}`]);
@@ -210,40 +343,46 @@ export default function ImportData({ onImportComplete, onClose }) {
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-teal-500 hover:bg-teal-500/5 transition-all"
               >
-                <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                <p className="text-white font-medium mb-1">Click to upload JSON file</p>
-                <p className="text-sm text-slate-400">or drag and drop your file here</p>
+                <FileSpreadsheet className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                <p className="text-white font-medium mb-1">Click to upload CSV file</p>
+                <p className="text-sm text-slate-400">Supports .csv format</p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".json"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleFileChange}
                   className="hidden"
                 />
               </div>
 
+              <button
+                onClick={downloadTemplate}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download CSV Template
+              </button>
+
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-white">Expected JSON Format</h3>
-                <pre className="bg-slate-950 p-3 rounded text-xs text-slate-300 overflow-x-auto">
-{`[
-  {
-    "name": "Facility Name",
-    "address": "123 Main St",
-    "city": "Kansas City",
-    "state": "MO",
-    "zip": "64101",
-    "latitude": 39.0997,
-    "longitude": -94.5786,
-    "region": "Kansas City Area",
-    "status": "in_progress",
-    "projected_go_live": "2026-03-15",
-    "contact_name": "John Doe",
-    "contact_email": "john@facility.com",
-    "contact_phone": "555-1234",
-    "general_notes": "Notes here"
-  }
-]`}
-                </pre>
+                <h3 className="text-sm font-semibold text-white">Required Columns</h3>
+                <div className="flex flex-wrap gap-2">
+                  {REQUIRED_COLUMNS.map(col => (
+                    <span key={col} className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300">
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-white">Optional Columns</h3>
+                <div className="flex flex-wrap gap-2">
+                  {OPTIONAL_COLUMNS.map(col => (
+                    <span key={col} className="px-2 py-1 bg-slate-700/50 border border-slate-600 rounded text-xs text-slate-300">
+                      {col}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {validationErrors.length > 0 && (
@@ -254,7 +393,7 @@ export default function ImportData({ onImportComplete, onClose }) {
                   </div>
                   <ul className="space-y-1 text-sm text-red-300">
                     {validationErrors.map((error, idx) => (
-                      <li key={idx}>• {error}</li>
+                      <li key={idx}>{error}</li>
                     ))}
                   </ul>
                 </div>
@@ -270,6 +409,32 @@ export default function ImportData({ onImportComplete, onClose }) {
                   <h3 className="font-medium text-teal-400">File validated successfully</h3>
                 </div>
                 <p className="text-sm text-teal-300">{data.length} facilities ready to import</p>
+              </div>
+
+              {validationWarnings.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <div className="flex items-start gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <h3 className="font-medium text-amber-400">Warnings</h3>
+                  </div>
+                  <ul className="space-y-1 text-sm text-amber-300">
+                    {validationWarnings.map((warning, idx) => (
+                      <li key={idx}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-sm font-semibold text-white mb-2">Column Mapping</h3>
+                <div className="bg-slate-800/50 rounded-lg p-3 grid grid-cols-2 gap-2 text-xs">
+                  {Object.entries(columnMapping).map(([target, source]) => (
+                    <div key={target} className="flex items-center gap-2">
+                      <span className="text-slate-400">{target}:</span>
+                      <span className="text-teal-400">{source}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -305,14 +470,24 @@ export default function ImportData({ onImportComplete, onClose }) {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-white mb-3">Preview</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {data.map((facility, idx) => (
-                    <div key={idx} className="bg-slate-800/50 rounded p-2 text-xs">
-                      <p className="font-medium text-white">{facility.name}</p>
-                      <p className="text-slate-400">{facility.city}, {facility.state}</p>
+                <h3 className="text-sm font-semibold text-white mb-3">Preview (first 5 rows)</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {data.slice(0, 5).map((row, idx) => (
+                    <div key={idx} className="bg-slate-800/50 rounded p-3 text-xs">
+                      <p className="font-medium text-white mb-1">{getMappedValue(row, 'name') || 'No name'}</p>
+                      <p className="text-slate-400">
+                        {getMappedValue(row, 'address')}, {getMappedValue(row, 'city')}, {getMappedValue(row, 'state')} {getMappedValue(row, 'zip')}
+                      </p>
+                      {getMappedValue(row, 'region') && (
+                        <p className="text-slate-500 mt-1">Region: {getMappedValue(row, 'region')}</p>
+                      )}
                     </div>
                   ))}
+                  {data.length > 5 && (
+                    <p className="text-xs text-slate-500 text-center py-2">
+                      ... and {data.length - 5} more facilities
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -322,7 +497,18 @@ export default function ImportData({ onImportComplete, onClose }) {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <CheckCircle2 className="w-16 h-16 text-teal-400 mb-4" />
               <h3 className="text-lg font-bold text-white mb-2">Import Complete</h3>
-              <p className="text-slate-400">{data?.length} facilities imported successfully</p>
+              <p className="text-slate-400">{importProgress.current} facilities imported successfully</p>
+              {validationWarnings.length > 0 && (
+                <div className="mt-4 text-left bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 max-h-32 overflow-y-auto w-full">
+                  <p className="text-xs text-amber-400 font-medium mb-2">Import Notes:</p>
+                  {validationWarnings.slice(0, 5).map((warning, idx) => (
+                    <p key={idx} className="text-xs text-amber-300">{warning}</p>
+                  ))}
+                  {validationWarnings.length > 5 && (
+                    <p className="text-xs text-amber-500 mt-1">... and {validationWarnings.length - 5} more</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
