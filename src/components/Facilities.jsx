@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { facilitiesService } from '../services/facilitiesService';
 import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
+import { X, Plus } from 'lucide-react';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
   const [facilities, setFacilities] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -61,10 +63,11 @@ export default function Facilities() {
           <p className="text-slate-400">Manage and monitor facility deployments</p>
         </div>
         {isEditor && (
-          <button className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 rounded-lg font-medium transition-colors flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
-            </svg>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
             Add Facility
           </button>
         )}
@@ -205,6 +208,226 @@ export default function Facilities() {
             </table>
           </div>
         )}
+      </div>
+
+      {showAddModal && (
+        <AddFacilityModal
+          organizations={organizations}
+          onClose={() => setShowAddModal(false)}
+          onCreated={() => {
+            setShowAddModal(false);
+            loadFacilities();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddFacilityModal({ organizations, onClose, onCreated }) {
+  const [formData, setFormData] = useState({
+    organization_id: '',
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    facility_type: 'SNF',
+    site_configuration: 'waived',
+    projected_go_live: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.organization_id || !formData.name) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await facilitiesService.create({
+        ...formData,
+        projected_go_live: formData.projected_go_live || null,
+        status: 'Not Started',
+        phase: 'Phase 1'
+      });
+      onCreated();
+    } catch (err) {
+      setError(err.message || 'Failed to create facility');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h2 className="text-xl font-semibold text-white">Add New Facility</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-140px)]">
+          <div className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Client *
+              </label>
+              <select
+                name="organization_id"
+                value={formData.organization_id}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                required
+              >
+                <option value="">Select client</option>
+                {organizations.map(org => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Facility Name *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                placeholder="Enter facility name"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Address
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                placeholder="Street address"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                  placeholder="City"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  State
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                  placeholder="State"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Facility Type
+                </label>
+                <select
+                  name="facility_type"
+                  value={formData.facility_type}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value="SNF">SNF</option>
+                  <option value="ALF">ALF</option>
+                  <option value="Hospital">Hospital</option>
+                  <option value="Clinic">Clinic</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Configuration
+                </label>
+                <select
+                  name="site_configuration"
+                  value={formData.site_configuration}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value="waived">Waived</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High Complexity</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Projected Go-Live Date
+              </label>
+              <input
+                type="date"
+                name="projected_go_live"
+                value={formData.projected_go_live}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700 bg-slate-800/50">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium disabled:opacity-50"
+            >
+              {saving ? 'Creating...' : 'Create Facility'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
