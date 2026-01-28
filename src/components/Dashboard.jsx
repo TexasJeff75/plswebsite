@@ -8,6 +8,7 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import DashboardMapWidget from './maps/DashboardMapWidget';
 
 export default function Dashboard() {
   const [clients, setClients] = useState([]);
@@ -341,19 +342,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DashboardMapWidget />
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Sites by Client</h3>
-          <div className="h-80">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={clientSitesData} layout="vertical" margin={{ left: 20 }}>
+              <BarChart data={clientSitesData} layout="vertical" margin={{ left: 10, right: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                 <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} />
                 <YAxis
                   type="category"
                   dataKey="name"
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
-                  width={140}
+                  tick={{ fill: '#94a3b8', fontSize: 10 }}
+                  width={100}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
@@ -368,85 +371,81 @@ export default function Dashboard() {
                     return null;
                   }}
                 />
-                <Bar
-                  dataKey="sites"
-                  radius={[0, 4, 4, 0]}
-                  fill="#14b8a6"
-                />
+                <Bar dataKey="sites" radius={[0, 4, 4, 0]} fill="#14b8a6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
 
-        <div className="space-y-6">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl">
-            <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Critical Alerts</h2>
-              <Link to="/support" className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1">
-                View All
-              </Link>
-            </div>
-            <div className="p-4 space-y-3">
-              {criticalAlerts.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-2 text-green-500 opacity-50" />
-                  No critical alerts
-                </div>
-              ) : (
-                criticalAlerts.map((alert, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      alert.severity === 'critical' ? 'bg-red-500/10' : 'bg-amber-500/10'
-                    }`}>
-                      {alert.type === 'ticket' ? (
-                        <AlertCircle className={`w-5 h-5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />
-                      ) : (
-                        <Clock className={`w-5 h-5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-white font-medium text-sm">{alert.title}</h4>
-                        <span className="text-xs text-slate-400">{alert.time}</span>
-                      </div>
-                      <p className="text-slate-400 text-xs">{alert.description}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl">
+          <div className="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Critical Alerts</h2>
+            <Link to="/support" className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1">
+              View All
+            </Link>
           </div>
+          <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+            {criticalAlerts.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-2 text-green-500 opacity-50" />
+                No critical alerts
+              </div>
+            ) : (
+              criticalAlerts.map((alert, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    alert.severity === 'critical' ? 'bg-red-500/10' : 'bg-amber-500/10'
+                  }`}>
+                    {alert.type === 'ticket' ? (
+                      <AlertCircle className={`w-5 h-5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />
+                    ) : (
+                      <Clock className={`w-5 h-5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="text-white font-medium text-sm">{alert.title}</h4>
+                      <span className="text-xs text-slate-400">{alert.time}</span>
+                    </div>
+                    <p className="text-slate-400 text-xs">{alert.description}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl">
-            <div className="p-6 border-b border-slate-700">
-              <h2 className="text-lg font-semibold text-white">Compliance Overview</h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-teal-400 mb-1">
-                    {complianceOverview?.cliaCurrent || 0}
-                  </div>
-                  <div className="text-xs text-slate-400">CLIA Current</div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl">
+          <div className="p-6 border-b border-slate-700">
+            <h2 className="text-lg font-semibold text-white">Compliance Overview</h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-teal-400 mb-1">
+                  {complianceOverview?.cliaCurrent || 0}
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-amber-400 mb-1">
-                    {complianceOverview?.cliaExpiringSoon || 0}
-                  </div>
-                  <div className="text-xs text-slate-400">Expiring Soon</div>
+                <div className="text-xs text-slate-400">CLIA Current</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-amber-400 mb-1">
+                  {complianceOverview?.cliaExpiringSoon || 0}
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-teal-400 mb-1">
-                    {complianceOverview?.ptPassRate || 0}%
-                  </div>
-                  <div className="text-xs text-slate-400">PT Pass Rate</div>
+                <div className="text-xs text-slate-400">Expiring Soon</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-teal-400 mb-1">
+                  {complianceOverview?.ptPassRate || 0}%
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-red-400 mb-1">
-                    {complianceOverview?.openDeficiencies || 0}
-                  </div>
-                  <div className="text-xs text-slate-400">Open Deficiencies</div>
+                <div className="text-xs text-slate-400">PT Pass Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-red-400 mb-1">
+                  {complianceOverview?.openDeficiencies || 0}
                 </div>
+                <div className="text-xs text-slate-400">Open Deficiencies</div>
               </div>
             </div>
           </div>

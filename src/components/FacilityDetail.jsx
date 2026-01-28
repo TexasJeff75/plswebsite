@@ -7,6 +7,7 @@ import { facilityStatsService } from '../services/facilityStatsService';
 import { FileText, X, Check, Loader2 } from 'lucide-react';
 import TabContainer from './facility-tabs/TabContainer';
 import OverviewTab from './facility-tabs/OverviewTab';
+import LocationTab from './facility-tabs/LocationTab';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
 import PersonnelTab from './facility-tabs/PersonnelTab';
 import EquipmentTab from './facility-tabs/EquipmentTab';
@@ -119,7 +120,8 @@ export default function FacilityDetail() {
   const configLabel = facilityStatsService.getConfigurationLabel(facility.site_configuration);
 
   const tabs = [
-    { label: 'Overview', component: <OverviewTab facility={facility} isEditor={isEditor} /> },
+    { label: 'Overview', component: <OverviewTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
+    { label: 'Location', component: <LocationTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
     { label: 'Personnel', component: <PersonnelTab facility={facility} isEditor={isEditor} /> },
     { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
