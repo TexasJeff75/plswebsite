@@ -10,6 +10,8 @@ import Facilities from './components/Facilities';
 import FacilityDetail from './components/FacilityDetail';
 import DeploymentTrackerMap from './components/DeploymentTrackerMap';
 import Users from './components/Users';
+import Organizations from './components/Organizations';
+import OrganizationDetail from './components/OrganizationDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -82,6 +84,8 @@ function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="facilities" element={<Facilities />} />
                 <Route path="facilities/:id" element={<FacilityDetail />} />
+                <Route path="organizations" element={<Organizations />} />
+                <Route path="organizations/:id" element={<OrganizationDetail />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
                 <Route path="users" element={
                   <ProtectedRoute requireAdmin>
