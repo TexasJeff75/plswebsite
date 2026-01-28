@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supportService } from '../services/supportService';
 
 export default function Layout() {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
+
+  useEffect(() => {
+    loadTicketCount();
+  }, [location.pathname]);
+
+  async function loadTicketCount() {
+    try {
+      const stats = await supportService.getStats();
+      setOpenTicketsCount(stats.open);
+    } catch (error) {
+      console.error('Error loading ticket count:', error);
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut();
@@ -32,6 +47,11 @@ export default function Layout() {
     { path: '/facilities', label: 'Facilities', icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h4a1 1 0 011 1v5m-6 0h6"/>
+      </svg>
+    )},
+    { path: '/support', label: 'Support', badge: openTicketsCount, icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
       </svg>
     )},
   ];
@@ -78,6 +98,11 @@ export default function Layout() {
                   >
                     {item.icon}
                     <span>{item.label}</span>
+                    {item.badge > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>
