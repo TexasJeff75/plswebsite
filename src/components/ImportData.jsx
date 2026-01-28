@@ -23,8 +23,8 @@ const EQUIPMENT_DEVICES = [
   { name: 'Cepheid GeneXpert', type: 'molecular' }
 ];
 
-const REQUIRED_COLUMNS = ['name', 'address', 'city', 'state', 'zip'];
-const OPTIONAL_COLUMNS = ['latitude', 'longitude', 'region', 'status', 'projected_go_live', 'contact_name', 'contact_email', 'contact_phone', 'general_notes', 'county'];
+const REQUIRED_COLUMNS = ['name', 'address', 'city', 'state'];
+const OPTIONAL_COLUMNS = ['latitude', 'longitude', 'region', 'status', 'projected_go_live', 'general_notes', 'county'];
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(line => line.trim());
@@ -83,15 +83,11 @@ function generateTemplateCSV() {
     '123 Main Street',
     'Kansas City',
     'MO',
-    '64101',
     '39.0997',
     '-94.5786',
     'Kansas City Area',
-    'not_started',
+    'Planning',
     '2026-06-15',
-    'John Smith',
-    'john.smith@facility.com',
-    '555-123-4567',
     'Sample notes here',
     'Jackson'
   ];
@@ -365,17 +361,13 @@ export default function ImportData({ onImportComplete, onClose }) {
             address: getMappedValue(row, 'address'),
             city: getMappedValue(row, 'city'),
             state: getMappedValue(row, 'state'),
-            zip: getMappedValue(row, 'zip'),
             latitude: lat ? parseFloat(lat) : null,
             longitude: lng ? parseFloat(lng) : null,
             region: getMappedValue(row, 'region'),
             county: getMappedValue(row, 'county'),
-            status: getMappedValue(row, 'status') || 'Not Started',
+            status: getMappedValue(row, 'status') || 'Planning',
             projected_go_live: getMappedValue(row, 'projected_go_live') || null,
-            contact_name: getMappedValue(row, 'contact_name') || null,
-            contact_email: getMappedValue(row, 'contact_email') || null,
-            contact_phone: getMappedValue(row, 'contact_phone') || null,
-            general_notes: getMappedValue(row, 'general_notes') || null,
+            facility_notes: getMappedValue(row, 'general_notes') || null,
             organization_id: selectedOrganization || null
           };
 
