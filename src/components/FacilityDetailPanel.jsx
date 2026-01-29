@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { X, Edit2 } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
-
-const MILESTONE_STATUSES = ['not_started', 'in_progress', 'complete', 'blocked'];
-const EQUIPMENT_STATUSES = ['not_ordered', 'ordered', 'shipped', 'delivered', 'installed', 'validated'];
 
 export default function FacilityDetailPanel({ facility, onClose, onSave }) {
   const [milestones, setMilestones] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [notes, setNotes] = useState(facility.general_notes || '');
-  const [projectedGoLive, setProjectedGoLive] = useState(facility.projected_go_live || '');
 
   useEffect(() => {
     loadData();
@@ -99,57 +93,6 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
     }
   };
 
-  const handleMilestoneStatusChange = (milestoneId, newStatus) => {
-    const updated = milestones.map(m =>
-      m.id === milestoneId ? { ...m, status: newStatus } : m
-    );
-    setMilestones(updated);
-  };
-
-  const handleEquipmentStatusChange = (equipmentId, newStatus) => {
-    const updated = equipment.map(e =>
-      e.id === equipmentId ? { ...e, status: newStatus } : e
-    );
-    setEquipment(updated);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await facilitiesService.update(facility.id, {
-        general_notes: notes,
-        projected_go_live: projectedGoLive || null
-      });
-
-      for (const milestone of milestones) {
-        await facilitiesService.updateMilestone(milestone.id, {
-          status: milestone.status,
-          completion_date: milestone.completion_date,
-          notes: milestone.notes
-        });
-      }
-
-      for (const item of equipment) {
-        await facilitiesService.updateEquipment(item.id, {
-          status: item.status
-        });
-      }
-
-      setSaving(false);
-      setIsEditing(false);
-      onSave?.();
-    } catch (error) {
-      console.error('Error saving facility:', error);
-      setSaving(false);
-      alert('Failed to save changes: ' + error.message);
-    }
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    loadData();
-  };
-
   const completedCount = milestones.filter(m => m.status === 'complete').length;
   const totalMilestones = milestones.length;
 
@@ -208,38 +151,15 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
             ) : (
               milestones.map((milestone, idx) => (
                 <div key={milestone.id} className="bg-slate-800/50 rounded-lg p-3">
-                  {!isEditing ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {getStatusLight(milestone.status)}
-                        <span className="text-sm font-medium text-white">{idx + 1}. {milestone.name}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        {getStatusLabel(milestone.status)}
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {getStatusLight(milestone.status)}
+                      <span className="text-sm font-medium text-white">{idx + 1}. {milestone.name}</span>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {getStatusLight(milestone.status)}
-                        <span className="text-sm font-medium text-white">{idx + 1}. {milestone.name}</span>
-                      </div>
-                      <select
-                        value={milestone.status || 'not_started'}
-                        onChange={(e) => handleMilestoneStatusChange(milestone.id, e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      >
-                        {MILESTONE_STATUSES.map(status => (
-                          <option key={status} value={status}>
-                            {status === 'not_started' ? 'Not Started' :
-                             status === 'in_progress' ? 'In Progress' :
-                             status === 'complete' ? 'Complete' :
-                             status === 'blocked' ? 'Blocked' : status}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                    <span className="text-xs text-slate-400">
+                      {getStatusLabel(milestone.status)}
+                    </span>
+                  </div>
                 </div>
               ))
             )}
@@ -254,67 +174,22 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
             ) : (
               equipment.map(item => (
                 <div key={item.id} className="bg-slate-800/50 rounded-lg p-3">
-                  {!isEditing ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {getEquipmentStatusLight(item.status)}
-                        <span className="text-sm font-medium text-white">{item.name}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        {getEquipmentStatusLabel(item.status)}
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {getEquipmentStatusLight(item.status)}
+                      <span className="text-sm font-medium text-white">{item.name}</span>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {getEquipmentStatusLight(item.status)}
-                        <span className="text-sm font-medium text-white">{item.name}</span>
-                      </div>
-                      <select
-                        value={item.status || 'not_ordered'}
-                        onChange={(e) => handleEquipmentStatusChange(item.id, e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-950 border border-slate-600 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      >
-                        {EQUIPMENT_STATUSES.map(status => (
-                          <option key={status} value={status}>
-                            {getEquipmentStatusLabel(status)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                    <span className="text-xs text-slate-400">
+                      {getEquipmentStatusLabel(item.status)}
+                    </span>
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {isEditing && (
-          <>
-            <div>
-              <h3 className="text-sm font-semibold text-white mb-2">General Notes</h3>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about this facility..."
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                rows="4"
-              />
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-white mb-2">Projected Go-Live</h3>
-              <input
-                type="date"
-                value={projectedGoLive}
-                onChange={(e) => setProjectedGoLive(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-          </>
-        )}
-
-        {!isEditing && facility.projected_go_live && (
+        {facility.projected_go_live && (
           <div>
             <h3 className="text-sm font-semibold text-white mb-2">Projected Go-Live</h3>
             <div className="bg-slate-800/50 rounded-lg p-3">
@@ -325,40 +200,21 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
       </div>
 
       <div className="flex-none border-t border-slate-700 p-4 bg-slate-800/50">
-        {!isEditing ? (
-          <div className="flex gap-3">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium transition-colors"
-            >
-              <Edit2 className="w-4 h-4" />
-              Edit
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-3">
-            <button
-              onClick={handleCancel}
-              disabled={saving}
-              className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        )}
+        <div className="flex gap-3">
+          <Link
+            to={`/facilities/${facility.id}`}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit
+          </Link>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
       </div>
     </>
