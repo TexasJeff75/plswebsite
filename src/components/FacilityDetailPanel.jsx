@@ -155,9 +155,9 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-[2000]" onClick={onClose} />
       <div
-        className="fixed right-0 top-0 h-screen w-96 bg-slate-900 border-l border-slate-700 overflow-y-auto shadow-2xl z-50 flex flex-col"
+        className="fixed right-0 top-0 h-screen w-96 bg-slate-900 border-l border-slate-700 overflow-y-auto shadow-2xl z-[2010] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
       <div className="flex-none border-b border-slate-700 p-4">
