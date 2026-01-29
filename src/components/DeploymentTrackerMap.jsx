@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import MapLibreGL from 'maplibre-gl';
-import { Search, X, Upload, Maximize2, Minimize2, Eye, MapPin, Activity, Layers, Target, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import { Search, X, Upload, Maximize2, Minimize2, Eye, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import FacilityDetailPanel from './FacilityDetailPanel';
 import ImportData from './ImportData';
-import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MILESTONE_NAMES = [
   'Site Assessment',
@@ -27,11 +26,52 @@ const STATUS_CONFIG = {
   'blocked': { color: '#ef4444', label: 'Blocked', glow: 'rgba(239, 68, 68, 0.5)' }
 };
 
-const MAP_STYLES = [
-  { id: 'dark', name: 'Dark', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
-  { id: 'light', name: 'Light', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
-  { id: 'voyager', name: 'Voyager', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' }
-];
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const defaultCenter = {
+  lat: 38.5,
+  lng: -92.5
+};
+
+const mapOptions = {
+  disableDefaultUI: false,
+  zoomControl: false,
+  mapTypeControl: false,
+  scaleControl: true,
+  streetViewControl: false,
+  rotateControl: false,
+  fullscreenControl: false,
+  styles: [
+    {
+      featureType: 'all',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#ffffff' }]
+    },
+    {
+      featureType: 'all',
+      elementType: 'labels.text.stroke',
+      stylers: [{ visibility: 'on' }, { color: '#000000' }, { weight: 2 }]
+    },
+    {
+      featureType: 'all',
+      elementType: 'geometry',
+      stylers: [{ color: '#1e293b' }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: '#0f172a' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry',
+      stylers: [{ color: '#334155' }]
+    }
+  ]
+};
 
 function calculateFacilityStatus(milestones) {
   if (!milestones || milestones.length === 0) return 'not_started';
@@ -45,29 +85,36 @@ function calculateFacilityStatus(milestones) {
   return 'not_started';
 }
 
-export default function DeploymentTrackerMap() {
-  const mapContainer = useRef(null);
-  const map = useRef(null);
-  const markersRef = useRef(new Map());
-  const popupRef = useRef(null);
+function createMarkerIcon(color, isSelected) {
+  const size = isSelected ? 28 : 18;
+  const svg = `
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+    </svg>
+  `;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
 
+export default function DeploymentTrackerMap() {
   const [facilities, setFacilities] = useState([]);
   const [filteredFacilities, setFilteredFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
   const [hoveredFacility, setHoveredFacility] = useState(null);
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
-  const [showStylePicker, setShowStylePicker] = useState(false);
-  const [showClusters, setShowClusters] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [regionFilter, setRegionFilter] = useState('All Regions');
   const [regions, setRegions] = useState(DEFAULT_REGIONS);
+
+  const [map, setMap] = useState(null);
+  const [center, setCenter] = useState(defaultCenter);
+  const [zoom, setZoom] = useState(5);
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   const loadFacilities = async () => {
     try {
@@ -127,193 +174,34 @@ export default function DeploymentTrackerMap() {
     setFilteredFacilities(filtered);
   }, [facilities, searchQuery, statusFilter, regionFilter]);
 
-  useEffect(() => {
-    if (!mapContainer.current || map.current) return;
-
-    map.current = new MapLibreGL.Map({
-      container: mapContainer.current,
-      style: mapStyle,
-      center: [-92.5, 38.5],
-      zoom: 5.8,
-      minZoom: 3,
-      maxZoom: 18,
-      attributionControl: false
-    });
-
-    map.current.addControl(new MapLibreGL.AttributionControl({ compact: true }), 'bottom-right');
-
-    map.current.on('load', () => {
-      setMapLoaded(true);
-    });
-
-    map.current.on('click', () => {
-      if (popupRef.current) {
-        popupRef.current.remove();
-        popupRef.current = null;
-      }
-    });
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
+  const onLoad = useCallback((map) => {
+    setMap(map);
   }, []);
 
-  useEffect(() => {
-    if (!map.current) return;
-    map.current.setStyle(mapStyle);
-    map.current.once('style.load', () => {
-      renderMarkers();
-    });
-  }, [mapStyle]);
-
-  const createMarkerElement = useCallback((facility, isSelected) => {
-    const el = document.createElement('div');
-    el.className = 'facility-marker';
-
-    const color = STATUS_CONFIG[facility.status]?.color || '#6b7280';
-    const glow = STATUS_CONFIG[facility.status]?.glow || 'rgba(107, 114, 128, 0.5)';
-    const size = isSelected ? 28 : 18;
-
-    el.style.cssText = `
-      width: ${size}px;
-      height: ${size}px;
-      background-color: ${color};
-      border: 3px solid rgba(255, 255, 255, 0.95);
-      border-radius: 50%;
-      cursor: pointer;
-      transition: all 0.2s ease-in-out;
-      box-shadow: 0 0 0 2px ${glow}, 0 4px 12px rgba(0, 0, 0, 0.4);
-      ${facility.status === 'blocked' ? 'animation: pulse-marker 1.5s infinite;' : ''}
-    `;
-
-    el.addEventListener('mouseenter', () => {
-      if (!isSelected) {
-        el.style.transform = 'scale(1.3)';
-        el.style.boxShadow = `0 0 0 4px ${glow}, 0 6px 20px rgba(0, 0, 0, 0.5)`;
-      }
-      showTooltip(facility);
-    });
-
-    el.addEventListener('mouseleave', () => {
-      if (!isSelected) {
-        el.style.transform = 'scale(1)';
-        el.style.boxShadow = `0 0 0 2px ${glow}, 0 4px 12px rgba(0, 0, 0, 0.4)`;
-      }
-      hideTooltip();
-    });
-
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setSelectedFacility(facility);
-      setDetailPanelOpen(true);
-    });
-
-    return el;
+  const onUnmount = useCallback(() => {
+    setMap(null);
   }, []);
 
-  const showTooltip = useCallback((facility) => {
-    if (!map.current) return;
-
-    if (popupRef.current) {
-      popupRef.current.remove();
+  const handleMarkerClick = (facility) => {
+    setSelectedFacility(facility);
+    setDetailPanelOpen(true);
+    if (map && facility.latitude && facility.longitude) {
+      map.panTo({ lat: parseFloat(facility.latitude), lng: parseFloat(facility.longitude) });
+      map.setZoom(12);
     }
-
-    const statusConfig = STATUS_CONFIG[facility.status] || STATUS_CONFIG.not_started;
-    const progress = Math.round((facility.completedMilestones / facility.totalMilestones) * 100);
-
-    const popupContent = `
-      <div style="padding: 12px; min-width: 220px; font-family: system-ui, -apple-system, sans-serif;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <div style="width: 10px; height: 10px; background-color: ${statusConfig.color}; border-radius: 50%;"></div>
-          <h3 style="font-weight: 600; font-size: 14px; margin: 0; color: #1e293b;">${facility.name}</h3>
-        </div>
-        <p style="font-size: 12px; color: #64748b; margin: 0 0 8px 0;">
-          ${facility.city || 'Unknown'}, ${facility.state || 'Unknown'}
-        </p>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 11px; color: #94a3b8;">Status</span>
-          <span style="font-size: 11px; font-weight: 500; color: ${statusConfig.color};">${statusConfig.label}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 11px; color: #94a3b8;">Progress</span>
-          <span style="font-size: 11px; font-weight: 500; color: #475569;">${facility.completedMilestones}/${facility.totalMilestones} milestones</span>
-        </div>
-        <div style="background: #e2e8f0; height: 4px; border-radius: 2px; overflow: hidden;">
-          <div style="background: ${statusConfig.color}; height: 100%; width: ${progress}%; transition: width 0.3s;"></div>
-        </div>
-        <p style="font-size: 10px; color: #94a3b8; margin: 8px 0 0 0; text-align: center;">Click for details</p>
-      </div>
-    `;
-
-    popupRef.current = new MapLibreGL.Popup({
-      closeButton: false,
-      closeOnClick: false,
-      offset: 15,
-      className: 'facility-tooltip'
-    })
-      .setLngLat([facility.longitude, facility.latitude])
-      .setHTML(popupContent)
-      .addTo(map.current);
-
-    setHoveredFacility(facility);
-  }, []);
-
-  const hideTooltip = useCallback(() => {
-    if (popupRef.current) {
-      popupRef.current.remove();
-      popupRef.current = null;
-    }
-    setHoveredFacility(null);
-  }, []);
-
-  const renderMarkers = useCallback(() => {
-    if (!map.current || !mapLoaded) return;
-
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current.clear();
-
-    const facilitiesWithCoords = filteredFacilities.filter(f =>
-      f.latitude != null && f.longitude != null &&
-      !isNaN(parseFloat(f.latitude)) && !isNaN(parseFloat(f.longitude))
-    );
-
-    facilitiesWithCoords.forEach(facility => {
-      const isSelected = selectedFacility?.id === facility.id;
-      const el = createMarkerElement(facility, isSelected);
-
-      const marker = new MapLibreGL.Marker({ element: el, anchor: 'center' })
-        .setLngLat([parseFloat(facility.longitude), parseFloat(facility.latitude)])
-        .addTo(map.current);
-
-      markersRef.current.set(facility.id, marker);
-    });
-  }, [filteredFacilities, selectedFacility, mapLoaded, createMarkerElement]);
-
-  useEffect(() => {
-    if (mapLoaded) {
-      renderMarkers();
-    }
-  }, [filteredFacilities, selectedFacility, mapLoaded, renderMarkers]);
+  };
 
   const handleFacilitySelect = (facility) => {
     setSelectedFacility(facility);
     setDetailPanelOpen(true);
-
-    if (map.current && facility.latitude && facility.longitude) {
-      map.current.flyTo({
-        center: [parseFloat(facility.longitude), parseFloat(facility.latitude)],
-        zoom: 12,
-        duration: 1500,
-        essential: true
-      });
+    if (map && facility.latitude && facility.longitude) {
+      map.panTo({ lat: parseFloat(facility.latitude), lng: parseFloat(facility.longitude) });
+      map.setZoom(12);
     }
   };
 
   const fitBoundsToFacilities = useCallback(() => {
-    if (!map.current) return;
+    if (!map) return;
 
     const facilitiesWithCoords = filteredFacilities.filter(f =>
       f.latitude != null && f.longitude != null
@@ -322,51 +210,39 @@ export default function DeploymentTrackerMap() {
     if (facilitiesWithCoords.length === 0) return;
 
     if (facilitiesWithCoords.length === 1) {
-      map.current.flyTo({
-        center: [facilitiesWithCoords[0].longitude, facilitiesWithCoords[0].latitude],
-        zoom: 10,
-        duration: 1000
-      });
+      const facility = facilitiesWithCoords[0];
+      map.panTo({ lat: parseFloat(facility.latitude), lng: parseFloat(facility.longitude) });
+      map.setZoom(10);
       return;
     }
 
-    const bounds = new MapLibreGL.LngLatBounds();
+    const bounds = new window.google.maps.LatLngBounds();
     facilitiesWithCoords.forEach(f => {
-      bounds.extend([parseFloat(f.longitude), parseFloat(f.latitude)]);
+      bounds.extend({ lat: parseFloat(f.latitude), lng: parseFloat(f.longitude) });
     });
 
-    map.current.fitBounds(bounds, {
-      padding: { top: 50, bottom: 50, left: 420, right: 50 },
-      duration: 1000
-    });
-  }, [filteredFacilities]);
+    map.fitBounds(bounds, { left: 400, right: 50, top: 50, bottom: 50 });
+  }, [map, filteredFacilities]);
 
   const resetView = useCallback(() => {
-    if (!map.current) return;
-    map.current.flyTo({
-      center: [-92.5, 38.5],
-      zoom: 5.8,
-      duration: 1000
-    });
-  }, []);
+    if (!map) return;
+    map.panTo(defaultCenter);
+    map.setZoom(5);
+  }, [map]);
+
+  const handleZoomIn = useCallback(() => {
+    if (!map) return;
+    map.setZoom(map.getZoom() + 1);
+  }, [map]);
+
+  const handleZoomOut = useCallback(() => {
+    if (!map) return;
+    map.setZoom(map.getZoom() - 1);
+  }, [map]);
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      mapContainer.current?.parentElement?.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
+    setIsFullscreen(!isFullscreen);
   };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
 
   const statusCounts = {
     total: facilities.length,
@@ -378,41 +254,41 @@ export default function DeploymentTrackerMap() {
 
   const facilitiesOnMap = filteredFacilities.filter(f => f.latitude && f.longitude).length;
 
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <div className="text-center max-w-lg p-8 bg-slate-800 rounded-lg border border-slate-700">
+          <MapPin className="w-16 h-16 text-teal-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-4">Google Maps API Key Required</h2>
+          <p className="text-slate-400 mb-6">
+            To use the deployment tracker map, you need to add your Google Maps API key.
+          </p>
+          <div className="bg-slate-900 rounded-lg p-4 mb-6 text-left">
+            <h3 className="text-white font-semibold mb-3">Quick Setup:</h3>
+            <ol className="text-slate-300 text-sm space-y-2">
+              <li>1. Go to <a href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">Google Cloud Console</a></li>
+              <li>2. Enable the <strong>Maps JavaScript API</strong></li>
+              <li>3. Create an API key</li>
+              <li>4. Add to your <code className="bg-slate-950 px-2 py-1 rounded text-xs">.env</code> file:</li>
+            </ol>
+            <div className="mt-3 bg-slate-950 p-3 rounded text-xs text-teal-300 font-mono">
+              VITE_GOOGLE_MAPS_API_KEY=your_api_key_here
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            Google Maps offers $200/month free credit (covers ~28,000 map loads)
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`h-[calc(100vh-3.5rem)] flex flex-col bg-slate-950 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       <style>{`
         @keyframes pulse-marker {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        .facility-tooltip .maplibregl-popup-content {
-          background: white;
-          border-radius: 12px;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-          padding: 0;
-          border: 1px solid #e2e8f0;
-        }
-        .facility-tooltip .maplibregl-popup-tip {
-          border-top-color: white;
-        }
-        .maplibregl-ctrl-group {
-          background: rgba(15, 23, 42, 0.9) !important;
-          border: 1px solid rgba(71, 85, 105, 0.5) !important;
-          border-radius: 8px !important;
-          backdrop-filter: blur(8px);
-        }
-        .maplibregl-ctrl-group button {
-          background: transparent !important;
-          border: none !important;
-        }
-        .maplibregl-ctrl-group button + button {
-          border-top: 1px solid rgba(71, 85, 105, 0.3) !important;
-        }
-        .maplibregl-ctrl-group button:hover {
-          background: rgba(45, 212, 191, 0.1) !important;
-        }
-        .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
-          filter: invert(1);
         }
       `}</style>
 
@@ -609,10 +485,8 @@ export default function DeploymentTrackerMap() {
         </div>
 
         <div className="flex-1 relative bg-slate-950">
-          <div ref={mapContainer} className="absolute inset-0" />
-
-          {!mapLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-950 z-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-3 border-teal-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-slate-400">Loading map...</p>
@@ -620,16 +494,100 @@ export default function DeploymentTrackerMap() {
             </div>
           )}
 
+          <LoadScript googleMapsApiKey={apiKey}>
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={center}
+              zoom={zoom}
+              onLoad={onLoad}
+              onUnmount={onUnmount}
+              options={mapOptions}
+            >
+              {filteredFacilities.map(facility => {
+                if (!facility.latitude || !facility.longitude) return null;
+
+                const position = {
+                  lat: parseFloat(facility.latitude),
+                  lng: parseFloat(facility.longitude)
+                };
+
+                const color = STATUS_CONFIG[facility.status]?.color || '#6b7280';
+                const isSelected = selectedFacility?.id === facility.id;
+
+                return (
+                  <Marker
+                    key={facility.id}
+                    position={position}
+                    icon={{
+                      url: createMarkerIcon(color, isSelected),
+                      scaledSize: isSelected
+                        ? new window.google.maps.Size(28, 28)
+                        : new window.google.maps.Size(18, 18),
+                    }}
+                    onClick={() => handleMarkerClick(facility)}
+                    onMouseOver={() => setHoveredFacility(facility)}
+                    onMouseOut={() => setHoveredFacility(null)}
+                  />
+                );
+              })}
+
+              {hoveredFacility && hoveredFacility.latitude && hoveredFacility.longitude && (
+                <InfoWindow
+                  position={{
+                    lat: parseFloat(hoveredFacility.latitude),
+                    lng: parseFloat(hoveredFacility.longitude)
+                  }}
+                  onCloseClick={() => setHoveredFacility(null)}
+                >
+                  <div className="p-3 min-w-48">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: STATUS_CONFIG[hoveredFacility.status]?.color }}
+                      />
+                      <h3 className="font-semibold text-sm text-slate-900">{hoveredFacility.name}</h3>
+                    </div>
+                    <p className="text-xs text-slate-600 mb-2">
+                      {hoveredFacility.city}, {hoveredFacility.state}
+                    </p>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500">Status</span>
+                      <span className="font-medium" style={{ color: STATUS_CONFIG[hoveredFacility.status]?.color }}>
+                        {STATUS_CONFIG[hoveredFacility.status]?.label}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-slate-500">Progress</span>
+                      <span className="font-medium text-slate-700">
+                        {hoveredFacility.completedMilestones}/{hoveredFacility.totalMilestones}
+                      </span>
+                    </div>
+                    <div className="bg-slate-200 h-1 rounded-full overflow-hidden">
+                      <div
+                        className="h-full transition-all"
+                        style={{
+                          width: `${(hoveredFacility.completedMilestones / hoveredFacility.totalMilestones) * 100}%`,
+                          backgroundColor: STATUS_CONFIG[hoveredFacility.status]?.color
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 text-center">Click for details</p>
+                  </div>
+                </InfoWindow>
+              )}
+            </GoogleMap>
+          </LoadScript>
+
           <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
             <button
-              onClick={() => map.current?.zoomIn()}
+              onClick={handleZoomIn}
               className="p-2.5 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all shadow-lg"
               title="Zoom In"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
             <button
-              onClick={() => map.current?.zoomOut()}
+              onClick={handleZoomOut}
               className="p-2.5 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all shadow-lg"
               title="Zoom Out"
             >
@@ -658,43 +616,6 @@ export default function DeploymentTrackerMap() {
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
-          </div>
-
-          <div className="absolute top-4 right-4 z-10">
-            <div className="relative">
-              <button
-                onClick={() => setShowStylePicker(!showStylePicker)}
-                className="p-2.5 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
-              >
-                <Layers className="w-4 h-4" />
-                <span className="text-xs">Map Style</span>
-              </button>
-
-              {showStylePicker && (
-                <>
-                  <div className="fixed inset-0" onClick={() => setShowStylePicker(false)} />
-                  <div className="absolute right-0 mt-2 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl overflow-hidden">
-                    {MAP_STYLES.map(style => (
-                      <button
-                        key={style.id}
-                        onClick={() => {
-                          setMapStyle(style.url);
-                          setShowStylePicker(false);
-                        }}
-                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center gap-2 ${
-                          mapStyle === style.url
-                            ? 'bg-teal-500/20 text-teal-400'
-                            : 'text-slate-300 hover:bg-slate-800'
-                        }`}
-                      >
-                        {mapStyle === style.url && <span className="w-1.5 h-1.5 bg-teal-400 rounded-full" />}
-                        {style.name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
           </div>
 
           <div className="absolute bottom-6 right-4 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 z-10 shadow-xl">

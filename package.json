@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.93.1",
     "@tanstack/react-query": "^5.90.20",
     "@vitejs/plugin-react": "^5.1.2",
