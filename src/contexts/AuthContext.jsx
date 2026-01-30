@@ -108,6 +108,25 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const signInWithMicrosoft = async () => {
+    try {
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          scopes: 'email profile openid',
+          redirectTo: `${siteUrl}/tracker.html`
+        }
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error signing in with Microsoft:', error);
+      return { data: null, error };
+    }
+  };
+
   const signInWithPassword = async (email, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -146,6 +165,7 @@ export const AuthProvider = ({ children }) => {
     user,
     profile,
     loading,
+    signInWithMicrosoft,
     signInWithPassword,
     signOut,
     isAdmin: isProximityStaff || isCustomerAdmin,
