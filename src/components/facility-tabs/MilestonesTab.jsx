@@ -3,13 +3,14 @@ import { Flag, AlertTriangle, Plus, CheckCircle2, Clock, XCircle, Minus, Loader2
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
 
-const MILESTONE_CATEGORIES = ['regulatory', 'equipment', 'integration', 'training', 'go_live'];
+const MILESTONE_CATEGORIES = ['regulatory', 'equipment', 'integration', 'training', 'go_live', 'uncategorized'];
 const CATEGORY_LABELS = {
   regulatory: 'Regulatory',
   equipment: 'Equipment',
   integration: 'Integration',
   training: 'Training',
   go_live: 'Go-Live',
+  uncategorized: 'Other Milestones',
 };
 
 const STATUS_OPTIONS = [
@@ -139,7 +140,14 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
     }
   }
 
-  const milestonesByCategory = facilityStatsService.getMilestonesByCategory(milestones);
+  const baseMilestonesByCategory = facilityStatsService.getMilestonesByCategory(milestones);
+  const uncategorizedMilestones = milestones.filter(m =>
+    !m.category || !['regulatory', 'equipment', 'integration', 'training', 'go_live'].includes(m.category)
+  );
+  const milestonesByCategory = {
+    ...baseMilestonesByCategory,
+    uncategorized: uncategorizedMilestones,
+  };
   const hasAnyMilestones = milestones && milestones.length > 0;
 
   if (!hasAnyMilestones && !showAddForm) {
@@ -302,7 +310,9 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
 
       {MILESTONE_CATEGORIES.map(category => {
         const categoryMilestones = milestonesByCategory[category] || [];
-        const progress = facilityStatsService.getCategoryProgress(milestones, category);
+        const progress = category === 'uncategorized'
+          ? (categoryMilestones.length > 0 ? Math.round((categoryMilestones.filter(m => m.status === 'complete').length / categoryMilestones.length) * 100) : 0)
+          : facilityStatsService.getCategoryProgress(milestones, category);
 
         if (categoryMilestones.length === 0) return null;
 
