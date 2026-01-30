@@ -60,19 +60,19 @@
                 <div class="glass-luxury rounded-2xl p-8 mb-8">
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
                         <div class="flex flex-wrap gap-4">
-                            <button id="filterAll" class="filter-btn active px-6 py-2 rounded-lg font-medium transition-all">
+                            <button id="filterAll" class="filter-btn active bg-champagne text-midnight px-6 py-2 rounded-lg font-medium transition-all">
                                 All
                             </button>
-                            <button id="filterPending" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                            <button id="filterPending" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
                                 Pending
                             </button>
-                            <button id="filterInProgress" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                            <button id="filterInProgress" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
                                 In Progress
                             </button>
-                            <button id="filterCompleted" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                            <button id="filterCompleted" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
                                 Completed
                             </button>
-                            <button id="filterFailed" class="filter-btn px-6 py-2 rounded-lg font-medium transition-all">
+                            <button id="filterFailed" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
                                 Failed
                             </button>
                         </div>
@@ -122,10 +122,10 @@
 
                     <div id="deploymentsContainer" class="space-y-4">
                         <div class="text-center py-12">
-                            <svg class="w-16 h-16 mx-auto text-platinum/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-16 h-16 mx-auto text-champagne/50 mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
-                            <p class="text-platinum/50 text-lg">Loading deployments...</p>
+                            <p class="text-platinum/60 text-lg font-medium">Loading deployments...</p>
                         </div>
                     </div>
                 </div>
@@ -135,7 +135,7 @@
 
     <div id="deploymentModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass-luxury rounded-2xl w-full max-w-2xl relative p-8">
-            <button onclick="closeDeploymentModal()" class="absolute top-4 right-4 w-10 h-10 bg-champagne/20 text-platinum rounded-full flex items-center justify-center hover:bg-champagne/30 transition-colors">
+            <button onclick="closeDeploymentModal()" class="absolute top-4 right-4 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -145,20 +145,20 @@
 
             <form id="deploymentForm" class="space-y-6">
                 <div>
-                    <label for="projectName" class="block text-platinum/80 mb-2 font-medium">Project Name</label>
+                    <label for="projectName" class="block text-platinum mb-2 font-medium">Project Name</label>
                     <input type="text" id="projectName" name="projectName" required
                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="version" class="block text-platinum/80 mb-2 font-medium">Version</label>
+                        <label for="version" class="block text-platinum mb-2 font-medium">Version</label>
                         <input type="text" id="version" name="version" required placeholder="e.g., v1.2.3"
                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                     </div>
 
                     <div>
-                        <label for="environment" class="block text-platinum/80 mb-2 font-medium">Environment</label>
+                        <label for="environment" class="block text-platinum mb-2 font-medium">Environment</label>
                         <select id="environment" name="environment" required
                                 class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                             <option value="">Select Environment</option>
@@ -171,7 +171,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="status" class="block text-platinum/80 mb-2 font-medium">Status</label>
+                        <label for="status" class="block text-platinum mb-2 font-medium">Status</label>
                         <select id="status" name="status" required
                                 class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                             <option value="pending">Pending</option>
@@ -183,14 +183,14 @@
                     </div>
 
                     <div>
-                        <label for="deployedBy" class="block text-platinum/80 mb-2 font-medium">Deployed By</label>
+                        <label for="deployedBy" class="block text-platinum mb-2 font-medium">Deployed By</label>
                         <input type="text" id="deployedBy" name="deployedBy" required
                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                     </div>
                 </div>
 
                 <div>
-                    <label for="notes" class="block text-platinum/80 mb-2 font-medium">Notes (Optional)</label>
+                    <label for="notes" class="block text-platinum mb-2 font-medium">Notes (Optional)</label>
                     <textarea id="notes" name="notes" rows="4"
                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none resize-none"
                               placeholder="Additional deployment notes..."></textarea>

@@ -82,11 +82,11 @@ function renderDeployments() {
   if (filteredDeployments.length === 0) {
     container.innerHTML = `
       <div class="text-center py-12">
-        <svg class="w-16 h-16 mx-auto text-platinum/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-16 h-16 mx-auto text-champagne/40 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
         </svg>
-        <p class="text-platinum/50 text-lg">No deployments found</p>
-        <p class="text-platinum/30 mt-2">Add your first deployment to get started</p>
+        <p class="text-platinum/60 text-lg font-medium">No deployments found</p>
+        <p class="text-platinum/40 mt-2">Add your first deployment to get started</p>
       </div>
     `;
     return;
@@ -105,10 +105,10 @@ function renderDeployments() {
     });
 
     return `
-      <div class="glass-luxury champagne-glow p-6 rounded-xl border border-platinum/10 hover:border-champagne/30 transition-all">
+      <div class="glass-luxury champagne-glow p-6 rounded-xl border border-platinum/10 hover:border-champagne/40 transition-all duration-300">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="flex-1">
-            <div class="flex items-center gap-3 mb-2">
+            <div class="flex items-center gap-3 mb-2 flex-wrap">
               <h3 class="text-xl font-semibold text-platinum">${escapeHtml(deployment.project_name)}</h3>
               <span class="px-3 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color} border ${status.border}">
                 ${status.label}
@@ -142,10 +142,10 @@ function renderDeployments() {
             ` : ''}
           </div>
           <div class="flex gap-2">
-            <button onclick="editDeployment('${deployment.id}')" class="glass-luxury px-4 py-2 rounded-lg text-sm font-medium text-champagne hover:bg-champagne/10 transition-colors">
+            <button onclick="editDeployment('${deployment.id}')" class="glass-luxury px-4 py-2 rounded-lg text-sm font-medium text-champagne hover:bg-champagne/10 hover:border-champagne/50 transition-all">
               Edit
             </button>
-            <button onclick="deleteDeployment('${deployment.id}')" class="glass-luxury px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 transition-colors">
+            <button onclick="deleteDeployment('${deployment.id}')" class="glass-luxury px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-400/10 hover:border-red-400/50 transition-all">
               Delete
             </button>
           </div>
@@ -182,14 +182,12 @@ function setupFilterButtons() {
       currentFilter = filterValue;
 
       document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-        btn.classList.remove('bg-champagne', 'text-midnight');
+        btn.classList.remove('active', 'bg-champagne', 'text-midnight');
         btn.classList.add('glass-luxury', 'text-platinum/70');
       });
 
-      button.classList.add('active');
+      button.classList.add('active', 'bg-champagne', 'text-midnight');
       button.classList.remove('glass-luxury', 'text-platinum/70');
-      button.classList.add('bg-champagne', 'text-midnight');
 
       renderDeployments();
     });
@@ -326,10 +324,28 @@ function showError(message) {
 
 function showNotification(message, type) {
   const notification = document.createElement('div');
-  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
 
-  notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
-  notification.textContent = message;
+  if (type === 'success') {
+    notification.className = 'fixed top-4 right-4 glass-luxury border-2 border-champagne text-platinum px-6 py-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full';
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <svg class="w-5 h-5 text-champagne" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>${escapeHtml(message)}</span>
+      </div>
+    `;
+  } else {
+    notification.className = 'fixed top-4 right-4 glass-luxury border-2 border-red-400 text-platinum px-6 py-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full';
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>${escapeHtml(message)}</span>
+      </div>
+    `;
+  }
 
   document.body.appendChild(notification);
 
