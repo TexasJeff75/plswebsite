@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, X, Upload, Maximize2, Minimize2, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw, Cloud } from 'lucide-react';
+import { Search, X, Upload, Maximize2, Minimize2, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw, Cloud, CloudRain } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { weatherService } from '../services/weatherService';
 import FacilityDetailPanel from './FacilityDetailPanel';
@@ -78,7 +78,61 @@ function MapController({ center, zoom, fitBounds }) {
   return null;
 }
 
-function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, isFullscreen, onWeatherToggle, weatherEnabled }) {
+function RadarLayer({ enabled, opacity }) {
+  const map = useMap();
+  const radarLayerRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const fetchRadarTimestamps = async () => {
+      try {
+        const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error fetching radar timestamps:', error);
+        return null;
+      }
+    };
+
+    const updateRadar = async () => {
+      if (radarLayerRef.current) {
+        map.removeLayer(radarLayerRef.current);
+        radarLayerRef.current = null;
+      }
+
+      if (enabled) {
+        const data = await fetchRadarTimestamps();
+        if (data && data.radar && data.radar.past.length > 0) {
+          const latestTimestamp = data.radar.past[data.radar.past.length - 1].time;
+          const radarUrl = `https://tilecache.rainviewer.com/v2/radar/${latestTimestamp}/256/{z}/{x}/{y}/6/1_1.png`;
+
+          radarLayerRef.current = L.tileLayer(radarUrl, {
+            opacity: opacity,
+            zIndex: 500,
+            attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+          });
+
+          radarLayerRef.current.addTo(map);
+        }
+      }
+    };
+
+    updateRadar();
+
+    return () => {
+      if (radarLayerRef.current) {
+        map.removeLayer(radarLayerRef.current);
+        radarLayerRef.current = null;
+      }
+    };
+  }, [map, enabled, opacity]);
+
+  return null;
+}
+
+function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, isFullscreen, onWeatherToggle, weatherEnabled, onRadarToggle, radarEnabled }) {
   return (
     <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
       <button
@@ -121,6 +175,17 @@ function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, 
         title={weatherEnabled ? 'Hide Weather' : 'Show Weather'}
       >
         <Cloud className="w-4 h-4" />
+      </button>
+      <button
+        onClick={onRadarToggle}
+        className={`p-2.5 backdrop-blur-sm border rounded-lg transition-all shadow-lg ${
+          radarEnabled
+            ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 hover:bg-blue-500/30'
+            : 'bg-slate-900/90 border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-800'
+        }`}
+        title={radarEnabled ? 'Hide Radar' : 'Show Radar'}
+      >
+        <CloudRain className="w-4 h-4" />
       </button>
       <button
         onClick={onFullscreen}
@@ -186,6 +251,9 @@ export default function DeploymentTrackerMap() {
   const [weatherData, setWeatherData] = useState({});
   const [loadingWeather, setLoadingWeather] = useState(false);
 
+  const [radarEnabled, setRadarEnabled] = useState(false);
+  const [radarOpacity, setRadarOpacity] = useState(0.6);
+
   const loadFacilities = async () => {
     try {
       setLoading(true);
@@ -239,6 +307,10 @@ export default function DeploymentTrackerMap() {
     setWeatherEnabled(!weatherEnabled);
   };
 
+  const toggleRadar = () => {
+    setRadarEnabled(!radarEnabled);
+  };
+
   useEffect(() => {
     let filtered = facilities;
 
@@ -266,12 +338,27 @@ export default function DeploymentTrackerMap() {
     setFilteredFacilities(filtered);
   }, [facilities, searchQuery, statusFilter, regionFilter]);
 
-  const handleFacilitySelect = (facility) => {
+  const handleFacilitySelect = async (facility) => {
     setSelectedFacility(facility);
     setDetailPanelOpen(true);
     if (facility.latitude && facility.longitude) {
       setFitBounds([[parseFloat(facility.latitude), parseFloat(facility.longitude)]]);
       setMapKey(prev => prev + 1);
+
+      if (weatherEnabled && !weatherData[facility.id]) {
+        try {
+          const weather = await weatherService.getWeatherForLocation(
+            parseFloat(facility.latitude),
+            parseFloat(facility.longitude)
+          );
+          setWeatherData(prev => ({
+            ...prev,
+            [facility.id]: weather
+          }));
+        } catch (error) {
+          console.error('Error loading weather for facility:', error);
+        }
+      }
     }
   };
 
@@ -574,6 +661,8 @@ export default function DeploymentTrackerMap() {
                 onReset={handleReset}
               />
 
+              <RadarLayer enabled={radarEnabled} opacity={radarOpacity} />
+
               {filteredFacilities.map(facility => {
                 if (!facility.latitude || !facility.longitude) return null;
 
@@ -681,6 +770,8 @@ export default function DeploymentTrackerMap() {
             isFullscreen={isFullscreen}
             onWeatherToggle={toggleWeather}
             weatherEnabled={weatherEnabled}
+            onRadarToggle={toggleRadar}
+            radarEnabled={radarEnabled}
           />
 
           <div className="absolute bottom-6 right-4 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 z-[1000] shadow-xl">
@@ -699,14 +790,38 @@ export default function DeploymentTrackerMap() {
                 </div>
               ))}
             </div>
-            {weatherEnabled && (
-              <div className="mt-3 pt-3 border-t border-slate-700/50">
-                <div className="flex items-center gap-2">
-                  <Cloud className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-sky-400 text-xs font-medium">Weather Enabled</span>
-                </div>
-                {loadingWeather && (
-                  <p className="text-[10px] text-slate-500 mt-1">Loading weather...</p>
+            {(weatherEnabled || radarEnabled) && (
+              <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
+                {weatherEnabled && (
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-sky-400 text-xs font-medium">Weather Enabled</span>
+                    {loadingWeather && (
+                      <span className="text-[10px] text-slate-500">(Loading...)</span>
+                    )}
+                  </div>
+                )}
+                {radarEnabled && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CloudRain className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-blue-400 text-xs font-medium">Radar Active</span>
+                    </div>
+                    <div className="pl-5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-slate-400">Opacity</span>
+                        <span className="text-[10px] text-slate-300">{Math.round(radarOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={radarOpacity * 100}
+                        onChange={(e) => setRadarOpacity(e.target.value / 100)}
+                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             )}
