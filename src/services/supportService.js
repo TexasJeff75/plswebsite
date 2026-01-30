@@ -4,11 +4,7 @@ export const supportService = {
   async getTickets(filters = {}) {
     let query = supabase
       .from('support_tickets')
-      .select(`
-        *,
-        organization:organizations(id, name),
-        site:facilities(id, name, city, state)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (filters.status && filters.status !== 'all') {
@@ -34,7 +30,40 @@ export const supportService = {
     const { data, error } = await query;
 
     if (error) throw error;
-    return data || [];
+
+    if (!data || data.length === 0) return [];
+
+    // Get unique organization and site IDs
+    const orgIds = [...new Set(data.filter(t => t.organization_id).map(t => t.organization_id))];
+    const siteIds = [...new Set(data.filter(t => t.site_id).map(t => t.site_id))];
+
+    // Fetch organizations and sites in parallel
+    const [orgsResult, sitesResult] = await Promise.all([
+      orgIds.length > 0
+        ? supabase.from('organizations').select('id, name').in('id', orgIds)
+        : Promise.resolve({ data: [] }),
+      siteIds.length > 0
+        ? supabase.from('facilities').select('id, name, city, state').in('id', siteIds)
+        : Promise.resolve({ data: [] })
+    ]);
+
+    // Create lookup maps
+    const orgMap = (orgsResult.data || []).reduce((acc, org) => {
+      acc[org.id] = org;
+      return acc;
+    }, {});
+
+    const siteMap = (sitesResult.data || []).reduce((acc, site) => {
+      acc[site.id] = site;
+      return acc;
+    }, {});
+
+    // Attach organization and site data to tickets
+    return data.map(ticket => ({
+      ...ticket,
+      organization: ticket.organization_id ? orgMap[ticket.organization_id] : null,
+      site: ticket.site_id ? siteMap[ticket.site_id] : null
+    }));
   },
 
   async getTicketById(id) {
@@ -48,8 +77,6 @@ export const supportService = {
       console.error('Error fetching ticket:', error);
       throw error;
     }
-
-    console.log('Ticket data:', data);
 
     if (!data) return null;
 
@@ -95,14 +122,35 @@ export const supportService = {
   async getTicketMessages(ticketId) {
     const { data, error } = await supabase
       .from('ticket_messages')
-      .select(`
-        *,
-        user:user_id(id, email, raw_user_meta_data)
-      `)
+      .select('*')
       .eq('ticket_id', ticketId)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching ticket messages:', error);
+      throw error;
+    }
+
+    // Manually fetch user data for each message
+    if (data && data.length > 0) {
+      const userIds = [...new Set(data.map(m => m.user_id))];
+      const { data: usersData } = await supabase
+        .from('user_roles')
+        .select('user_id, display_name, email')
+        .in('user_id', userIds);
+
+      // Map user data to messages
+      const userMap = (usersData || []).reduce((acc, user) => {
+        acc[user.user_id] = user;
+        return acc;
+      }, {});
+
+      return data.map(msg => ({
+        ...msg,
+        user: userMap[msg.user_id] || null
+      }));
+    }
+
     return data || [];
   },
 

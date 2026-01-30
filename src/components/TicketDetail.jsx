@@ -25,8 +25,13 @@ export default function TicketDetail() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    if (!user) {
+      console.error('No user found when loading ticket');
+      navigate('/login');
+      return;
+    }
     loadTicket();
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -40,6 +45,8 @@ export default function TicketDetail() {
 
   async function loadTicket() {
     try {
+      console.log('Loading ticket with ID:', id);
+
       const [ticketData, messagesData, staffData, orgsData] = await Promise.all([
         supportService.getTicketById(id),
         supportService.getTicketMessages(id),
@@ -47,12 +54,18 @@ export default function TicketDetail() {
         organizationsService.getAll()
       ]);
 
+      console.log('Ticket data loaded:', ticketData);
+      console.log('Messages loaded:', messagesData?.length, 'messages');
+      console.log('Staff loaded:', staffData?.length, 'staff');
+      console.log('Organizations loaded:', orgsData?.length, 'orgs');
+
       setTicket(ticketData);
-      setMessages(messagesData);
-      setStaffUsers(staffData);
-      setOrganizations(orgsData);
+      setMessages(messagesData || []);
+      setStaffUsers(staffData || []);
+      setOrganizations(orgsData || []);
     } catch (error) {
       console.error('Error loading ticket:', error);
+      alert(`Error loading ticket: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -150,18 +163,22 @@ export default function TicketDetail() {
     );
   }
 
-  if (!ticket) {
+  if (!ticket && !loading) {
     return (
       <div className="text-center py-12">
-        <p className="text-slate-400">Ticket not found</p>
+        <p className="text-slate-400">Ticket not found or you don't have access to view it</p>
         <button
           onClick={() => navigate('/support')}
-          className="mt-4 text-teal-400 hover:text-teal-300"
+          className="mt-4 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors"
         >
           Back to Tickets
         </button>
       </div>
     );
+  }
+
+  if (!ticket) {
+    return null;
   }
 
   const priorityBadge = getPriorityBadge(ticket.priority);
@@ -211,7 +228,7 @@ export default function TicketDetail() {
               ) : (
                 messages.map(message => {
                   const isCurrentUser = message.user_id === user?.id;
-                  const userName = message.user?.raw_user_meta_data?.display_name ||
+                  const userName = message.user?.display_name ||
                                    message.user?.email?.split('@')[0] || 'Unknown';
 
                   return (
