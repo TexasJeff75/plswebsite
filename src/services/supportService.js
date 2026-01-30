@@ -204,20 +204,31 @@ export const supportService = {
         message,
         is_internal: isInternal
       })
-      .select(`
-        *,
-        user:user_id(id, email, raw_user_meta_data)
-      `)
+      .select('*')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error adding message:', error);
+      throw error;
+    }
 
+    // Fetch user data separately from user_roles
+    const { data: userData } = await supabase
+      .from('user_roles')
+      .select('user_id, display_name, email')
+      .eq('user_id', user.id)
+      .single();
+
+    // Update ticket timestamp
     await supabase
       .from('support_tickets')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', ticketId);
 
-    return data;
+    return {
+      ...data,
+      user: userData || null
+    };
   },
 
   async generateTicketNumber() {

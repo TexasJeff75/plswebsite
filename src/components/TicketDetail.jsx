@@ -90,11 +90,15 @@ export default function TicketDetail() {
 
     setSending(true);
     try {
+      console.log('Sending message:', newMessage.trim());
       const message = await supportService.addMessage(id, newMessage.trim());
+      console.log('Message sent successfully:', message);
       setMessages(prev => [...prev, message]);
       setNewMessage('');
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Error sending message:', error);
+      alert(`Failed to send message: ${error.message}`);
     } finally {
       setSending(false);
     }
@@ -227,9 +231,12 @@ export default function TicketDetail() {
                 </div>
               ) : (
                 messages.map(message => {
+                  if (!message || !message.id) return null;
+
                   const isCurrentUser = message.user_id === user?.id;
                   const userName = message.user?.display_name ||
-                                   message.user?.email?.split('@')[0] || 'Unknown';
+                                   (message.user?.email ? message.user.email.split('@')[0] : null) ||
+                                   'Unknown User';
 
                   return (
                     <div
