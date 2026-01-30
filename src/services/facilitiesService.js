@@ -201,5 +201,53 @@ export const facilitiesService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async uploadEquipmentImage(facilityId, equipmentId, file) {
+    const storagePath = `${facilityId}/${equipmentId}_${Date.now()}_${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('equipment-images')
+      .upload(storagePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data, error } = await supabase
+      .from('equipment')
+      .update({ image_storage_path: storagePath })
+      .eq('id', equipmentId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getEquipmentImageUrl(storagePath) {
+    if (!storagePath) return null;
+
+    const { data } = await supabase.storage
+      .from('equipment-images')
+      .createSignedUrl(storagePath, 3600);
+
+    return data?.signedUrl || null;
+  },
+
+  async deleteEquipmentImage(equipmentId, storagePath) {
+    if (storagePath) {
+      await supabase.storage
+        .from('equipment-images')
+        .remove([storagePath]);
+    }
+
+    const { data, error } = await supabase
+      .from('equipment')
+      .update({ image_storage_path: null })
+      .eq('id', equipmentId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 };

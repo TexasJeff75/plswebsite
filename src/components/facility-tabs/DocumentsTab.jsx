@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Download, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, Download, Trash2, AlertTriangle, Upload, X, Image, File, Eye } from 'lucide-react';
 import { documentService } from '../../services/documentService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -29,8 +29,10 @@ export default function DocumentsTab({ facility, isEditor }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
   const [selectedType, setSelectedType] = useState('other');
   const [expirationDate, setExpirationDate] = useState('');
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   useEffect(() => {
     loadDocuments();
@@ -48,6 +50,57 @@ export default function DocumentsTab({ facility, isEditor }) {
     }
   }
 
+  function handleFileSelect(file) {
+    if (!file) {
+      setSelectedFile(null);
+      setFilePreview(null);
+      return;
+    }
+
+    setSelectedFile(file);
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFilePreview({
+          type: 'image',
+          url: e.target.result,
+          name: file.name,
+          size: formatFileSize(file.size),
+          mimeType: file.type
+        });
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      setFilePreview({
+        type: 'pdf',
+        name: file.name,
+        size: formatFileSize(file.size),
+        mimeType: file.type
+      });
+    } else {
+      setFilePreview({
+        type: 'file',
+        name: file.name,
+        size: formatFileSize(file.size),
+        mimeType: file.type
+      });
+    }
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function clearFileSelection() {
+    setSelectedFile(null);
+    setFilePreview(null);
+  }
+
   async function handleUpload(e) {
     e.preventDefault();
     if (!selectedFile) return;
@@ -61,6 +114,7 @@ export default function DocumentsTab({ facility, isEditor }) {
       });
       setDocuments([doc, ...documents]);
       setSelectedFile(null);
+      setFilePreview(null);
       setSelectedType('other');
       setExpirationDate('');
     } catch (error) {
@@ -115,19 +169,72 @@ export default function DocumentsTab({ facility, isEditor }) {
 
             <div>
               <label className="text-slate-400 text-sm mb-2 block">File</label>
-              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-teal-500 transition-colors">
-                <input
-                  type="file"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0])}
-                  disabled={uploading}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <p className="text-slate-300 font-semibold">Click to upload or drag and drop</p>
-                  <p className="text-slate-500 text-sm mt-1">{selectedFile?.name || 'No file selected'}</p>
-                </label>
-              </div>
+              {!filePreview ? (
+                <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-teal-500 transition-colors">
+                  <input
+                    type="file"
+                    onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                    disabled={uploading}
+                    className="hidden"
+                    id="file-upload"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.gif"
+                  />
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <Upload className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+                    <p className="text-slate-300 font-semibold">Click to upload or drag and drop</p>
+                    <p className="text-slate-500 text-sm mt-1">PDF, Word, Excel, Images up to 50MB</p>
+                  </label>
+                </div>
+              ) : (
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-700/50">
+                  <div className="flex gap-4">
+                    {filePreview.type === 'image' ? (
+                      <div className="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
+                        <img
+                          src={filePreview.url}
+                          alt={filePreview.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-32 h-32 rounded-lg flex-shrink-0 bg-slate-800 flex items-center justify-center">
+                        {filePreview.type === 'pdf' ? (
+                          <div className="text-center">
+                            <FileText className="w-12 h-12 text-red-400 mx-auto" />
+                            <span className="text-xs text-red-400 font-semibold mt-1 block">PDF</span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <File className="w-12 h-12 text-slate-400 mx-auto" />
+                            <span className="text-xs text-slate-400 font-semibold mt-1 block">
+                              {filePreview.name.split('.').pop()?.toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h5 className="text-white font-semibold truncate mb-2">{filePreview.name}</h5>
+                      <div className="space-y-1 text-sm">
+                        <p className="text-slate-400">
+                          <span className="text-slate-500">Size:</span> {filePreview.size}
+                        </p>
+                        <p className="text-slate-400">
+                          <span className="text-slate-500">Type:</span> {filePreview.mimeType}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearFileSelection}
+                        className="mt-3 flex items-center gap-1 text-red-400 hover:text-red-300 text-sm transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Remove file
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -195,56 +302,130 @@ export default function DocumentsTab({ facility, isEditor }) {
         {documents.length === 0 ? (
           <p className="text-slate-400 text-center py-8">No documents uploaded yet</p>
         ) : (
-          <div className="space-y-2">
-            {documents.map(doc => (
-              <div
-                key={doc.id}
-                className="bg-slate-700 p-4 rounded flex justify-between items-start gap-4 hover:bg-slate-600 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="w-4 h-4 text-teal-400 flex-shrink-0" />
-                    <h5 className="text-white font-semibold truncate">{doc.name}</h5>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                    <span className="bg-slate-600 px-2 py-1 rounded">
-                      {TYPE_LABELS[doc.type] || doc.type}
-                    </span>
-                    <span>Uploaded: {new Date(doc.created_at).toLocaleDateString()}</span>
-                    {doc.expiration_date && (
-                      <span className={doc.expiration_date && new Date(doc.expiration_date) < new Date() ? 'text-red-400' : 'text-slate-400'}>
-                        Expires: {new Date(doc.expiration_date).toLocaleDateString()}
-                      </span>
+          <div className="grid gap-3">
+            {documents.map(doc => {
+              const isImage = doc.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+              const isPdf = doc.name?.match(/\.pdf$/i);
+
+              return (
+                <div
+                  key={doc.id}
+                  className="bg-slate-700 p-4 rounded-lg hover:bg-slate-600/80 transition-colors"
+                >
+                  <div className="flex gap-4">
+                    {isImage && doc.url ? (
+                      <div
+                        className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 cursor-pointer"
+                        onClick={() => setPreviewDoc(doc)}
+                      >
+                        <img
+                          src={doc.url}
+                          alt={doc.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-slate-800 flex items-center justify-center">
+                        {isPdf ? (
+                          <div className="text-center">
+                            <FileText className="w-8 h-8 text-red-400 mx-auto" />
+                            <span className="text-xs text-red-400 font-semibold">PDF</span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <File className="w-8 h-8 text-slate-400 mx-auto" />
+                            <span className="text-xs text-slate-400 font-semibold">
+                              {doc.name?.split('.').pop()?.toUpperCase() || 'FILE'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <h5 className="text-white font-semibold truncate mb-1">{doc.name}</h5>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="bg-slate-600 px-2 py-1 rounded text-slate-300">
+                          {TYPE_LABELS[doc.type] || doc.type}
+                        </span>
+                        <span className="text-slate-400 py-1">
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </span>
+                        {doc.expiration_date && (
+                          <span className={`py-1 ${new Date(doc.expiration_date) < new Date() ? 'text-red-400' : 'text-slate-400'}`}>
+                            Expires: {new Date(doc.expiration_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0 items-start">
+                      {isImage && doc.url && (
+                        <button
+                          onClick={() => setPreviewDoc(doc)}
+                          className="text-slate-400 hover:text-white transition-colors"
+                          title="Preview"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      )}
+                      {doc.url && (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-teal-400 hover:text-teal-300 transition-colors"
+                          title="Download"
+                        >
+                          <Download className="w-5 h-5" />
+                        </a>
+                      )}
+                      {isEditor && (
+                        <button
+                          onClick={() => handleDelete(doc.id, doc.storage_path)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  {doc.url && (
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-teal-400 hover:text-teal-300 transition-colors"
-                      title="Download"
-                    >
-                      <Download className="w-5 h-5" />
-                    </a>
-                  )}
-                  {isEditor && (
-                    <button
-                      onClick={() => handleDelete(doc.id, doc.storage_path)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setPreviewDoc(null)}
+              className="absolute -top-12 right-0 text-white hover:text-slate-300 transition-colors"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <div className="bg-slate-800 rounded-lg overflow-hidden">
+              <img
+                src={previewDoc.url}
+                alt={previewDoc.name}
+                className="w-full h-auto max-h-[80vh] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="p-4 border-t border-slate-700">
+                <h5 className="text-white font-semibold">{previewDoc.name}</h5>
+                <p className="text-slate-400 text-sm mt-1">
+                  {TYPE_LABELS[previewDoc.type] || previewDoc.type} - Uploaded {new Date(previewDoc.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

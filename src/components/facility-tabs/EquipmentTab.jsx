@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, CheckCircle2, AlertCircle, Save, Loader2 } from 'lucide-react';
+import { Package, CheckCircle2, AlertCircle, Save, Loader2, Camera, X, Image, Eye } from 'lucide-react';
 import { facilitiesService } from '../../services/facilitiesService';
 
 const EQUIPMENT_TYPES = [
@@ -25,6 +25,9 @@ export default function EquipmentTab({ facility, isEditor, onUpdate }) {
   const [editedEquipment, setEditedEquipment] = useState({});
   const [savingIds, setSavingIds] = useState(new Set());
   const [saveSuccess, setSaveSuccess] = useState(new Set());
+  const [equipmentImages, setEquipmentImages] = useState({});
+  const [uploadingImage, setUploadingImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     if (facility?.equipment) {
@@ -34,8 +37,81 @@ export default function EquipmentTab({ facility, isEditor, onUpdate }) {
         initial[eq.equipment_type] = { ...eq };
       });
       setEditedEquipment(initial);
+      loadEquipmentImages(facility.equipment);
     }
   }, [facility?.equipment]);
+
+  async function loadEquipmentImages(equipmentList) {
+    const images = {};
+    for (const eq of equipmentList) {
+      if (eq.image_storage_path) {
+        const url = await facilitiesService.getEquipmentImageUrl(eq.image_storage_path);
+        if (url) {
+          images[eq.id] = url;
+        }
+      }
+    }
+    setEquipmentImages(images);
+  }
+
+  async function handleImageUpload(equipmentType, file) {
+    const existingEquipment = equipment.find(e => e.equipment_type === equipmentType);
+    if (!existingEquipment?.id) {
+      alert('Please save the equipment first before uploading an image.');
+      return;
+    }
+
+    try {
+      setUploadingImage(equipmentType);
+      const updated = await facilitiesService.uploadEquipmentImage(
+        facility.id,
+        existingEquipment.id,
+        file
+      );
+
+      setEquipment(prev => prev.map(e =>
+        e.id === existingEquipment.id ? updated : e
+      ));
+
+      const imageUrl = await facilitiesService.getEquipmentImageUrl(updated.image_storage_path);
+      setEquipmentImages(prev => ({ ...prev, [existingEquipment.id]: imageUrl }));
+
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(null);
+    }
+  }
+
+  async function handleDeleteImage(equipmentType) {
+    const existingEquipment = equipment.find(e => e.equipment_type === equipmentType);
+    if (!existingEquipment?.id || !existingEquipment.image_storage_path) return;
+
+    if (!window.confirm('Are you sure you want to remove this image?')) return;
+
+    try {
+      const updated = await facilitiesService.deleteEquipmentImage(
+        existingEquipment.id,
+        existingEquipment.image_storage_path
+      );
+
+      setEquipment(prev => prev.map(e =>
+        e.id === existingEquipment.id ? updated : e
+      ));
+
+      setEquipmentImages(prev => {
+        const newImages = { ...prev };
+        delete newImages[existingEquipment.id];
+        return newImages;
+      });
+
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    }
+  }
 
   const getStatusColor = (status) => {
     const colors = {
@@ -390,6 +466,106 @@ export default function EquipmentTab({ facility, isEditor, onUpdate }) {
               )}
             </div>
 
+            {/* Equipment Photo */}
+            <div className="bg-slate-700 rounded p-4 space-y-3">
+              <h5 className="text-slate-300 font-semibold text-sm flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                Equipment Photo
+              </h5>
+              {(() => {
+                const existingEquipment = equipment.find(e => e.equipment_type === type.id);
+                const imageUrl = existingEquipment?.id ? equipmentImages[existingEquipment.id] : null;
+
+                return (
+                  <div className="flex gap-4">
+                    {imageUrl ? (
+                      <div className="relative group">
+                        <div
+                          className="w-40 h-40 rounded-lg overflow-hidden bg-slate-800 cursor-pointer"
+                          onClick={() => setPreviewImage({ url: imageUrl, name: type.name })}
+                        >
+                          <img
+                            src={imageUrl}
+                            alt={`${type.name} equipment`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setPreviewImage({ url: imageUrl, name: type.name })}
+                            className="p-2 bg-slate-700 rounded-full text-white hover:bg-slate-600 transition-colors"
+                            title="View full size"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          {isEditor && (
+                            <button
+                              onClick={() => handleDeleteImage(type.id)}
+                              className="p-2 bg-red-700 rounded-full text-white hover:bg-red-600 transition-colors"
+                              title="Remove image"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-40 h-40 rounded-lg bg-slate-800 flex items-center justify-center">
+                        <Image className="w-12 h-12 text-slate-600" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-slate-400 text-sm mb-3">
+                        {imageUrl
+                          ? 'Photo of the installed equipment at this facility.'
+                          : 'Upload a photo of the installed equipment to document the deployment.'}
+                      </p>
+                      {isEditor && (
+                        <div>
+                          <input
+                            type="file"
+                            id={`equipment-image-${type.id}`}
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(type.id, file);
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor={`equipment-image-${type.id}`}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                              uploadingImage === type.id
+                                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                                : 'bg-teal-600 hover:bg-teal-700 text-white'
+                            }`}
+                          >
+                            {uploadingImage === type.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Camera className="w-4 h-4" />
+                                {imageUrl ? 'Replace Photo' : 'Upload Photo'}
+                              </>
+                            )}
+                          </label>
+                          {!existingEquipment?.id && (
+                            <p className="text-amber-400 text-xs mt-2">
+                              Save equipment first to enable photo upload
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Notes */}
             <div>
               <label className="text-slate-400 text-sm mb-2 block">Notes</label>
@@ -405,6 +581,35 @@ export default function EquipmentTab({ facility, isEditor, onUpdate }) {
           </div>
         );
       })}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 text-white hover:text-slate-300 transition-colors"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <div className="bg-slate-800 rounded-lg overflow-hidden">
+              <img
+                src={previewImage.url}
+                alt={previewImage.name}
+                className="w-full h-auto max-h-[80vh] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="p-4 border-t border-slate-700">
+                <h5 className="text-white font-semibold">{previewImage.name}</h5>
+                <p className="text-slate-400 text-sm mt-1">Equipment Photo</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
