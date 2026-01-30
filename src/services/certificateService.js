@@ -4,9 +4,7 @@ const COLORS = {
   gold: [184, 157, 102],
   darkGold: [139, 119, 77],
   navy: [26, 54, 93],
-  darkNavy: [15, 32, 56],
   teal: [20, 184, 166],
-  darkTeal: [13, 148, 136],
   black: [30, 30, 30],
   gray: [100, 100, 100],
   lightGray: [180, 180, 180],
@@ -23,7 +21,6 @@ function drawOrnamentalBorder(doc, pageWidth, pageHeight) {
   doc.setLineWidth(1);
   doc.rect(innerMargin, innerMargin, pageWidth - 2 * innerMargin, pageHeight - 2 * innerMargin);
 
-  const cornerSize = 12;
   const corners = [
     [margin + 5, margin + 5],
     [pageWidth - margin - 5, margin + 5],
@@ -55,29 +52,8 @@ function drawOrnamentalBorder(doc, pageWidth, pageHeight) {
   doc.circle(pageWidth / 2 + 35, bottomDecorY, 2, 'F');
 }
 
-function drawSeal(doc, x, y) {
-  doc.setFillColor(...COLORS.navy);
-  doc.circle(x, y, 18, 'F');
-
-  doc.setFillColor(...COLORS.darkNavy);
-  doc.circle(x, y, 15, 'F');
-
-  doc.setFillColor(...COLORS.gold);
-  doc.circle(x, y, 12, 'F');
-
-  doc.setFillColor(...COLORS.darkNavy);
-  doc.circle(x, y, 9, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PROXIMITY', x, y - 2, { align: 'center' });
-  doc.setFontSize(5);
-  doc.text('CERTIFIED', x, y + 3, { align: 'center' });
-}
-
 export const certificateService = {
-  generateCertificate(person, facility, instruments = []) {
+  generateCertificate(person, facility, instruments = [], technicalConsultantName = '') {
     const doc = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
@@ -91,11 +67,6 @@ export const certificateService = {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
     drawOrnamentalBorder(doc, pageWidth, pageHeight);
-
-    doc.setTextColor(...COLORS.navy);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    doc.text('PROXIMITY DIAGNOSTICS', pageWidth / 2, 35, { align: 'center' });
 
     doc.setTextColor(...COLORS.gold);
     doc.setFontSize(36);
@@ -172,13 +143,17 @@ export const certificateService = {
     doc.setLineWidth(0.3);
     doc.line(leftSignatureX - signatureWidth / 2, signatureY, leftSignatureX + signatureWidth / 2, signatureY);
 
+    if (technicalConsultantName) {
+      doc.setTextColor(...COLORS.navy);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(technicalConsultantName, leftSignatureX, signatureY - 3, { align: 'center' });
+    }
+
     doc.setTextColor(...COLORS.black);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Training Director', leftSignatureX, signatureY + 6, { align: 'center' });
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.gray);
-    doc.text('Proximity Diagnostics', leftSignatureX, signatureY + 11, { align: 'center' });
+    doc.text('Technical Consultant', leftSignatureX, signatureY + 6, { align: 'center' });
 
     const centerX = pageWidth / 2;
     doc.setTextColor(...COLORS.black);
@@ -200,8 +175,6 @@ export const certificateService = {
     doc.setTextColor(...COLORS.gray);
     doc.text(facility.name || '', rightSignatureX, signatureY + 11, { align: 'center' });
 
-    drawSeal(doc, pageWidth - 45, pageHeight - 45);
-
     const certId = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
     doc.setTextColor(...COLORS.lightGray);
     doc.setFontSize(7);
@@ -214,11 +187,11 @@ export const certificateService = {
     return { success: true, fileName, certId };
   },
 
-  generateBulkCertificates(trainedPersonnel, facility) {
+  generateBulkCertificates(trainedPersonnel, facility, technicalConsultantName = '') {
     const results = [];
     trainedPersonnel.forEach(person => {
       if (person.instruments_certified?.length > 0) {
-        const result = this.generateCertificate(person, facility, person.instruments_certified);
+        const result = this.generateCertificate(person, facility, person.instruments_certified, technicalConsultantName);
         results.push({ person: person.name, ...result });
       }
     });

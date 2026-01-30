@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, BookOpen, CheckCircle2, Award, FileDown, Loader2 } from 'lucide-react';
+import { Users, Plus, Trash2, BookOpen, CheckCircle2, Award, Loader2, Pencil, X, Check } from 'lucide-react';
 import { personnelService } from '../../services/personnelService';
 import { trainingService } from '../../services/trainingService';
 import { certificateService } from '../../services/certificateService';
@@ -18,6 +18,8 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
     instruments_certified: [],
   });
   const [generatingCertificate, setGeneratingCertificate] = useState(null);
+  const [editingPerson, setEditingPerson] = useState(null);
+  const [editPersonData, setEditPersonData] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -84,12 +86,40 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
     }
   }
 
+  function startEditPerson(person) {
+    setEditingPerson(person.id);
+    setEditPersonData({ ...person });
+  }
+
+  function cancelEditPerson() {
+    setEditingPerson(null);
+    setEditPersonData(null);
+  }
+
+  async function handleSavePerson() {
+    if (!editPersonData) return;
+    try {
+      const updated = await personnelService.updateTrainedPerson(editPersonData.id, {
+        name: editPersonData.name,
+        title: editPersonData.title,
+        email: editPersonData.email,
+        instruments_certified: editPersonData.instruments_certified,
+      });
+      setTrainedPersonnel(trainedPersonnel.map(p => p.id === updated.id ? updated : p));
+      setEditingPerson(null);
+      setEditPersonData(null);
+    } catch (error) {
+      console.error('Error updating person:', error);
+    }
+  }
+
   function handleGenerateCertificate(person) {
     if (!person.instruments_certified?.length) return;
 
     setGeneratingCertificate(person.id);
     try {
-      certificateService.generateCertificate(person, facility, person.instruments_certified);
+      const technicalConsultantName = personnel?.technical_consultant_name || '';
+      certificateService.generateCertificate(person, facility, person.instruments_certified, technicalConsultantName);
     } catch (error) {
       console.error('Error generating certificate:', error);
     } finally {
@@ -441,43 +471,125 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
                 <div className="space-y-2">
                   {trainedPersonnel.map(person => (
                     <div key={person.id} className="bg-slate-700 p-3 rounded">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="text-white font-semibold text-sm">{person.name}</p>
-                          <p className="text-slate-400 text-xs">{person.title}</p>
-                          <p className="text-slate-500 text-xs">{person.email}</p>
-                          {person.instruments_certified?.length > 0 && (
-                            <p className="text-teal-300 text-xs mt-1">
-                              Certified: {person.instruments_certified.join(', ')}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {person.instruments_certified?.length > 0 && (
+                      {editingPerson === person.id ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-slate-400 text-xs mb-1 block">Name</label>
+                            <input
+                              type="text"
+                              value={editPersonData?.name || ''}
+                              onChange={(e) => setEditPersonData({ ...editPersonData, name: e.target.value })}
+                              className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500 text-sm"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-slate-400 text-xs mb-1 block">Title</label>
+                              <input
+                                type="text"
+                                value={editPersonData?.title || ''}
+                                onChange={(e) => setEditPersonData({ ...editPersonData, title: e.target.value })}
+                                className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-slate-400 text-xs mb-1 block">Email</label>
+                              <input
+                                type="email"
+                                value={editPersonData?.email || ''}
+                                onChange={(e) => setEditPersonData({ ...editPersonData, email: e.target.value })}
+                                className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-slate-400 text-xs mb-2 block">Instruments Certified</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {instruments.map(inst => (
+                                <label key={inst} className="flex items-center gap-2 text-slate-300 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={editPersonData?.instruments_certified?.includes(inst) || false}
+                                    onChange={(e) => {
+                                      const current = editPersonData?.instruments_certified || [];
+                                      if (e.target.checked) {
+                                        setEditPersonData({ ...editPersonData, instruments_certified: [...current, inst] });
+                                      } else {
+                                        setEditPersonData({ ...editPersonData, instruments_certified: current.filter(i => i !== inst) });
+                                      }
+                                    }}
+                                    className="w-4 h-4"
+                                  />
+                                  {inst.charAt(0).toUpperCase() + inst.slice(1)}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-2">
                             <button
-                              onClick={() => handleGenerateCertificate(person)}
-                              disabled={generatingCertificate === person.id}
-                              className="p-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors disabled:opacity-50"
-                              title="Generate Certificate"
+                              onClick={handleSavePerson}
+                              className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded font-medium transition-colors text-sm flex items-center justify-center gap-2"
                             >
-                              {generatingCertificate === person.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Award className="w-4 h-4" />
-                              )}
+                              <Check className="w-4 h-4" />
+                              Save
                             </button>
-                          )}
-                          {isEditor && (
                             <button
-                              onClick={() => handleDeletePerson(person.id)}
-                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-600 rounded transition-colors"
-                              title="Remove"
+                              onClick={cancelEditPerson}
+                              className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-2 rounded font-medium transition-colors text-sm flex items-center justify-center gap-2"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <X className="w-4 h-4" />
+                              Cancel
                             </button>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="text-white font-semibold text-sm">{person.name}</p>
+                            <p className="text-slate-400 text-xs">{person.title}</p>
+                            <p className="text-slate-500 text-xs">{person.email}</p>
+                            {person.instruments_certified?.length > 0 && (
+                              <p className="text-teal-300 text-xs mt-1">
+                                Certified: {person.instruments_certified.join(', ')}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {person.instruments_certified?.length > 0 && (
+                              <button
+                                onClick={() => handleGenerateCertificate(person)}
+                                disabled={generatingCertificate === person.id}
+                                className="p-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors disabled:opacity-50"
+                                title="Generate Certificate"
+                              >
+                                {generatingCertificate === person.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Award className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                            {isEditor && (
+                              <>
+                                <button
+                                  onClick={() => startEditPerson(person)}
+                                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-600 rounded transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePerson(person.id)}
+                                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-600 rounded transition-colors"
+                                  title="Remove"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {trainedPersonnel.length === 0 && (
