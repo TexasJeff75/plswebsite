@@ -8,18 +8,6 @@ import { weatherService } from '../services/weatherService';
 import FacilityDetailPanel from './FacilityDetailPanel';
 import ImportData from './ImportData';
 
-const MILESTONE_NAMES = [
-  'Site Assessment',
-  'CLIA Certificate Obtained',
-  'Lab Director Assigned',
-  'Equipment Ordered',
-  'Equipment Installed',
-  'Network/LIS Integration',
-  'Staff Training Complete',
-  'Competency Assessment Done',
-  'Go-Live'
-];
-
 const DEFAULT_REGIONS = ['All Regions'];
 
 const STATUS_CONFIG = {
@@ -262,11 +250,12 @@ export default function DeploymentTrackerMap() {
       const enrichedData = data.map(facility => {
         const status = calculateFacilityStatus(facility.milestones);
         const completedMilestones = facility.milestones?.filter(m => m.status === 'complete').length || 0;
+        const totalMilestones = facility.milestones?.length || 0;
         return {
           ...facility,
           status,
           completedMilestones,
-          totalMilestones: MILESTONE_NAMES.length
+          totalMilestones
         };
       });
 
