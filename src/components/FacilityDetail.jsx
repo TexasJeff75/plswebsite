@@ -188,7 +188,7 @@ export default function FacilityDetail() {
     { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Integration', component: <IntegrationTab facility={facility} isEditor={isEditor} /> },
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
-    { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} /> },
+    { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Documents', component: <DocumentsTab facility={facility} isEditor={isEditor} /> },
     { label: 'Activity Log', component: <ActivityLogTab facility={facility} /> },
   ];
