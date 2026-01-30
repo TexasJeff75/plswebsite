@@ -1,55 +1,69 @@
 import { jsPDF } from 'jspdf';
 
 const COLORS = {
-  gold: [184, 157, 102],
-  darkGold: [139, 119, 77],
   navy: [26, 54, 93],
-  teal: [20, 184, 166],
-  black: [30, 30, 30],
-  gray: [100, 100, 100],
-  lightGray: [180, 180, 180],
+  teal: [56, 178, 172],
+  lightTeal: [180, 225, 222],
+  gray: [100, 116, 139],
+  white: [255, 255, 255],
 };
 
-function drawOrnamentalBorder(doc, pageWidth, pageHeight) {
-  const margin = 15;
-  const innerMargin = 20;
+function drawWaveCorners(doc, pageWidth, pageHeight) {
+  doc.setFillColor(...COLORS.teal);
+  doc.triangle(pageWidth - 90, 0, pageWidth, 0, pageWidth, 55, 'F');
+  doc.setFillColor(...COLORS.navy);
+  doc.triangle(pageWidth - 55, 0, pageWidth, 0, pageWidth, 65, 'F');
 
-  doc.setDrawColor(...COLORS.gold);
-  doc.setLineWidth(3);
+  doc.setFillColor(...COLORS.teal);
+  doc.triangle(0, pageHeight - 55, 90, pageHeight, 0, pageHeight, 'F');
+  doc.setFillColor(...COLORS.navy);
+  doc.triangle(0, pageHeight - 65, 55, pageHeight, 0, pageHeight, 'F');
+}
+
+function drawBorder(doc, pageWidth, pageHeight) {
+  const margin = 18;
+  doc.setDrawColor(...COLORS.lightTeal);
+  doc.setLineWidth(1);
   doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
 
-  doc.setLineWidth(1);
-  doc.rect(innerMargin, innerMargin, pageWidth - 2 * innerMargin, pageHeight - 2 * innerMargin);
-
-  const corners = [
-    [margin + 5, margin + 5],
-    [pageWidth - margin - 5, margin + 5],
-    [margin + 5, pageHeight - margin - 5],
-    [pageWidth - margin - 5, pageHeight - margin - 5],
-  ];
-
-  doc.setFillColor(...COLORS.gold);
-  corners.forEach(([x, y]) => {
-    doc.circle(x, y, 3, 'F');
-  });
-
-  doc.setDrawColor(...COLORS.darkGold);
+  doc.setDrawColor(...COLORS.navy);
   doc.setLineWidth(0.5);
+  doc.rect(margin + 3, margin + 3, pageWidth - 2 * margin - 6, pageHeight - 2 * margin - 6);
+}
 
-  const decorY = 45;
-  doc.line(50, decorY, pageWidth / 2 - 40, decorY);
-  doc.line(pageWidth / 2 + 40, decorY, pageWidth - 50, decorY);
+function drawRibbonBadge(doc, x, y) {
+  doc.setFillColor(...COLORS.teal);
+  doc.circle(x, y, 14, 'F');
 
-  doc.setFillColor(...COLORS.darkGold);
-  doc.circle(pageWidth / 2 - 35, decorY, 2, 'F');
-  doc.circle(pageWidth / 2 + 35, decorY, 2, 'F');
-  doc.circle(pageWidth / 2, decorY - 5, 3, 'F');
+  doc.setFillColor(...COLORS.white);
+  doc.circle(x, y, 10, 'F');
 
-  const bottomDecorY = pageHeight - 55;
-  doc.line(50, bottomDecorY, pageWidth / 2 - 40, bottomDecorY);
-  doc.line(pageWidth / 2 + 40, bottomDecorY, pageWidth - 50, bottomDecorY);
-  doc.circle(pageWidth / 2 - 35, bottomDecorY, 2, 'F');
-  doc.circle(pageWidth / 2 + 35, bottomDecorY, 2, 'F');
+  doc.setFillColor(...COLORS.teal);
+  doc.circle(x, y, 7, 'F');
+
+  doc.setDrawColor(...COLORS.white);
+  doc.setLineWidth(2);
+  doc.line(x - 3, y, x - 0.5, y + 3.5);
+  doc.line(x - 0.5, y + 3.5, x + 4, y - 3);
+
+  doc.setFillColor(...COLORS.teal);
+  doc.triangle(x - 4, y + 12, x - 10, y + 28, x - 1, y + 16, 'F');
+  doc.triangle(x + 4, y + 12, x + 10, y + 28, x + 1, y + 16, 'F');
+}
+
+function formatDate(dateString) {
+  if (!dateString) {
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 export const certificateService = {
@@ -63,125 +77,96 @@ export const certificateService = {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.setFillColor(255, 253, 250);
+    doc.setFillColor(...COLORS.white);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-    drawOrnamentalBorder(doc, pageWidth, pageHeight);
-
-    doc.setTextColor(...COLORS.gold);
-    doc.setFontSize(36);
-    doc.setFont('times', 'bolditalic');
-    doc.text('Certificate of Completion', pageWidth / 2, 58, { align: 'center' });
-
-    doc.setTextColor(...COLORS.gray);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text('This is to certify that', pageWidth / 2, 75, { align: 'center' });
+    drawWaveCorners(doc, pageWidth, pageHeight);
+    drawBorder(doc, pageWidth, pageHeight);
 
     doc.setTextColor(...COLORS.navy);
-    doc.setFontSize(28);
-    doc.setFont('times', 'bolditalic');
-    doc.text(person.name || 'Certificate Recipient', pageWidth / 2, 92, { align: 'center' });
+    doc.setFontSize(32);
+    doc.setFont('times', 'bold');
+    doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 45, { align: 'center' });
 
-    doc.setDrawColor(...COLORS.gold);
-    doc.setLineWidth(0.5);
-    const nameWidth = doc.getTextWidth(person.name || 'Certificate Recipient');
-    const underlineStart = (pageWidth - nameWidth) / 2 - 10;
-    const underlineEnd = (pageWidth + nameWidth) / 2 + 10;
-    doc.line(underlineStart, 95, underlineEnd, 95);
-
-    if (person.title) {
-      doc.setTextColor(...COLORS.gray);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'italic');
-      doc.text(person.title, pageWidth / 2, 103, { align: 'center' });
+    doc.setDrawColor(...COLORS.teal);
+    doc.setLineWidth(1.5);
+    const dashLength = 5;
+    const gapLength = 4;
+    const lineY = 53;
+    const lineStartX = pageWidth / 2 - 55;
+    const lineEndX = pageWidth / 2 + 55;
+    for (let xPos = lineStartX; xPos < lineEndX; xPos += dashLength + gapLength) {
+      doc.line(xPos, lineY, Math.min(xPos + dashLength, lineEndX), lineY);
     }
 
-    doc.setTextColor(...COLORS.black);
-    doc.setFontSize(11);
+    doc.setTextColor(...COLORS.gray);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text('has successfully completed the required training program for', pageWidth / 2, 115, { align: 'center' });
+    doc.text('This is presented to :', pageWidth / 2, 72, { align: 'center' });
+
+    doc.setTextColor(...COLORS.teal);
+    doc.setFontSize(36);
+    doc.setFont('times', 'bolditalic');
+    doc.text(person.name || 'Certificate Recipient', pageWidth / 2, 95, { align: 'center' });
+
+    doc.setDrawColor(...COLORS.teal);
+    doc.setLineWidth(0.8);
+    const nameWidth = doc.getTextWidth(person.name || 'Certificate Recipient');
+    const underlineStart = (pageWidth - nameWidth) / 2 - 15;
+    const underlineEnd = (pageWidth + nameWidth) / 2 + 15;
+    doc.line(underlineStart, 100, underlineEnd, 100);
 
     const instrumentNames = instruments.length > 0
       ? instruments.map(i => i.charAt(0).toUpperCase() + i.slice(1)).join(', ')
       : 'Point-of-Care Testing Equipment';
 
-    doc.setTextColor(...COLORS.teal);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(instrumentNames, pageWidth / 2, 127, { align: 'center' });
-
-    doc.setTextColor(...COLORS.black);
-    doc.setFontSize(11);
+    doc.setTextColor(...COLORS.gray);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('at', pageWidth / 2, 138, { align: 'center' });
+    const certText = `completed the required training program for ${instrumentNames}`;
+    doc.text(certText, pageWidth / 2, 115, { align: 'center', maxWidth: pageWidth - 80 });
 
+    const facilityLocation = facility.city && facility.state ? `, ${facility.city}, ${facility.state}` : '';
+    doc.text(`at ${facility.name || 'Healthcare Facility'}${facilityLocation}.`, pageWidth / 2, 125, { align: 'center' });
+
+    const trainingDate = formatDate(person.training_date);
     doc.setTextColor(...COLORS.navy);
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(facility.name || 'Healthcare Facility', pageWidth / 2, 148, { align: 'center' });
+    doc.text(`Date of Completion: ${trainingDate}`, pageWidth / 2, 140, { align: 'center' });
 
-    if (facility.city && facility.state) {
-      doc.setTextColor(...COLORS.gray);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${facility.city}, ${facility.state}`, pageWidth / 2, 155, { align: 'center' });
-    }
+    drawRibbonBadge(doc, pageWidth / 2, 160);
 
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    const signatureY = 188;
 
-    const signatureY = 175;
-    const signatureWidth = 60;
-
-    const leftSignatureX = pageWidth / 4;
-    doc.setDrawColor(...COLORS.lightGray);
-    doc.setLineWidth(0.3);
-    doc.line(leftSignatureX - signatureWidth / 2, signatureY, leftSignatureX + signatureWidth / 2, signatureY);
-
-    if (technicalConsultantName) {
-      doc.setTextColor(...COLORS.navy);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(technicalConsultantName, leftSignatureX, signatureY - 3, { align: 'center' });
-    }
-
-    doc.setTextColor(...COLORS.black);
+    const leftSignatureX = pageWidth / 4 + 10;
+    doc.setTextColor(...COLORS.navy);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    const consultantDisplay = technicalConsultantName || 'Technical Consultant';
+    doc.text(consultantDisplay, leftSignatureX, signatureY, { align: 'center' });
+    doc.setTextColor(...COLORS.teal);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text('Technical Consultant', leftSignatureX, signatureY + 6, { align: 'center' });
 
-    const centerX = pageWidth / 2;
-    doc.setTextColor(...COLORS.black);
-    doc.setFontSize(10);
-    doc.text('Date of Completion', centerX, signatureY - 8, { align: 'center' });
-    doc.setFontSize(12);
+    const rightSignatureX = (pageWidth * 3) / 4 - 10;
+    doc.setTextColor(...COLORS.navy);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text(formattedDate, centerX, signatureY, { align: 'center' });
-
-    const rightSignatureX = (pageWidth * 3) / 4;
-    doc.setDrawColor(...COLORS.lightGray);
-    doc.line(rightSignatureX - signatureWidth / 2, signatureY, rightSignatureX + signatureWidth / 2, signatureY);
-
-    doc.setTextColor(...COLORS.black);
+    doc.text('Facility Administrator', rightSignatureX, signatureY, { align: 'center' });
+    doc.setTextColor(...COLORS.teal);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text('Facility Administrator', rightSignatureX, signatureY + 6, { align: 'center' });
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.gray);
-    doc.text(facility.name || '', rightSignatureX, signatureY + 11, { align: 'center' });
 
     const certId = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-    doc.setTextColor(...COLORS.lightGray);
+    doc.setTextColor(200, 200, 200);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Certificate ID: ${certId}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
+    doc.text(`Certificate ID: ${certId}`, pageWidth / 2, pageHeight - 12, { align: 'center' });
 
-    const fileName = `Certificate_${person.name?.replace(/\s+/g, '_') || 'Recipient'}_${today.toISOString().split('T')[0]}.pdf`;
+    const fileName = `Certificate_${person.name?.replace(/\s+/g, '_') || 'Recipient'}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
 
     return { success: true, fileName, certId };

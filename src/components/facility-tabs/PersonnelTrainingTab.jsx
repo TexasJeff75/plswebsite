@@ -16,6 +16,7 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
     title: '',
     email: '',
     instruments_certified: [],
+    training_date: '',
   });
   const [generatingCertificate, setGeneratingCertificate] = useState(null);
   const [editingPerson, setEditingPerson] = useState(null);
@@ -70,7 +71,7 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
     try {
       const person = await personnelService.addTrainedPerson(facility.id, newPerson);
       setTrainedPersonnel([...trainedPersonnel, person]);
-      setNewPerson({ name: '', title: '', email: '', instruments_certified: [] });
+      setNewPerson({ name: '', title: '', email: '', instruments_certified: [], training_date: '' });
       setShowAddPerson(false);
     } catch (error) {
       console.error('Error adding trained person:', error);
@@ -104,6 +105,7 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
         title: editPersonData.title,
         email: editPersonData.email,
         instruments_certified: editPersonData.instruments_certified,
+        training_date: editPersonData.training_date || null,
       });
       setTrainedPersonnel(trainedPersonnel.map(p => p.id === updated.id ? updated : p));
       setEditingPerson(null);
@@ -424,6 +426,15 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
                       </div>
                     </div>
                     <div>
+                      <label className="text-slate-400 text-xs mb-1 block">Training Date</label>
+                      <input
+                        type="date"
+                        value={newPerson.training_date}
+                        onChange={(e) => setNewPerson({ ...newPerson, training_date: e.target.value })}
+                        className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500 text-sm"
+                      />
+                    </div>
+                    <div>
                       <label className="text-slate-400 text-xs mb-2 block">Instruments Certified</label>
                       <div className="grid grid-cols-2 gap-2">
                         {instruments.map(inst => (
@@ -503,6 +514,15 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
                             </div>
                           </div>
                           <div>
+                            <label className="text-slate-400 text-xs mb-1 block">Training Date</label>
+                            <input
+                              type="date"
+                              value={editPersonData?.training_date || ''}
+                              onChange={(e) => setEditPersonData({ ...editPersonData, training_date: e.target.value })}
+                              className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500 text-sm"
+                            />
+                          </div>
+                          <div>
                             <label className="text-slate-400 text-xs mb-2 block">Instruments Certified</label>
                             <div className="grid grid-cols-2 gap-2">
                               {instruments.map(inst => (
@@ -548,6 +568,11 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
                             <p className="text-white font-semibold text-sm">{person.name}</p>
                             <p className="text-slate-400 text-xs">{person.title}</p>
                             <p className="text-slate-500 text-xs">{person.email}</p>
+                            {person.training_date && (
+                              <p className="text-blue-300 text-xs mt-1">
+                                Trained: {new Date(person.training_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                              </p>
+                            )}
                             {person.instruments_certified?.length > 0 && (
                               <p className="text-teal-300 text-xs mt-1">
                                 Certified: {person.instruments_certified.join(', ')}
