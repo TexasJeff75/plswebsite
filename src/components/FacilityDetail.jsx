@@ -7,11 +7,10 @@ import { facilityStatsService } from '../services/facilityStatsService';
 import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp } from 'lucide-react';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
-import PersonnelTab from './facility-tabs/PersonnelTab';
+import PersonnelTrainingTab from './facility-tabs/PersonnelTrainingTab';
 import EquipmentTab from './facility-tabs/EquipmentTabImproved';
 import IntegrationTab from './facility-tabs/IntegrationTab';
 import FacilityReadinessTab from './facility-tabs/FacilityReadinessTab';
-import TrainingTab from './facility-tabs/TrainingTab';
 import MilestonesTab from './facility-tabs/MilestonesTab';
 import DocumentsTab from './facility-tabs/DocumentsTab';
 import ActivityLogTab from './facility-tabs/ActivityLogTab';
@@ -185,11 +184,10 @@ export default function FacilityDetail() {
 
   const tabs = [
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
-    { label: 'Personnel', component: <PersonnelTab facility={facility} isEditor={isEditor} /> },
+    { label: 'Personnel & Training', component: <PersonnelTrainingTab facility={facility} isEditor={isEditor} /> },
     { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Integration', component: <IntegrationTab facility={facility} isEditor={isEditor} /> },
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
-    { label: 'Training', component: <TrainingTab facility={facility} isEditor={isEditor} /> },
     { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} /> },
     { label: 'Documents', component: <DocumentsTab facility={facility} isEditor={isEditor} /> },
     { label: 'Activity Log', component: <ActivityLogTab facility={facility} /> },
