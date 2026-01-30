@@ -9,28 +9,42 @@ export const documentService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+
+    const docsWithUrls = await Promise.all(
+      (data || []).map(async (doc) => {
+        if (doc.storage_path) {
+          const { data: signedUrlData } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(doc.storage_path, 3600);
+          return { ...doc, url: signedUrlData?.signedUrl || doc.url };
+        }
+        return doc;
+      })
+    );
+
+    return docsWithUrls;
   },
 
   async uploadDocument(facilityId, file, documentData) {
-    const fileName = `${facilityId}/${Date.now()}_${file.name}`;
+    const storagePath = `${facilityId}/${Date.now()}_${file.name}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('documents')
-      .upload(fileName, file);
+      .upload(storagePath, file);
 
     if (error) throw error;
 
-    const { data: publicUrlData } = supabase.storage
+    const { data: signedUrlData } = await supabase.storage
       .from('documents')
-      .getPublicUrl(fileName);
+      .createSignedUrl(storagePath, 3600);
 
     const { data: docData, error: docError } = await supabase
       .from('documents')
       .insert({
         facility_id: facilityId,
         name: file.name,
-        url: publicUrlData.publicUrl,
+        url: signedUrlData?.signedUrl || '',
+        storage_path: storagePath,
         type: documentData.type,
         uploaded_by: documentData.userId,
         expiration_date: documentData.expirationDate,
@@ -42,12 +56,11 @@ export const documentService = {
     return docData;
   },
 
-  async deleteDocument(documentId, fileUrl) {
-    if (fileUrl) {
-      const fileName = fileUrl.split('/').pop();
+  async deleteDocument(documentId, storagePath) {
+    if (storagePath) {
       await supabase.storage
         .from('documents')
-        .remove([fileName]);
+        .remove([storagePath]);
     }
 
     const { error } = await supabase

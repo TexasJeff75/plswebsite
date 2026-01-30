@@ -70,10 +70,10 @@ export default function DocumentsTab({ facility, isEditor }) {
     }
   }
 
-  async function handleDelete(docId, fileUrl) {
+  async function handleDelete(docId, storagePath) {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await documentService.deleteDocument(docId, fileUrl);
+        await documentService.deleteDocument(docId, storagePath);
         setDocuments(documents.filter(d => d.id !== docId));
       } catch (error) {
         console.error('Error deleting document:', error);
@@ -232,7 +232,7 @@ export default function DocumentsTab({ facility, isEditor }) {
                   )}
                   {isEditor && (
                     <button
-                      onClick={() => handleDelete(doc.id, doc.url)}
+                      onClick={() => handleDelete(doc.id, doc.storage_path)}
                       className="text-red-400 hover:text-red-300 transition-colors"
                       title="Delete"
                     >
