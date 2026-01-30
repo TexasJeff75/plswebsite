@@ -1,24 +1,63 @@
 # Facility Information Panel
 
 ## Overview
-Enhanced the facility details page by moving critical information from tabs into a prominent information panel displayed above the tabbed interface. This provides immediate visibility of key facility data without requiring navigation through tabs.
+Enhanced the facility details page by moving critical information from tabs into a prominent, editable information panel displayed above the tabbed interface. This provides immediate visibility and editing of key facility data without requiring navigation through tabs. The Overview and Location tabs have been removed as their functionality is now integrated into the top panel.
 
 ## What Changed
 
 ### Before
 - Facility name and address in header
 - Small stat cards (4 metrics)
-- All other information hidden in tabs
+- All other information hidden in tabs (including Overview and Location tabs)
 - Users had to click through tabs to see key dates, progress, and location
+- Editing required navigating to specific tabs
 
 ### After
 - Facility name and address in header
 - Enhanced stat cards (4 metrics)
-- **NEW: Comprehensive information panel with 3 sections:**
-  1. Key Dates panel
-  2. Progress Overview panel
-  3. Location panel with mini map
-- Tabs available below for detailed information
+- **NEW: Comprehensive editable information panel with 3 sections:**
+  1. Key Dates panel (editable)
+  2. Progress Overview panel (read-only, calculated)
+  3. Location panel with mini map (editable)
+- Overview and Location tabs removed
+- Remaining tabs available below for detailed information
+- Inline editing with edit buttons for authorized users
+
+## Editing Features
+
+### Key Dates Section - Editable
+For users with editor permissions:
+- **Edit button** (pencil icon) in section header
+- Click to enter edit mode
+- Four date inputs with date pickers:
+  - Projected Deployment Date
+  - Actual Deployment Date
+  - Projected Go-Live Date
+  - Actual Go-Live Date
+- **Save** button commits changes to database
+- **Cancel** button discards changes
+- Dates can be cleared by deleting the input value
+
+### Location Section - Editable
+For users with editor permissions:
+- **Edit button** (pencil icon) in section header
+- Click to enter edit mode
+- Input fields for:
+  - Address (street address)
+  - City
+  - State
+  - County
+  - Latitude (decimal degrees, 6 decimal places)
+  - Longitude (decimal degrees, 6 decimal places)
+- **Save** button commits changes to database
+- **Cancel** button discards changes
+- Map updates automatically after saving coordinates
+
+### Progress Overview Section - Read-Only
+This section is calculated from milestone data and cannot be edited directly:
+- Overall completion percentage
+- Category-specific progress bars
+- Updates automatically when milestones are modified in the Milestones tab
 
 ## Information Panel Layout
 
@@ -91,26 +130,47 @@ If coordinates aren't set, displays "No coordinates set" message.
 - Rounded corners with border
 - Clean integration with location info
 
+## Updated Tab Structure
+
+The following tabs have been **removed** from the tab bar:
+- **Overview Tab** - Functionality integrated into top panel
+- **Location Tab** - Functionality integrated into top panel
+
+Remaining tabs (in order):
+1. Regulatory
+2. Personnel
+3. Equipment
+4. Integration
+5. Facility Readiness
+6. Training
+7. Milestones
+8. Documents
+9. Activity Log
+
 ## User Benefits
 
 ### 1. Reduced Clicks
 - **Before**: 3-5 clicks to see key dates, progress, and location
 - **After**: 0 clicks - all visible immediately
+- **Editing**: 1 click to edit (vs. navigating to tab + scrolling)
 
 ### 2. Better Context
 - Users understand facility status at a glance
 - No need to remember information from different tabs
 - All critical metrics in one view
+- Inline editing without losing context
 
 ### 3. Faster Decision Making
 - Project managers can quickly assess status
 - Deployment teams see what needs attention
 - Location info readily available for logistics
+- Quick updates to dates and location
 
 ### 4. Improved Workflow
 - Overview visible while working in tabs
 - Can reference dates while updating equipment
 - Progress bars show impact of tab changes
+- Edit key information without switching tabs
 
 ## Technical Implementation
 
@@ -119,21 +179,47 @@ If coordinates aren't set, displays "No coordinates set" message.
 
 **Added Imports**:
 ```javascript
-import { Calendar, MapPin, Navigation, TrendingUp } from 'lucide-react';
+import { Calendar, MapPin, Navigation, Edit2, TrendingUp } from 'lucide-react';
 import FacilityMapEmbed from './maps/FacilityMapEmbed';
 ```
+
+**Removed Imports**:
+```javascript
+// No longer needed - tabs removed
+import OverviewTab from './facility-tabs/OverviewTabImproved';
+import LocationTab from './facility-tabs/LocationTab';
+```
+
+**New State Management**:
+```javascript
+const [editingDates, setEditingDates] = useState(false);
+const [editingLocation, setEditingLocation] = useState(false);
+const [dateForm, setDateForm] = useState({});
+const [locationForm, setLocationForm] = useState({});
+const [saving, setSaving] = useState(false);
+```
+
+**New Functions**:
+- `startEditingDates()` - Initialize date form with current values
+- `startEditingLocation()` - Initialize location form with current values
+- `saveDates()` - Save date changes to database via facilitiesService
+- `saveLocation()` - Save location changes to database via facilitiesService
+- `cancelEditingDates()` - Discard date changes
+- `cancelEditingLocation()` - Discard location changes
 
 **New Section**: Added between stat cards and tabs
 - Grid layout with responsive breakpoints
 - Reuses existing service functions (facilityStatsService)
 - Integrates existing map component
 - Date formatting using built-in JavaScript methods
+- Inline edit forms with save/cancel buttons
+- Edit buttons only visible to users with editor permissions
 
-**No Breaking Changes**:
-- All tabs still work identically
-- No data structure changes
-- No API changes
-- Backward compatible
+**Breaking Changes**:
+- Overview and Location tabs removed from tab list
+- Tab order shifted (Regulatory is now first tab)
+- No data structure or API changes
+- Existing facility data fully compatible
 
 ## Data Sources
 
@@ -233,6 +319,7 @@ Potential additions:
 
 ## Testing Checklist
 
+### Display Testing
 - [ ] Key dates display correctly when set
 - [ ] "Not set" shows when dates are null
 - [ ] Progress bars animate smoothly
@@ -242,11 +329,42 @@ Potential additions:
 - [ ] Map renders for facilities with coordinates
 - [ ] "No coordinates set" shows when missing
 - [ ] Google Maps link works
+
+### Edit Functionality Testing
+- [ ] Edit button appears for editors on Key Dates
+- [ ] Edit button appears for editors on Location
+- [ ] Edit buttons hidden for non-editors (viewers)
+- [ ] Clicking edit button opens date form
+- [ ] Date inputs pre-populated with current values
+- [ ] Empty dates show empty date inputs
+- [ ] Save button updates dates in database
+- [ ] Cancel button discards changes
+- [ ] Location form shows all 6 fields
+- [ ] Location inputs pre-populated correctly
+- [ ] Latitude/longitude accept decimal values
+- [ ] Save updates location and refreshes data
+- [ ] Map updates after saving new coordinates
+- [ ] Loading state shows while saving
+- [ ] Error handling works for failed saves
+
+### Tab Testing
+- [ ] Overview tab no longer appears in tab list
+- [ ] Location tab no longer appears in tab list
+- [ ] Regulatory tab is first tab
+- [ ] All remaining 9 tabs function normally
+- [ ] Default tab loads correctly
+
+### Responsive Testing
 - [ ] Responsive layout works on mobile
 - [ ] Responsive layout works on tablet
-- [ ] Tabs still function normally
+- [ ] Edit forms usable on mobile
+- [ ] Date pickers work on mobile
+
+### Build Testing
 - [ ] Page loads without errors
 - [ ] Build completes successfully
+- [ ] No console errors
+- [ ] No unused import warnings
 
 ## Maintenance Notes
 

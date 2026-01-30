@@ -6,8 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
 import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp } from 'lucide-react';
 import TabContainer from './facility-tabs/TabContainer';
-import OverviewTab from './facility-tabs/OverviewTabImproved';
-import LocationTab from './facility-tabs/LocationTab';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
 import PersonnelTab from './facility-tabs/PersonnelTab';
 import EquipmentTab from './facility-tabs/EquipmentTabImproved';
@@ -29,6 +27,11 @@ export default function FacilityDetail() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [dateForm, setDateForm] = useState({});
+  const [locationForm, setLocationForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadFacility();
@@ -77,6 +80,66 @@ export default function FacilityDetail() {
     }
   }
 
+  function startEditingDates() {
+    setDateForm({
+      projected_deployment_date: facility.projected_deployment_date || '',
+      actual_deployment_date: facility.actual_deployment_date || '',
+      projected_go_live_date: facility.projected_go_live_date || '',
+      actual_go_live_date: facility.actual_go_live_date || '',
+    });
+    setEditingDates(true);
+  }
+
+  function startEditingLocation() {
+    setLocationForm({
+      address: facility.address || '',
+      city: facility.city || '',
+      state: facility.state || '',
+      county: facility.county || '',
+      latitude: facility.latitude || '',
+      longitude: facility.longitude || '',
+    });
+    setEditingLocation(true);
+  }
+
+  async function saveDates() {
+    setSaving(true);
+    try {
+      await facilitiesService.update(id, dateForm);
+      await loadFacility();
+      setEditingDates(false);
+    } catch (err) {
+      console.error('Error saving dates:', err);
+      alert('Failed to save dates: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveLocation() {
+    setSaving(true);
+    try {
+      await facilitiesService.update(id, locationForm);
+      await loadFacility();
+      setEditingLocation(false);
+    } catch (err) {
+      console.error('Error saving location:', err);
+      alert('Failed to save location: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function cancelEditingDates() {
+    setEditingDates(false);
+    setDateForm({});
+  }
+
+  function cancelEditingLocation() {
+    setEditingLocation(false);
+    setLocationForm({});
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -121,8 +184,6 @@ export default function FacilityDetail() {
   const configLabel = facilityStatsService.getConfigurationLabel(facility.site_configuration);
 
   const tabs = [
-    { label: 'Overview', component: <OverviewTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
-    { label: 'Location', component: <LocationTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
     { label: 'Personnel', component: <PersonnelTab facility={facility} isEditor={isEditor} /> },
     { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
@@ -186,41 +247,117 @@ export default function FacilityDetail() {
                 <Calendar className="w-5 h-5 text-teal-400" />
                 Key Dates
               </h2>
+              {isEditor && !editingDates && (
+                <button
+                  onClick={startEditingDates}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
-                <p className="text-white text-sm">
-                  {facility.projected_deployment_date
-                    ? new Date(facility.projected_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : 'Not set'}
-                </p>
+            {editingDates ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Projected Deployment</label>
+                    <input
+                      type="date"
+                      value={dateForm.projected_deployment_date}
+                      onChange={(e) => setDateForm({ ...dateForm, projected_deployment_date: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Actual Deployment</label>
+                    <input
+                      type="date"
+                      value={dateForm.actual_deployment_date}
+                      onChange={(e) => setDateForm({ ...dateForm, actual_deployment_date: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Projected Go-Live</label>
+                    <input
+                      type="date"
+                      value={dateForm.projected_go_live_date}
+                      onChange={(e) => setDateForm({ ...dateForm, projected_go_live_date: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Actual Go-Live</label>
+                    <input
+                      type="date"
+                      value={dateForm.actual_go_live_date}
+                      onChange={(e) => setDateForm({ ...dateForm, actual_go_live_date: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={cancelEditingDates}
+                    className="px-4 py-2 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveDates}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-400 text-xs mb-1">Actual Deployment</p>
-                <p className="text-white text-sm">
-                  {facility.actual_deployment_date
-                    ? new Date(facility.actual_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : 'Not set'}
-                </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
+                  <p className="text-white text-sm">
+                    {facility.projected_deployment_date
+                      ? new Date(facility.projected_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Actual Deployment</p>
+                  <p className="text-white text-sm">
+                    {facility.actual_deployment_date
+                      ? new Date(facility.actual_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Projected Go-Live</p>
+                  <p className="text-white text-sm">
+                    {facility.projected_go_live_date
+                      ? new Date(facility.projected_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Actual Go-Live</p>
+                  <p className="text-white text-sm">
+                    {facility.actual_go_live_date
+                      ? new Date(facility.actual_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Not set'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-400 text-xs mb-1">Projected Go-Live</p>
-                <p className="text-white text-sm">
-                  {facility.projected_go_live_date
-                    ? new Date(facility.projected_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : 'Not set'}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs mb-1">Actual Go-Live</p>
-                <p className="text-white text-sm">
-                  {facility.actual_go_live_date
-                    ? new Date(facility.actual_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : 'Not set'}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
@@ -263,51 +400,155 @@ export default function FacilityDetail() {
                 <MapPin className="w-5 h-5 text-teal-400" />
                 Location
               </h2>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <p className="text-white text-sm">{facility.address || 'No address'}</p>
-                <p className="text-slate-300 text-sm">
-                  {[facility.city, facility.state].filter(Boolean).join(', ')}
-                </p>
-                {facility.county && (
-                  <p className="text-slate-400 text-xs mt-1">{facility.county} County</p>
-                )}
-              </div>
-
-              {facility.latitude && facility.longitude ? (
-                <>
-                  <div className="pt-3 border-t border-slate-700">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Navigation className="w-4 h-4 text-teal-400" />
-                      <p className="text-slate-400 text-xs">Coordinates</p>
-                    </div>
-                    <p className="text-white font-mono text-xs">
-                      {parseFloat(facility.latitude).toFixed(6)}, {parseFloat(facility.longitude).toFixed(6)}
-                    </p>
-                    <a
-                      href={`https://www.google.com/maps?q=${facility.latitude},${facility.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-teal-400 hover:text-teal-300 text-xs mt-1 inline-block"
-                    >
-                      Open in Google Maps →
-                    </a>
-                  </div>
-                  <div className="rounded-lg overflow-hidden border border-slate-700">
-                    <FacilityMapEmbed
-                      facility={facility}
-                      height={200}
-                      interactive={false}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="pt-3 border-t border-slate-700">
-                  <p className="text-slate-400 text-sm">No coordinates set</p>
-                </div>
+              {isEditor && !editingLocation && (
+                <button
+                  onClick={startEditingLocation}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
               )}
             </div>
+            {editingLocation ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={locationForm.address}
+                    onChange={(e) => setLocationForm({ ...locationForm, address: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    placeholder="Street address"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">City</label>
+                    <input
+                      type="text"
+                      value={locationForm.city}
+                      onChange={(e) => setLocationForm({ ...locationForm, city: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                      placeholder="City"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">State</label>
+                    <input
+                      type="text"
+                      value={locationForm.state}
+                      onChange={(e) => setLocationForm({ ...locationForm, state: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                      placeholder="State"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">County</label>
+                  <input
+                    type="text"
+                    value={locationForm.county}
+                    onChange={(e) => setLocationForm({ ...locationForm, county: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                    placeholder="County"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={locationForm.latitude}
+                      onChange={(e) => setLocationForm({ ...locationForm, latitude: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                      placeholder="0.000000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-xs mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={locationForm.longitude}
+                      onChange={(e) => setLocationForm({ ...locationForm, longitude: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                      placeholder="0.000000"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={cancelEditingLocation}
+                    className="px-4 py-2 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveLocation}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-white text-sm">{facility.address || 'No address'}</p>
+                  <p className="text-slate-300 text-sm">
+                    {[facility.city, facility.state].filter(Boolean).join(', ')}
+                  </p>
+                  {facility.county && (
+                    <p className="text-slate-400 text-xs mt-1">{facility.county} County</p>
+                  )}
+                </div>
+
+                {facility.latitude && facility.longitude ? (
+                  <>
+                    <div className="pt-3 border-t border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Navigation className="w-4 h-4 text-teal-400" />
+                        <p className="text-slate-400 text-xs">Coordinates</p>
+                      </div>
+                      <p className="text-white font-mono text-xs">
+                        {parseFloat(facility.latitude).toFixed(6)}, {parseFloat(facility.longitude).toFixed(6)}
+                      </p>
+                      <a
+                        href={`https://www.google.com/maps?q=${facility.latitude},${facility.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal-400 hover:text-teal-300 text-xs mt-1 inline-block"
+                      >
+                        Open in Google Maps →
+                      </a>
+                    </div>
+                    <div className="rounded-lg overflow-hidden border border-slate-700">
+                      <FacilityMapEmbed
+                        facility={facility}
+                        height={200}
+                        interactive={false}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="pt-3 border-t border-slate-700">
+                    <p className="text-slate-400 text-sm">No coordinates set</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
