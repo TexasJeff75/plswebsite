@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notificationsService } from './notificationsService';
 
 export const supportService = {
   async getTickets(filters = {}) {
@@ -215,7 +216,7 @@ export const supportService = {
     // Fetch user data separately from user_roles
     const { data: userData } = await supabase
       .from('user_roles')
-      .select('user_id, display_name, email')
+      .select('user_id, display_name, email, role')
       .eq('user_id', user.id)
       .single();
 
@@ -225,10 +226,63 @@ export const supportService = {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', ticketId);
 
+    // Send notifications (don't block on this)
+    this.sendMessageNotifications(ticketId, user.id, userData, message, isInternal).catch(err => {
+      console.error('Error sending message notifications:', err);
+    });
+
     return {
       ...data,
       user: userData || null
     };
+  },
+
+  async sendMessageNotifications(ticketId, senderId, senderData, messageText, isInternal) {
+    // Fetch ticket details
+    const { data: ticket } = await supabase
+      .from('support_tickets')
+      .select('id, ticket_number, subject, created_by, assigned_to, organization_id')
+      .eq('id', ticketId)
+      .maybeSingle();
+
+    if (!ticket) return;
+
+    // Don't send notifications for internal messages to non-staff
+    const staffRoles = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
+    const senderIsStaff = senderData && staffRoles.includes(senderData.role);
+
+    // Determine who should be notified
+    const usersToNotify = new Set();
+
+    if (senderIsStaff) {
+      // Staff sent a message - notify ticket creator
+      if (ticket.created_by && ticket.created_by !== senderId) {
+        usersToNotify.add(ticket.created_by);
+      }
+    } else {
+      // Customer sent a message - notify assigned staff
+      if (ticket.assigned_to && ticket.assigned_to !== senderId) {
+        usersToNotify.add(ticket.assigned_to);
+      }
+    }
+
+    // Create notifications
+    const senderName = senderData?.display_name || 'Someone';
+    const previewText = messageText.length > 60 ? messageText.substring(0, 60) + '...' : messageText;
+
+    for (const userId of usersToNotify) {
+      try {
+        await notificationsService.createForUser(userId, {
+          type: 'ticket_message',
+          title: `New message on ${ticket.ticket_number}`,
+          message: `${senderName}: ${previewText}`,
+          link: `/tracker/support/${ticket.id}`,
+          organizationId: ticket.organization_id
+        });
+      } catch (err) {
+        console.error(`Failed to create notification for user ${userId}:`, err);
+      }
+    }
   },
 
   async generateTicketNumber() {

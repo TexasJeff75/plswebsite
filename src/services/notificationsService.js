@@ -135,6 +135,7 @@ export const notificationsService = {
       sla_warning: { icon: 'Clock', color: 'text-red-400', bg: 'bg-red-500/10' },
       milestone_blocked: { icon: 'AlertTriangle', color: 'text-orange-400', bg: 'bg-orange-500/10' },
       ticket_assigned: { icon: 'Ticket', color: 'text-teal-400', bg: 'bg-teal-500/10' },
+      ticket_message: { icon: 'MessageSquare', color: 'text-green-400', bg: 'bg-green-500/10' },
       general: { icon: 'Bell', color: 'text-slate-400', bg: 'bg-slate-500/10' }
     };
     return icons[type] || icons.general;
@@ -148,6 +149,7 @@ export const notificationsService = {
       sla_warning: 'SLA Warning',
       milestone_blocked: 'Milestone Blocked',
       ticket_assigned: 'Ticket Assigned',
+      ticket_message: 'Ticket Message',
       general: 'General'
     };
     return labels[type] || 'General';
