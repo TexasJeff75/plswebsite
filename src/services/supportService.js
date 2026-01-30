@@ -40,23 +40,53 @@ export const supportService = {
   async getTicketById(id) {
     const { data, error } = await supabase
       .from('support_tickets')
-      .select(`
-        *,
-        organization:organizations(id, name),
-        site:facilities(id, name, city, state)
-      `)
+      .select('*')
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching ticket:', error);
+      throw error;
+    }
 
-    if (data && data.assigned_to) {
+    console.log('Ticket data:', data);
+
+    if (!data) return null;
+
+    // Manually fetch organization data if it exists
+    if (data.organization_id) {
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('id', data.organization_id)
+        .maybeSingle();
+      if (orgData) {
+        data.organization = orgData;
+      }
+    }
+
+    // Manually fetch site data if it exists
+    if (data.site_id) {
+      const { data: siteData } = await supabase
+        .from('facilities')
+        .select('id, name, city, state')
+        .eq('id', data.site_id)
+        .maybeSingle();
+      if (siteData) {
+        data.site = siteData;
+      }
+    }
+
+    // Fetch assignee data if assigned
+    if (data.assigned_to) {
       const { data: assigneeData } = await supabase
         .from('user_roles')
         .select('user_id, display_name, email')
         .eq('user_id', data.assigned_to)
         .maybeSingle();
-      data.assignee = assigneeData;
+      if (assigneeData) {
+        data.assignee = assigneeData;
+      }
     }
 
     return data;
