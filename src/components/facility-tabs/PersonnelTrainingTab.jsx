@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Users, Plus, Trash2, BookOpen, CheckCircle2, Award, FileDown, Loader2 } from 'lucide-react';
 import { personnelService } from '../../services/personnelService';
 import { trainingService } from '../../services/trainingService';
+import { certificateService } from '../../services/certificateService';
 
 export default function PersonnelTrainingTab({ facility, isEditor }) {
   const [personnel, setPersonnel] = useState(null);
@@ -16,6 +17,7 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
     email: '',
     instruments_certified: [],
   });
+  const [generatingCertificate, setGeneratingCertificate] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -79,6 +81,19 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
       setTrainedPersonnel(trainedPersonnel.filter(p => p.id !== personId));
     } catch (error) {
       console.error('Error deleting person:', error);
+    }
+  }
+
+  function handleGenerateCertificate(person) {
+    if (!person.instruments_certified?.length) return;
+
+    setGeneratingCertificate(person.id);
+    try {
+      certificateService.generateCertificate(person, facility, person.instruments_certified);
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+    } finally {
+      setTimeout(() => setGeneratingCertificate(null), 500);
     }
   }
 
@@ -425,25 +440,44 @@ export default function PersonnelTrainingTab({ facility, isEditor }) {
 
                 <div className="space-y-2">
                   {trainedPersonnel.map(person => (
-                    <div key={person.id} className="bg-slate-700 p-3 rounded flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="text-white font-semibold text-sm">{person.name}</p>
-                        <p className="text-slate-400 text-xs">{person.title}</p>
-                        <p className="text-slate-500 text-xs">{person.email}</p>
-                        {person.instruments_certified?.length > 0 && (
-                          <p className="text-teal-300 text-xs mt-1">
-                            Certified: {person.instruments_certified.join(', ')}
-                          </p>
-                        )}
+                    <div key={person.id} className="bg-slate-700 p-3 rounded">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-white font-semibold text-sm">{person.name}</p>
+                          <p className="text-slate-400 text-xs">{person.title}</p>
+                          <p className="text-slate-500 text-xs">{person.email}</p>
+                          {person.instruments_certified?.length > 0 && (
+                            <p className="text-teal-300 text-xs mt-1">
+                              Certified: {person.instruments_certified.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {person.instruments_certified?.length > 0 && (
+                            <button
+                              onClick={() => handleGenerateCertificate(person)}
+                              disabled={generatingCertificate === person.id}
+                              className="p-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors disabled:opacity-50"
+                              title="Generate Certificate"
+                            >
+                              {generatingCertificate === person.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Award className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                          {isEditor && (
+                            <button
+                              onClick={() => handleDeletePerson(person.id)}
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-600 rounded transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {isEditor && (
-                        <button
-                          onClick={() => handleDeletePerson(person.id)}
-                          className="text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
                   ))}
                   {trainedPersonnel.length === 0 && (
