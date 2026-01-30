@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, X, Upload, Maximize2, Minimize2, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Search, X, Upload, Maximize2, Minimize2, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw, Cloud } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
+import { weatherService } from '../services/weatherService';
 import FacilityDetailPanel from './FacilityDetailPanel';
 import ImportData from './ImportData';
 
@@ -77,7 +78,7 @@ function MapController({ center, zoom, fitBounds }) {
   return null;
 }
 
-function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, isFullscreen }) {
+function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, isFullscreen, onWeatherToggle, weatherEnabled }) {
   return (
     <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
       <button
@@ -110,6 +111,17 @@ function MapControls({ onZoomIn, onZoomOut, onFitBounds, onReset, onFullscreen, 
         <RotateCcw className="w-4 h-4" />
       </button>
       <div className="w-full h-px bg-slate-700/50 my-1" />
+      <button
+        onClick={onWeatherToggle}
+        className={`p-2.5 backdrop-blur-sm border rounded-lg transition-all shadow-lg ${
+          weatherEnabled
+            ? 'bg-sky-500/20 border-sky-500/50 text-sky-400 hover:bg-sky-500/30'
+            : 'bg-slate-900/90 border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-800'
+        }`}
+        title={weatherEnabled ? 'Hide Weather' : 'Show Weather'}
+      >
+        <Cloud className="w-4 h-4" />
+      </button>
       <button
         onClick={onFullscreen}
         className="p-2.5 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all shadow-lg"
@@ -170,6 +182,10 @@ export default function DeploymentTrackerMap() {
   const [mapKey, setMapKey] = useState(0);
   const [fitBounds, setFitBounds] = useState(null);
 
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [weatherData, setWeatherData] = useState({});
+  const [loadingWeather, setLoadingWeather] = useState(false);
+
   const loadFacilities = async () => {
     try {
       setLoading(true);
@@ -200,6 +216,28 @@ export default function DeploymentTrackerMap() {
   useEffect(() => {
     loadFacilities();
   }, []);
+
+  useEffect(() => {
+    if (weatherEnabled && filteredFacilities.length > 0) {
+      loadWeatherData();
+    }
+  }, [weatherEnabled, filteredFacilities]);
+
+  const loadWeatherData = async () => {
+    setLoadingWeather(true);
+    try {
+      const weatherMap = await weatherService.getWeatherForFacilities(filteredFacilities);
+      setWeatherData(weatherMap);
+    } catch (error) {
+      console.error('Error loading weather:', error);
+    } finally {
+      setLoadingWeather(false);
+    }
+  };
+
+  const toggleWeather = () => {
+    setWeatherEnabled(!weatherEnabled);
+  };
 
   useEffect(() => {
     let filtered = facilities;
@@ -452,22 +490,36 @@ export default function DeploymentTrackerMap() {
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-1">
                           <div
-                            className={`w-3 h-3 rounded-full ${facility.status === 'blocked' ? 'animate-pulse' : ''}`}
+                            className={`w-3 h-3 rounded-full flex-shrink-0 ${facility.status === 'blocked' ? 'animate-pulse' : ''}`}
                             style={{ backgroundColor: statusConfig.color }}
                           />
                           <h3 className="font-medium text-white text-sm leading-tight">{facility.name}</h3>
                         </div>
-                        {!hasCoords && (
-                          <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                            No coords
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {weatherEnabled && weatherData[facility.id] && (
+                            <span className="text-xs" title={`${weatherData[facility.id].temperature}°F - ${weatherData[facility.id].icon.text}`}>
+                              {weatherData[facility.id].icon.emoji}
+                            </span>
+                          )}
+                          {!hasCoords && (
+                            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                              No coords
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-slate-400 pl-5">
+                          {facility.city || 'Unknown'}, {facility.state || 'Unknown'}
+                        </p>
+                        {weatherEnabled && weatherData[facility.id] && (
+                          <span className="text-xs text-sky-400">
+                            {weatherData[facility.id].temperature}°F
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 mb-2 pl-5">
-                        {facility.city || 'Unknown'}, {facility.state || 'Unknown'}
-                      </p>
                       <div className="flex items-center justify-between pl-5">
                         <span className="text-[11px] text-slate-500">
                           {facility.completedMilestones}/{facility.totalMilestones} milestones
@@ -551,6 +603,45 @@ export default function DeploymentTrackerMap() {
                         <p className="text-xs text-slate-600 mb-2">
                           {facility.city}, {facility.state}
                         </p>
+
+                        {weatherEnabled && weatherData[facility.id] && (
+                          <div className="bg-sky-50 border border-sky-200 rounded-lg p-2 mb-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl">{weatherData[facility.id].icon.emoji}</span>
+                                <div>
+                                  <div className="text-lg font-bold text-slate-900">
+                                    {weatherData[facility.id].temperature}°F
+                                  </div>
+                                  <div className="text-xs text-slate-600">
+                                    {weatherData[facility.id].icon.text}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs mt-2 pt-2 border-t border-sky-200">
+                              <div>
+                                <span className="text-slate-500">Feels like:</span>
+                                <span className="ml-1 font-medium text-slate-700">
+                                  {weatherData[facility.id].feelsLike}°F
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500">Humidity:</span>
+                                <span className="ml-1 font-medium text-slate-700">
+                                  {weatherData[facility.id].humidity}%
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-slate-500">Wind:</span>
+                                <span className="ml-1 font-medium text-slate-700">
+                                  {weatherData[facility.id].windDirection} {weatherData[facility.id].windSpeed} mph
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex justify-between text-xs mb-1">
                           <span className="text-slate-500">Status</span>
                           <span className="font-medium" style={{ color }}>
@@ -588,6 +679,8 @@ export default function DeploymentTrackerMap() {
             onReset={handleReset}
             onFullscreen={toggleFullscreen}
             isFullscreen={isFullscreen}
+            onWeatherToggle={toggleWeather}
+            weatherEnabled={weatherEnabled}
           />
 
           <div className="absolute bottom-6 right-4 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 z-[1000] shadow-xl">
@@ -606,6 +699,17 @@ export default function DeploymentTrackerMap() {
                 </div>
               ))}
             </div>
+            {weatherEnabled && (
+              <div className="mt-3 pt-3 border-t border-slate-700/50">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="text-sky-400 text-xs font-medium">Weather Enabled</span>
+                </div>
+                {loadingWeather && (
+                  <p className="text-[10px] text-slate-500 mt-1">Loading weather...</p>
+                )}
+              </div>
+            )}
             <div className="mt-3 pt-3 border-t border-slate-700/50">
               <p className="text-[10px] text-slate-500">
                 {facilitiesOnMap} facilities displayed
