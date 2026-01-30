@@ -4,7 +4,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2 } from 'lucide-react';
+import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp } from 'lucide-react';
 import TabContainer from './facility-tabs/TabContainer';
 import OverviewTab from './facility-tabs/OverviewTabImproved';
 import LocationTab from './facility-tabs/LocationTab';
@@ -17,6 +17,7 @@ import TrainingTab from './facility-tabs/TrainingTab';
 import MilestonesTab from './facility-tabs/MilestonesTab';
 import DocumentsTab from './facility-tabs/DocumentsTab';
 import ActivityLogTab from './facility-tabs/ActivityLogTab';
+import FacilityMapEmbed from './maps/FacilityMapEmbed';
 
 export default function FacilityDetail() {
   const { id } = useParams();
@@ -174,6 +175,140 @@ export default function FacilityDetail() {
           <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${statusColor} ${statusTextColor}`}>
             {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1).replace('_', ' ')}
           </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-teal-400" />
+                Key Dates
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
+                <p className="text-white text-sm">
+                  {facility.projected_deployment_date
+                    ? new Date(facility.projected_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Not set'}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs mb-1">Actual Deployment</p>
+                <p className="text-white text-sm">
+                  {facility.actual_deployment_date
+                    ? new Date(facility.actual_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Not set'}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs mb-1">Projected Go-Live</p>
+                <p className="text-white text-sm">
+                  {facility.projected_go_live_date
+                    ? new Date(facility.projected_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Not set'}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs mb-1">Actual Go-Live</p>
+                <p className="text-white text-sm">
+                  {facility.actual_go_live_date
+                    ? new Date(facility.actual_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Not set'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-teal-400" />
+                Progress Overview
+              </h2>
+              <span className="text-teal-400 font-semibold text-lg">{completionPercentage}%</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'Regulatory', value: facilityStatsService.getCategoryProgress(facility.milestones, 'regulatory') },
+                { label: 'Equipment', value: facilityStatsService.getCategoryProgress(facility.milestones, 'equipment') },
+                { label: 'Integration', value: facilityStatsService.getCategoryProgress(facility.milestones, 'integration') },
+                { label: 'Training', value: facilityStatsService.getCategoryProgress(facility.milestones, 'training') },
+                { label: 'Go-Live', value: facilityStatsService.getCategoryProgress(facility.milestones, 'go_live') },
+              ].map(cat => (
+                <div key={cat.label}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-slate-300 text-sm">{cat.label}</span>
+                    <span className="text-slate-400 text-xs">{cat.value}%</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div
+                      className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${cat.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-teal-400" />
+                Location
+              </h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-white text-sm">{facility.address || 'No address'}</p>
+                <p className="text-slate-300 text-sm">
+                  {[facility.city, facility.state].filter(Boolean).join(', ')}
+                </p>
+                {facility.county && (
+                  <p className="text-slate-400 text-xs mt-1">{facility.county} County</p>
+                )}
+              </div>
+
+              {facility.latitude && facility.longitude ? (
+                <>
+                  <div className="pt-3 border-t border-slate-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Navigation className="w-4 h-4 text-teal-400" />
+                      <p className="text-slate-400 text-xs">Coordinates</p>
+                    </div>
+                    <p className="text-white font-mono text-xs">
+                      {parseFloat(facility.latitude).toFixed(6)}, {parseFloat(facility.longitude).toFixed(6)}
+                    </p>
+                    <a
+                      href={`https://www.google.com/maps?q=${facility.latitude},${facility.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-teal-400 hover:text-teal-300 text-xs mt-1 inline-block"
+                    >
+                      Open in Google Maps →
+                    </a>
+                  </div>
+                  <div className="rounded-lg overflow-hidden border border-slate-700">
+                    <FacilityMapEmbed
+                      facility={facility}
+                      height={200}
+                      interactive={false}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="pt-3 border-t border-slate-700">
+                  <p className="text-slate-400 text-sm">No coordinates set</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
