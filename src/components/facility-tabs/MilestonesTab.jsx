@@ -286,7 +286,9 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
               />
             </div>
             <div>
-              <label className="block text-slate-400 text-xs mb-1">Priority</label>
+              <label className="block text-slate-400 text-xs mb-1">
+                Priority <span className="text-slate-500">(lower = higher priority)</span>
+              </label>
               <select
                 value={newMilestone.priority}
                 onChange={(e) => setNewMilestone({ ...newMilestone, priority: e.target.value })}
@@ -325,7 +327,13 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
       )}
 
       {MILESTONE_CATEGORIES.map(category => {
-        const categoryMilestones = milestonesByCategory[category] || [];
+        const categoryMilestones = (milestonesByCategory[category] || [])
+          .sort((a, b) => {
+            // Sort by priority (lower number = higher priority)
+            const priorityA = a.priority || 5;
+            const priorityB = b.priority || 5;
+            return priorityA - priorityB;
+          });
         const progress = category === 'uncategorized'
           ? (categoryMilestones.length > 0 ? Math.round((categoryMilestones.filter(m => m.status === 'complete').length / categoryMilestones.length) * 100) : 0)
           : facilityStatsService.getCategoryProgress(milestones, category);
@@ -392,7 +400,9 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-xs mb-1">Priority</label>
+                          <label className="block text-slate-400 text-xs mb-1">
+                Priority <span className="text-slate-500">(lower = higher priority)</span>
+              </label>
                           <select
                             value={editingMilestone.priority || '5'}
                             onChange={(e) => setEditingMilestone({ ...editingMilestone, priority: e.target.value })}
@@ -452,11 +462,27 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                               <span className={`px-2 py-1 rounded text-xs font-semibold ${STATUS_COLORS[milestone.status] || STATUS_COLORS['not_started']}`}>
                                 {milestone.status?.charAt(0).toUpperCase() + milestone.status?.slice(1).replace('_', ' ')}
                               </span>
+                              {milestone.priority && milestone.priority <= 3 && (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
+                                  milestone.priority === 1 ? 'bg-red-600 text-white' :
+                                  milestone.priority === 2 ? 'bg-orange-600 text-white' :
+                                  'bg-yellow-600 text-white'
+                                }`}>
+                                  <Flag className="w-3 h-3" />
+                                  P{milestone.priority}
+                                </span>
+                              )}
                             </div>
                             {milestone.description && (
                               <p className="text-slate-400 text-sm mb-2">{milestone.description}</p>
                             )}
                             <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                              {milestone.priority && (
+                                <span className="flex items-center gap-1">
+                                  <Flag className="w-3 h-3" />
+                                  Priority: {milestone.priority}
+                                </span>
+                              )}
                               {milestone.responsible_party && (
                                 <span>Responsible: {milestone.responsible_party}</span>
                               )}
