@@ -42,7 +42,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
     status: 'not_started',
     responsible_party: '',
     target_date: '',
-    sla_hours: '',
+    priority: '5',
   });
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         status: newMilestone.status,
         responsible_party: newMilestone.responsible_party || null,
         target_date: newMilestone.target_date || null,
-        sla_hours: newMilestone.sla_hours ? parseInt(newMilestone.sla_hours) : null,
+        priority: newMilestone.priority ? parseInt(newMilestone.priority) : 5,
         milestone_order: milestones.length + 1,
       });
       setMilestones([...milestones, milestone]);
@@ -75,7 +75,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         status: 'not_started',
         responsible_party: '',
         target_date: '',
-        sla_hours: '',
+        priority: '5',
       });
       setShowAddForm(false);
       if (onUpdate) onUpdate();
@@ -115,7 +115,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         category: editingMilestone.category,
         responsible_party: editingMilestone.responsible_party,
         target_date: editingMilestone.target_date || null,
-        sla_hours: editingMilestone.sla_hours ? parseInt(editingMilestone.sla_hours) : null,
+        priority: editingMilestone.priority ? parseInt(editingMilestone.priority) : 5,
         blocked_reason: editingMilestone.blocked_reason,
       });
       setMilestones(milestones.map(m => m.id === updated.id ? { ...m, ...updated } : m));
@@ -279,14 +279,23 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
               />
             </div>
             <div>
-              <label className="block text-slate-400 text-xs mb-1">SLA (hours)</label>
-              <input
-                type="number"
-                value={newMilestone.sla_hours}
-                onChange={(e) => setNewMilestone({ ...newMilestone, sla_hours: e.target.value })}
-                placeholder="e.g., 48"
+              <label className="block text-slate-400 text-xs mb-1">Priority</label>
+              <select
+                value={newMilestone.priority}
+                onChange={(e) => setNewMilestone({ ...newMilestone, priority: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-              />
+              >
+                <option value="1">1 - Critical</option>
+                <option value="2">2 - High</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5 - Medium</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8 - Low</option>
+                <option value="9">9</option>
+                <option value="10">10 - Lowest</option>
+              </select>
             </div>
           </div>
           <div className="flex items-center justify-end gap-3 pt-2">
@@ -374,6 +383,25 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                             onChange={(e) => setEditingMilestone({ ...editingMilestone, target_date: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-xs mb-1">Priority</label>
+                          <select
+                            value={editingMilestone.priority || '5'}
+                            onChange={(e) => setEditingMilestone({ ...editingMilestone, priority: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                          >
+                            <option value="1">1 - Critical</option>
+                            <option value="2">2 - High</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5 - Medium</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8 - Low</option>
+                            <option value="9">9</option>
+                            <option value="10">10 - Lowest</option>
+                          </select>
                         </div>
                       </div>
                       {milestone.status === 'blocked' && (
@@ -497,10 +525,10 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                             </div>
                           )}
 
-                          {milestone.sla_hours && (
+                          {milestone.priority && (
                             <div>
                               <p className="text-slate-300 text-sm">
-                                <span className="font-semibold">SLA:</span> {milestone.sla_hours} hours
+                                <span className="font-semibold">Priority:</span> {milestone.priority === 1 ? 'Critical' : milestone.priority <= 2 ? 'High' : milestone.priority === 5 ? 'Medium' : milestone.priority >= 8 ? 'Low' : milestone.priority}
                               </p>
                             </div>
                           )}

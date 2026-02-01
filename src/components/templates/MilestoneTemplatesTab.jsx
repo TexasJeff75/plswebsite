@@ -22,7 +22,6 @@ export default function MilestoneTemplatesTab() {
     description: '',
     category: 'regulatory',
     responsible_party_default: 'Proximity',
-    sla_hours: '',
     dependencies: [],
     phase: 'both'
   });
@@ -51,7 +50,6 @@ export default function MilestoneTemplatesTab() {
       description: '',
       category: 'regulatory',
       responsible_party_default: 'Proximity',
-      sla_hours: '',
       dependencies: [],
       phase: 'both'
     });
@@ -65,7 +63,6 @@ export default function MilestoneTemplatesTab() {
       description: template.description || '',
       category: template.category,
       responsible_party_default: template.responsible_party_default || 'Proximity',
-      sla_hours: template.sla_hours?.toString() || '',
       dependencies: template.dependencies || [],
       phase: template.phase || 'both'
     });
@@ -83,7 +80,6 @@ export default function MilestoneTemplatesTab() {
           description: formData.description,
           category: formData.category,
           responsible_party_default: formData.responsible_party_default,
-          sla_hours: formData.sla_hours ? parseFloat(formData.sla_hours) : null,
           dependencies: formData.dependencies,
           phase: formData.phase
         });
@@ -93,7 +89,6 @@ export default function MilestoneTemplatesTab() {
           description: formData.description,
           category: formData.category,
           responsible_party_default: formData.responsible_party_default,
-          sla_hours: formData.sla_hours ? parseFloat(formData.sla_hours) : null,
           dependencies: formData.dependencies,
           phase: formData.phase,
           is_system_template: true
@@ -160,7 +155,7 @@ export default function MilestoneTemplatesTab() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Category</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Responsible Party</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">SLA Hours</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Applies To</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -186,8 +181,10 @@ export default function MilestoneTemplatesTab() {
                     <td className="px-4 py-3 text-slate-300">
                       <ReferenceText category="responsible_party" code={template.responsible_party_default?.toLowerCase()} />
                     </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {template.sla_hours ? `${template.sla_hours}h` : '-'}
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-300">
+                        {APPLIES_TO.find(a => a.id === template.phase)?.label || 'Both'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
@@ -274,33 +271,19 @@ export default function MilestoneTemplatesTab() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">SLA Hours (Optional)</label>
-                  <input
-                    type="number"
-                    value={formData.sla_hours}
-                    onChange={(e) => setFormData({ ...formData, sla_hours: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
-                    placeholder="e.g. 48"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Applies To</label>
-                  <div className="relative">
-                    <select
-                      value={formData.phase}
-                      onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
-                    >
-                      {APPLIES_TO.map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Applies To</label>
+                <div className="relative">
+                  <select
+                    value={formData.phase}
+                    onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
+                    className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
+                  >
+                    {APPLIES_TO.map(opt => (
+                      <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
 

@@ -24,6 +24,7 @@ export default function DeploymentTemplatesTab() {
     template_type: 'mini_lab_waived',
     description: '',
     selectedMilestones: [],
+    milestonePriorities: {},
     selectedEquipment: []
   });
   const [saving, setSaving] = useState(false);
@@ -57,6 +58,7 @@ export default function DeploymentTemplatesTab() {
       template_type: 'mini_lab_waived',
       description: '',
       selectedMilestones: [],
+      milestonePriorities: {},
       selectedEquipment: []
     });
     setShowModal(true);
@@ -64,11 +66,18 @@ export default function DeploymentTemplatesTab() {
 
   function openEditModal(template) {
     setEditingTemplate(template);
+    const priorities = {};
+    template.template_milestones?.forEach(tm => {
+      if (tm.milestone_template?.id) {
+        priorities[tm.milestone_template.id] = tm.priority || 5;
+      }
+    });
     setFormData({
       template_name: template.template_name,
       template_type: template.template_type,
       description: template.description || '',
       selectedMilestones: template.template_milestones?.map(tm => tm.milestone_template?.id).filter(Boolean) || [],
+      milestonePriorities: priorities,
       selectedEquipment: template.template_equipment?.map(te => te.equipment?.id).filter(Boolean) || []
     });
     setShowModal(true);
@@ -98,7 +107,7 @@ export default function DeploymentTemplatesTab() {
         templateId = newTemplate.id;
       }
 
-      await templatesService.setTemplateMilestones(templateId, formData.selectedMilestones);
+      await templatesService.setTemplateMilestones(templateId, formData.selectedMilestones, formData.milestonePriorities);
       await templatesService.setTemplateEquipment(templateId, formData.selectedEquipment);
 
       setShowModal(false);
@@ -131,11 +140,34 @@ export default function DeploymentTemplatesTab() {
   }
 
   function toggleMilestone(id) {
+    setFormData(prev => {
+      const isSelected = prev.selectedMilestones.includes(id);
+      const newMilestones = isSelected
+        ? prev.selectedMilestones.filter(m => m !== id)
+        : [...prev.selectedMilestones, id];
+
+      const newPriorities = { ...prev.milestonePriorities };
+      if (!isSelected) {
+        newPriorities[id] = 5;
+      } else {
+        delete newPriorities[id];
+      }
+
+      return {
+        ...prev,
+        selectedMilestones: newMilestones,
+        milestonePriorities: newPriorities
+      };
+    });
+  }
+
+  function updateMilestonePriority(id, priority) {
     setFormData(prev => ({
       ...prev,
-      selectedMilestones: prev.selectedMilestones.includes(id)
-        ? prev.selectedMilestones.filter(m => m !== id)
-        : [...prev.selectedMilestones, id]
+      milestonePriorities: {
+        ...prev.milestonePriorities,
+        [id]: parseInt(priority)
+      }
     }));
   }
 
@@ -303,28 +335,55 @@ export default function DeploymentTemplatesTab() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Milestone Checklist ({formData.selectedMilestones.length} selected)
                 </label>
-                <div className="bg-slate-900 border border-slate-700 rounded-lg max-h-48 overflow-y-auto">
+                <div className="bg-slate-900 border border-slate-700 rounded-lg max-h-64 overflow-y-auto">
                   {milestoneTemplates.length === 0 ? (
                     <p className="p-4 text-slate-400 text-sm text-center">No milestone templates available</p>
                   ) : (
                     <div className="divide-y divide-slate-700/50">
-                      {milestoneTemplates.map(milestone => (
-                        <label
-                          key={milestone.id}
-                          className="flex items-center gap-3 px-4 py-2 hover:bg-slate-800 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.selectedMilestones.includes(milestone.id)}
-                            onChange={() => toggleMilestone(milestone.id)}
-                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm">{milestone.title}</p>
-                            <p className="text-slate-400 text-xs">{milestone.category}</p>
+                      {milestoneTemplates.map(milestone => {
+                        const isSelected = formData.selectedMilestones.includes(milestone.id);
+                        return (
+                          <div
+                            key={milestone.id}
+                            className="hover:bg-slate-800"
+                          >
+                            <label className="flex items-center gap-3 px-4 py-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleMilestone(milestone.id)}
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm">{milestone.title}</p>
+                                <p className="text-slate-400 text-xs">{milestone.category}</p>
+                              </div>
+                              {isSelected && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400 text-xs">Priority:</span>
+                                  <select
+                                    value={formData.milestonePriorities[milestone.id] || 5}
+                                    onChange={(e) => updateMilestonePriority(milestone.id, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded text-white focus:outline-none focus:border-teal-500"
+                                  >
+                                    <option value="1">1 - Critical</option>
+                                    <option value="2">2 - High</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5 - Medium</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8 - Low</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10 - Lowest</option>
+                                  </select>
+                                </div>
+                              )}
+                            </label>
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

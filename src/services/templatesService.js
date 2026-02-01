@@ -135,7 +135,7 @@ export const templatesService = {
     return newTemplate;
   },
 
-  async setTemplateMilestones(templateId, milestoneTemplateIds) {
+  async setTemplateMilestones(templateId, milestoneTemplateIds, priorities = {}) {
     await supabase
       .from('template_milestones')
       .delete()
@@ -145,7 +145,8 @@ export const templatesService = {
       const inserts = milestoneTemplateIds.map((id, index) => ({
         deployment_template_id: templateId,
         milestone_template_id: id,
-        sort_order: index
+        sort_order: index,
+        priority: priorities[id] || 5
       }));
       const { error } = await supabase.from('template_milestones').insert(inserts);
       if (error) throw error;
