@@ -85,6 +85,23 @@ export const integrationService = {
     return data;
   },
 
+  async upsertInterfaceStatus(integrationInfoId, instrumentType, statusData) {
+    const { data: existing, error: fetchError } = await supabase
+      .from('interface_status')
+      .select('id')
+      .eq('integration_info_id', integrationInfoId)
+      .eq('instrument_type', instrumentType)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    if (existing) {
+      return this.updateInterfaceStatus(existing.id, statusData);
+    } else {
+      return this.createInterfaceStatus(integrationInfoId, instrumentType, statusData);
+    }
+  },
+
   async updateLisSetup(facilityId, lisData) {
     return this.upsert(facilityId, lisData);
   },

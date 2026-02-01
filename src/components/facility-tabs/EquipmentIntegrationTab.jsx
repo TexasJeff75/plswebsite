@@ -104,6 +104,27 @@ export default function EquipmentIntegrationTab({ facility, isEditor, onUpdate }
     }
   }
 
+  async function handleInterfaceUpdate(equipmentType, updates) {
+    try {
+      let integrationId = integration?.id;
+
+      if (!integrationId) {
+        const newIntegration = await integrationService.upsert(facility.id, {});
+        setIntegration(newIntegration);
+        integrationId = newIntegration.id;
+      }
+
+      await integrationService.upsertInterfaceStatus(
+        integrationId,
+        equipmentType,
+        updates
+      );
+      await loadData();
+    } catch (error) {
+      console.error('Error updating interface:', error);
+    }
+  }
+
   if (loading) {
     return <div className="text-slate-400">Loading equipment and integration...</div>;
   }
@@ -451,43 +472,55 @@ export default function EquipmentIntegrationTab({ facility, isEditor, onUpdate }
       </div>
 
       <div className="bg-slate-800 rounded-lg p-4 space-y-3">
-        <h4 className="text-white font-semibold text-sm">Instrument Interfaces</h4>
-        <div className="grid grid-cols-4 gap-3">
-          {['genexpert', 'clarity', 'epoc', 'abacus'].map(inst => {
-            const interfaceData = interfaces.find(i => i.instrument_type === inst) || {
-              instrument_type: inst,
-              interface_type: 'bidirectional',
-              configured: false,
-              tested_successfully: false,
-            };
+        <h4 className="text-white font-semibold text-sm">Instrument Interfaces from Template</h4>
+        {template?.template_equipment && template.template_equipment.length > 0 ? (
+          <div className="grid grid-cols-4 gap-3">
+            {template.template_equipment
+              .filter(te => te.equipment?.equipment_type)
+              .map(te => {
+                const equipmentType = te.equipment.equipment_type;
+                const equipmentName = te.equipment.equipment_name || equipmentType;
+                const interfaceData = interfaces.find(i => i.instrument_type === equipmentType) || {
+                  instrument_type: equipmentType,
+                  interface_type: 'bidirectional',
+                  configured: false,
+                  tested_successfully: false,
+                };
 
-            return (
-              <div key={inst} className="bg-slate-700 p-3 rounded">
-                <p className="text-slate-300 font-semibold mb-2 capitalize text-sm">{inst}</p>
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={interfaceData.configured || false}
-                      disabled={!isEditor}
-                      className="w-3.5 h-3.5"
-                    />
-                    <label className="text-slate-400">Configured</label>
+                return (
+                  <div key={te.id} className="bg-slate-700 p-3 rounded">
+                    <p className="text-slate-300 font-semibold mb-2 text-sm">{equipmentName}</p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={interfaceData.configured || false}
+                          onChange={(e) => handleInterfaceUpdate(equipmentType, { configured: e.target.checked })}
+                          disabled={!editMode}
+                          className="w-3.5 h-3.5"
+                        />
+                        <label className="text-slate-400">Configured</label>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={interfaceData.tested_successfully || false}
+                          onChange={(e) => handleInterfaceUpdate(equipmentType, { tested_successfully: e.target.checked })}
+                          disabled={!editMode}
+                          className="w-3.5 h-3.5"
+                        />
+                        <label className="text-slate-400">Tested</label>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={interfaceData.tested_successfully || false}
-                      disabled={!isEditor}
-                      className="w-3.5 h-3.5"
-                    />
-                    <label className="text-slate-400">Tested</label>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400">
+            <p>No instruments in template</p>
+          </div>
+        )}
       </div>
     </div>
   );
