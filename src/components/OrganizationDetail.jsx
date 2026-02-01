@@ -175,7 +175,7 @@ export default function OrganizationDetail() {
 
       <div className="min-h-[400px]">
         {activeTab === 'overview' && (
-          <OverviewTab organization={organization} facilities={facilities} />
+          <OverviewTab organization={organization} facilities={facilities} isProximityAdmin={isProximityAdmin} />
         )}
         {activeTab === 'sites' && (
           <SitesTab organization={organization} facilities={facilities} onRefresh={loadOrganization} />
@@ -184,7 +184,7 @@ export default function OrganizationDetail() {
           <UsersTab organization={organization} />
         )}
         {activeTab === 'contracts' && (
-          <ContractsTab organization={organization} />
+          <ContractsTab organization={organization} isProximityAdmin={isProximityAdmin} />
         )}
         {activeTab === 'billing' && (
           <BillingTab organization={organization} />
@@ -203,7 +203,7 @@ export default function OrganizationDetail() {
   );
 }
 
-function OverviewTab({ organization, facilities }) {
+function OverviewTab({ organization, facilities, isProximityAdmin }) {
   const formatCurrency = (amount) => {
     if (!amount) return '$0';
     return new Intl.NumberFormat('en-US', {
@@ -503,7 +503,7 @@ function SitesTab({ organization, facilities, onRefresh }) {
   );
 }
 
-function ContractsTab({ organization }) {
+function ContractsTab({ organization, isProximityAdmin }) {
   return (
     <div className="space-y-6">
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
