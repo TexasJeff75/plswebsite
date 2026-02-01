@@ -34,9 +34,9 @@ export const templatesService = {
         template_milestones(
           id,
           milestone_template_id,
-          milestone_template:milestone_templates(id, title, category, description, responsible_party_default, sla_hours),
+          milestone_template:milestone_templates(id, title, category, description, responsible_party_default, priority),
           is_required,
-          custom_sla_hours_override,
+          priority,
           sort_order
         ),
         template_equipment(
@@ -115,7 +115,7 @@ export const templatesService = {
         deployment_template_id: newTemplate.id,
         milestone_template_id: tm.milestone_template_id,
         is_required: tm.is_required,
-        custom_sla_hours_override: tm.custom_sla_hours_override,
+        priority: tm.priority || 5,
         sort_order: tm.sort_order
       }));
       await supabase.from('template_milestones').insert(milestones);
@@ -201,7 +201,7 @@ export const templatesService = {
         title: template.title,
         description: template.description,
         responsible_party_default: template.responsible_party_default,
-        sla_hours: template.sla_hours || null,
+        priority: template.priority || 5,
         dependencies: template.dependencies || [],
         phase: template.phase || null,
         organization_id: template.organization_id || null,
@@ -224,7 +224,7 @@ export const templatesService = {
         title: template.title,
         description: template.description,
         responsible_party_default: template.responsible_party_default,
-        sla_hours: template.sla_hours || null,
+        priority: template.priority || 5,
         dependencies: template.dependencies || [],
         phase: template.phase || null,
         updated_at: new Date().toISOString()
@@ -333,9 +333,9 @@ export const templatesService = {
         description: tm.milestone_template?.description || '',
         category: tm.milestone_template?.category || 'custom',
         responsible_party: tm.milestone_template?.responsible_party_default || 'Proximity',
-        sla_hours: tm.custom_sla_hours_override || tm.milestone_template?.sla_hours,
+        priority: tm.priority || tm.milestone_template?.priority || 5,
         milestone_order: index + 1,
-        status: 'Not Started'
+        status: 'not_started'
       }));
 
       const { error } = await supabase.from('milestones').insert(milestones);

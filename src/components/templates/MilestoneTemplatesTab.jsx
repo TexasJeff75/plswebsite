@@ -22,6 +22,7 @@ export default function MilestoneTemplatesTab() {
     description: '',
     category: 'regulatory',
     responsible_party_default: 'Proximity',
+    priority: 5,
     dependencies: [],
     phase: 'both'
   });
@@ -50,6 +51,7 @@ export default function MilestoneTemplatesTab() {
       description: '',
       category: 'regulatory',
       responsible_party_default: 'Proximity',
+      priority: 5,
       dependencies: [],
       phase: 'both'
     });
@@ -63,6 +65,7 @@ export default function MilestoneTemplatesTab() {
       description: template.description || '',
       category: template.category,
       responsible_party_default: template.responsible_party_default || 'Proximity',
+      priority: template.priority || 5,
       dependencies: template.dependencies || [],
       phase: template.phase || 'both'
     });
@@ -80,6 +83,7 @@ export default function MilestoneTemplatesTab() {
           description: formData.description,
           category: formData.category,
           responsible_party_default: formData.responsible_party_default,
+          priority: formData.priority,
           dependencies: formData.dependencies,
           phase: formData.phase
         });
@@ -89,6 +93,7 @@ export default function MilestoneTemplatesTab() {
           description: formData.description,
           category: formData.category,
           responsible_party_default: formData.responsible_party_default,
+          priority: formData.priority,
           dependencies: formData.dependencies,
           phase: formData.phase,
           is_system_template: true
@@ -269,6 +274,28 @@ export default function MilestoneTemplatesTab() {
                     onChange={(value) => setFormData({ ...formData, responsible_party_default: value })}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Priority <span className="text-slate-500 text-xs">(lower = higher priority)</span>
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value="1">1 - Critical</option>
+                  <option value="2">2 - High</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5 - Medium</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8 - Low</option>
+                  <option value="9">9</option>
+                  <option value="10">10 - Lowest</option>
+                </select>
               </div>
 
               <div>
