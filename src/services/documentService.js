@@ -1,24 +1,49 @@
-import { supabase } from '../lib/supabase';
+import { unifiedDocumentService } from './unifiedDocumentService';
 
+/**
+ * Document Service for Facility Documents
+ * Wrapper around unified document service with facility-specific helpers
+ */
 export const documentService = {
   async getByFacilityId(facilityId) {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('facility_id', facilityId)
-      .order('created_at', { ascending: false });
+    const docs = await unifiedDocumentService.getDocuments('facility', facilityId);
 
-    if (error) throw error;
-
+    // Add signed URLs for compatibility
     const docsWithUrls = await Promise.all(
-      (data || []).map(async (doc) => {
+      (docs || []).map(async (doc) => {
         if (doc.storage_path) {
-          const { data: signedUrlData } = await supabase.storage
-            .from('documents')
-            .createSignedUrl(doc.storage_path, 3600);
-          return { ...doc, url: signedUrlData?.signedUrl || doc.url };
+          try {
+            const url = await unifiedDocumentService.getDocumentUrl(
+              doc.storage_bucket,
+              doc.storage_path
+            );
+            return {
+              ...doc,
+              url,
+              // Map to old field names for backward compatibility
+              name: doc.document_name,
+              type: doc.document_type,
+              created_at: doc.upload_date,
+              facility_id: doc.entity_id
+            };
+          } catch (error) {
+            console.error('Error getting signed URL:', error);
+            return {
+              ...doc,
+              name: doc.document_name,
+              type: doc.document_type,
+              created_at: doc.upload_date,
+              facility_id: doc.entity_id
+            };
+          }
         }
-        return doc;
+        return {
+          ...doc,
+          name: doc.document_name,
+          type: doc.document_type,
+          created_at: doc.upload_date,
+          facility_id: doc.entity_id
+        };
       })
     );
 
@@ -26,61 +51,53 @@ export const documentService = {
   },
 
   async uploadDocument(facilityId, file, documentData) {
-    const storagePath = `${facilityId}/${Date.now()}_${file.name}`;
-
-    const { error } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, file);
-
-    if (error) throw error;
-
-    const { data: signedUrlData } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(storagePath, 3600);
-
-    const { data: docData, error: docError } = await supabase
-      .from('documents')
-      .insert({
-        facility_id: facilityId,
-        name: file.name,
-        url: signedUrlData?.signedUrl || '',
-        storage_path: storagePath,
-        type: documentData.type,
-        uploaded_by: documentData.userId,
+    const doc = await unifiedDocumentService.uploadDocument(
+      'facility',
+      facilityId,
+      file,
+      {
+        document_name: file.name,
+        document_type: documentData.type,
         expiration_date: documentData.expirationDate,
-      })
-      .select()
-      .single();
+        organization_id: documentData.organizationId
+      },
+      'documents'
+    );
 
-    if (docError) throw docError;
-    return docData;
+    // Return in old format for compatibility
+    const url = await unifiedDocumentService.getDocumentUrl(doc.storage_bucket, doc.storage_path);
+    return {
+      ...doc,
+      name: doc.document_name,
+      type: doc.document_type,
+      url,
+      facility_id: doc.entity_id,
+      created_at: doc.upload_date
+    };
   },
 
   async deleteDocument(documentId, storagePath) {
-    if (storagePath) {
-      await supabase.storage
-        .from('documents')
-        .remove([storagePath]);
-    }
-
-    const { error } = await supabase
-      .from('documents')
-      .delete()
-      .eq('id', documentId);
-
-    if (error) throw error;
+    await unifiedDocumentService.deleteDocument(documentId);
   },
 
   async updateDocument(documentId, updateData) {
-    const { data, error } = await supabase
-      .from('documents')
-      .update(updateData)
-      .eq('id', documentId)
-      .select()
-      .single();
+    // Map old field names to new ones
+    const mappedData = {
+      document_name: updateData.name,
+      document_type: updateData.type,
+      expiration_date: updateData.expiration_date
+    };
 
-    if (error) throw error;
-    return data;
+    const doc = await unifiedDocumentService.updateDocument(documentId, mappedData);
+
+    // Return in old format for compatibility
+    return {
+      ...doc,
+      name: doc.document_name,
+      type: doc.document_type,
+      facility_id: doc.entity_id,
+      created_at: doc.upload_date
+    };
   },
 
   getExpiringDocuments(documents, daysThreshold = 30) {
