@@ -367,26 +367,28 @@ export default function FacilityDetail() {
               <span className="text-teal-400 font-semibold text-lg">{completionPercentage}%</span>
             </div>
             <div className="space-y-3">
-              {[
-                { label: 'Regulatory', value: facilityStatsService.getCategoryProgress(facility.milestones, 'regulatory') },
-                { label: 'Equipment', value: facilityStatsService.getCategoryProgress(facility.milestones, 'equipment') },
-                { label: 'Integration', value: facilityStatsService.getCategoryProgress(facility.milestones, 'integration') },
-                { label: 'Training', value: facilityStatsService.getCategoryProgress(facility.milestones, 'training') },
-                { label: 'Go-Live', value: facilityStatsService.getCategoryProgress(facility.milestones, 'go_live') },
-              ].map(cat => (
-                <div key={cat.label}>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-slate-300 text-sm">{cat.label}</span>
-                    <span className="text-slate-400 text-xs">{cat.value}%</span>
+              {facilityStatsService.getUniqueCategoriesWithProgress(facility.milestones).length > 0 ? (
+                facilityStatsService.getUniqueCategoriesWithProgress(facility.milestones).map(cat => (
+                  <div key={cat.category}>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-slate-300 text-sm">{cat.label}</span>
+                      <span className="text-slate-400 text-xs">
+                        {cat.progress}% ({cat.completed}/{cat.total})
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div
+                        className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${cat.progress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2">
-                    <div
-                      className="bg-teal-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${cat.value}%` }}
-                    />
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-slate-400 text-sm">
+                  No milestones assigned yet
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

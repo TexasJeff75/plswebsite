@@ -62,6 +62,60 @@ export const facilityStatsService = {
     return Math.round((completed / categoryMilestones.length) * 100);
   },
 
+  getUniqueCategoriesWithProgress(milestones) {
+    if (!milestones || milestones.length === 0) return [];
+
+    const categoryMap = new Map();
+
+    milestones.forEach(milestone => {
+      const category = milestone.category;
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, {
+          category,
+          total: 0,
+          completed: 0
+        });
+      }
+      const stats = categoryMap.get(category);
+      stats.total += 1;
+      if (milestone.status === 'complete') {
+        stats.completed += 1;
+      }
+    });
+
+    const categoryOrder = {
+      'regulatory': 1,
+      'equipment': 2,
+      'integration': 3,
+      'training': 4,
+      'go_live': 5,
+      'custom': 6
+    };
+
+    const categoryLabels = {
+      'regulatory': 'Regulatory',
+      'equipment': 'Equipment',
+      'integration': 'Integration',
+      'training': 'Training',
+      'go_live': 'Go-Live',
+      'custom': 'Custom'
+    };
+
+    return Array.from(categoryMap.entries())
+      .map(([category, stats]) => ({
+        category,
+        label: categoryLabels[category] || category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' '),
+        progress: Math.round((stats.completed / stats.total) * 100),
+        completed: stats.completed,
+        total: stats.total
+      }))
+      .sort((a, b) => {
+        const orderA = categoryOrder[a.category] || 999;
+        const orderB = categoryOrder[b.category] || 999;
+        return orderA - orderB;
+      });
+  },
+
   getBlockedMilestones(milestones) {
     return milestones?.filter(m => m.status === 'blocked') || [];
   },
