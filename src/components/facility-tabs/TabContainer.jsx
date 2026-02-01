@@ -4,17 +4,17 @@ export default function TabContainer({ tabs, defaultTab = 0 }) {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="border-b border-slate-700 overflow-x-auto">
-        <div className="flex gap-2 p-4 min-w-full">
+    <div className="flex h-full">
+      <div className="w-56 border-r border-slate-700 flex-shrink-0">
+        <div className="flex flex-col gap-1 p-3">
           {tabs.map((tab, index) => (
             <button
               key={index}
               onClick={() => setActiveTab(index)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-3 rounded-lg font-medium text-left transition-colors ${
                 activeTab === index
                   ? 'bg-teal-600 text-white'
-                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
               }`}
             >
               {tab.label}
