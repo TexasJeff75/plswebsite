@@ -113,6 +113,8 @@ export default function EquipmentIntegrationTab({ facility, isEditor, onUpdate }
     template?.template_equipment?.map(te => te.equipment?.equipment_type) || []
   );
 
+  const templateLinkedEquipment = equipment.filter(eq => eq.from_template === true);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
@@ -155,11 +157,11 @@ export default function EquipmentIntegrationTab({ facility, isEditor, onUpdate }
       <div className="bg-slate-800 rounded-lg p-4 space-y-3">
         <h4 className="text-white font-semibold text-sm flex items-center gap-2">
           <Package className="w-4 h-4 text-teal-400" />
-          Equipment
+          Equipment from Template
         </h4>
-        {equipment.length === 0 ? (
+        {templateLinkedEquipment.length === 0 ? (
           <div className="text-center py-6 text-slate-400">
-            <p className="mb-2">No equipment added yet</p>
+            <p className="mb-2">No template equipment added yet</p>
             {template && (
               <button
                 onClick={syncFromTemplate}
@@ -172,7 +174,7 @@ export default function EquipmentIntegrationTab({ facility, isEditor, onUpdate }
           </div>
         ) : (
           <div className="space-y-2">
-            {equipment.map(eq => (
+            {templateLinkedEquipment.map(eq => (
               <div key={eq.id} className="bg-slate-700/50 p-3 rounded-lg">
                 <div className="grid grid-cols-6 gap-3 items-center">
                   <div className="col-span-2">
