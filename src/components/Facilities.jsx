@@ -104,10 +104,10 @@ export default function Facilities() {
           break;
         case 'progress':
           const aProgress = a.milestones?.length > 0
-            ? (a.milestones.filter(m => m.status === 'Complete').length / a.milestones.length)
+            ? (a.milestones.filter(m => m.status === 'complete').length / a.milestones.length)
             : 0;
           const bProgress = b.milestones?.length > 0
-            ? (b.milestones.filter(m => m.status === 'Complete').length / b.milestones.length)
+            ? (b.milestones.filter(m => m.status === 'complete').length / b.milestones.length)
             : 0;
           aValue = aProgress;
           bValue = bProgress;
@@ -288,7 +288,7 @@ export default function Facilities() {
               </thead>
               <tbody>
                 {sortedFacilities.map(facility => {
-                  const completedMilestones = facility.milestones?.filter(m => m.status === 'Complete').length || 0;
+                  const completedMilestones = facility.milestones?.filter(m => m.status === 'complete').length || 0;
                   const totalMilestones = facility.milestones?.length || 9;
                   const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
