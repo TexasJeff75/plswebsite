@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { facilitiesService } from '../services/facilitiesService';
 import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import ImportData from './ImportData';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
@@ -11,6 +12,8 @@ export default function Facilities() {
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -55,6 +58,74 @@ export default function Facilities() {
     'Blocked': 'bg-red-600 text-white'
   };
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="w-4 h-4 opacity-40" />;
+    }
+    return sortConfig.direction === 'asc' ?
+      <ArrowUp className="w-4 h-4 text-teal-400" /> :
+      <ArrowDown className="w-4 h-4 text-teal-400" />;
+  };
+
+  const sortedFacilities = React.useMemo(() => {
+    if (!sortConfig.key) return facilities;
+
+    return [...facilities].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortConfig.key) {
+        case 'name':
+          aValue = a.name?.toLowerCase() || '';
+          bValue = b.name?.toLowerCase() || '';
+          break;
+        case 'client':
+          aValue = a.organization?.name?.toLowerCase() || '';
+          bValue = b.organization?.name?.toLowerCase() || '';
+          break;
+        case 'location':
+          aValue = `${a.city}, ${a.state}`.toLowerCase();
+          bValue = `${b.city}, ${b.state}`.toLowerCase();
+          break;
+        case 'phase':
+          aValue = a.phase?.toLowerCase() || '';
+          bValue = b.phase?.toLowerCase() || '';
+          break;
+        case 'status':
+          aValue = a.status?.toLowerCase() || '';
+          bValue = b.status?.toLowerCase() || '';
+          break;
+        case 'progress':
+          const aProgress = a.milestones?.length > 0
+            ? (a.milestones.filter(m => m.status === 'Complete').length / a.milestones.length)
+            : 0;
+          const bProgress = b.milestones?.length > 0
+            ? (b.milestones.filter(m => m.status === 'Complete').length / b.milestones.length)
+            : 0;
+          aValue = aProgress;
+          bValue = bProgress;
+          break;
+        case 'go-live':
+          aValue = a.projected_go_live ? new Date(a.projected_go_live).getTime() : 0;
+          bValue = b.projected_go_live ? new Date(b.projected_go_live).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [facilities, sortConfig]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -63,13 +134,22 @@ export default function Facilities() {
           <p className="text-slate-400">Manage and monitor facility deployments</p>
         </div>
         {isEditor && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Add Facility
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <Upload className="w-5 h-5" />
+              Import
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Add Facility
+            </button>
+          </div>
         )}
       </div>
 
@@ -140,18 +220,74 @@ export default function Facilities() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-700">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Facility</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Client</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Location</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Phase</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Progress</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Go-Live</th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Facility
+                      {getSortIcon('name')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('client')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Client
+                      {getSortIcon('client')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('location')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Location
+                      {getSortIcon('location')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('phase')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Phase
+                      {getSortIcon('phase')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Status
+                      {getSortIcon('status')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('progress')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Progress
+                      {getSortIcon('progress')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('go-live')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Go-Live
+                      {getSortIcon('go-live')}
+                    </div>
+                  </th>
                   <th className="text-right py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {facilities.map(facility => {
+                {sortedFacilities.map(facility => {
                   const completedMilestones = facility.milestones?.filter(m => m.status === 'Complete').length || 0;
                   const totalMilestones = facility.milestones?.length || 9;
                   const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
@@ -216,6 +352,16 @@ export default function Facilities() {
           onClose={() => setShowAddModal(false)}
           onCreated={() => {
             setShowAddModal(false);
+            loadFacilities();
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportData
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={() => {
+            setShowImportModal(false);
             loadFacilities();
           }}
         />
