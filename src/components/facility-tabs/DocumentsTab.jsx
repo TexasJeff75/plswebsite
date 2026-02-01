@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Trash2, AlertTriangle, Eye, Archive, RefreshCw } from 'lucide-react';
+import { FileText, Download, Trash2, AlertTriangle, Eye, Archive, RefreshCw, Book } from 'lucide-react';
 import { unifiedDocumentService } from '../../services/unifiedDocumentService';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrganization } from '../../contexts/OrganizationContext';
 import DocumentUploadForm from '../documents/DocumentUploadForm';
@@ -27,6 +28,7 @@ export default function DocumentsTab({ facility, isEditor }) {
   const { user } = useAuth();
   const { selectedOrganization } = useOrganization();
   const [documents, setDocuments] = useState([]);
+  const [equipmentRefDocs, setEquipmentRefDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [viewingDoc, setViewingDoc] = useState(null);
@@ -39,12 +41,35 @@ export default function DocumentsTab({ facility, isEditor }) {
   async function loadDocuments() {
     try {
       setLoading(true);
-      const docs = await unifiedDocumentService.getDocuments('facility', facility.id);
-      setDocuments(docs);
+
+      const [facilityDocs, refDocs] = await Promise.all([
+        unifiedDocumentService.getDocuments('facility', facility.id),
+        loadEquipmentReferenceDocs()
+      ]);
+
+      setDocuments(facilityDocs);
+      setEquipmentRefDocs(refDocs);
     } catch (error) {
       console.error('Error loading documents:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadEquipmentReferenceDocs() {
+    try {
+      const { data, error } = await supabase
+        .from('unified_documents')
+        .select('*')
+        .eq('entity_type', 'equipment_catalog')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error loading equipment reference documents:', error);
+      return [];
     }
   }
 
@@ -313,6 +338,69 @@ export default function DocumentsTab({ facility, isEditor }) {
           </div>
         )}
       </div>
+
+      {equipmentRefDocs.length > 0 && (
+        <div className="bg-slate-800 rounded-lg p-6 space-y-4 border border-slate-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Book className="w-5 h-5 text-blue-400" />
+              <h4 className="text-white font-semibold">Equipment Reference Documents</h4>
+              <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded">System-wide</span>
+            </div>
+            <span className="text-slate-400 text-sm">{equipmentRefDocs.length} documents</span>
+          </div>
+          <p className="text-slate-400 text-sm">
+            Reference materials including manuals, specifications, and installation guides for equipment in your system.
+          </p>
+          <div className="grid gap-3">
+            {equipmentRefDocs.map(doc => (
+              <div
+                key={doc.id}
+                className="bg-slate-700/50 p-4 rounded-lg hover:bg-slate-700/80 transition-colors border border-blue-500/20"
+              >
+                <div className="flex items-start gap-4">
+                  <FileText className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-white font-semibold truncate mb-1">{doc.document_name}</h5>
+                    {doc.description && (
+                      <p className="text-slate-400 text-sm mb-2">{doc.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="bg-slate-600/50 px-2 py-1 rounded text-slate-300 border border-blue-500/20">
+                        {TYPE_LABELS[doc.document_type] || doc.document_type}
+                      </span>
+                      {doc.version && (
+                        <span className="bg-slate-600/50 px-2 py-1 rounded text-slate-300">
+                          v{doc.version}
+                        </span>
+                      )}
+                      <span className="text-slate-400 py-1">
+                        {new Date(doc.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleView(doc)}
+                      className="p-2 rounded hover:bg-slate-600 text-slate-400 hover:text-white transition-colors"
+                      title="View document"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDownload(doc)}
+                      className="p-2 rounded hover:bg-slate-600 text-blue-400 hover:text-blue-300 transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {retiredDocuments.length > 0 && (
         <div className="bg-slate-800 rounded-lg p-6 space-y-4">
