@@ -4,25 +4,6 @@ import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
 import { organizationsService } from '../services/organizationsService';
 
-const MILESTONE_NAMES = [
-  'Site Assessment',
-  'CLIA Certificate Obtained',
-  'Lab Director Assigned',
-  'Equipment Ordered',
-  'Equipment Installed',
-  'Network/LIS Integration',
-  'Staff Training Complete',
-  'Competency Assessment Done',
-  'Go-Live'
-];
-
-const EQUIPMENT_DEVICES = [
-  { name: 'Siemens epoc', type: 'blood_gas' },
-  { name: 'Diatron Abacus 3', type: 'cbc' },
-  { name: 'Clarity Platinum', type: 'urinalysis' },
-  { name: 'Cepheid GeneXpert', type: 'molecular' }
-];
-
 const REQUIRED_COLUMNS = ['name', 'address', 'city', 'state'];
 const OPTIONAL_COLUMNS = ['latitude', 'longitude', 'region', 'status', 'projected_go_live', 'general_notes', 'county'];
 
@@ -382,43 +363,12 @@ export default function ImportData({ onImportComplete, onClose }) {
           try {
             facility = await facilitiesService.create(facilityData);
             console.log(`[Import] Facility created successfully: ${facility.id}`);
+            successCount++;
           } catch (facilityError) {
             console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
             importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
             continue;
           }
-
-          try {
-            for (let j = 0; j < MILESTONE_NAMES.length; j++) {
-              await facilitiesService.createMilestone({
-                facility_id: facility.id,
-                milestone_order: j + 1,
-                name: MILESTONE_NAMES[j],
-                status: 'Not Started',
-                completion_date: null,
-                notes: null
-              });
-            }
-          } catch (milestoneError) {
-            console.error(`[Import] FAILED to create milestones for "${facilityName}":`, milestoneError);
-            importErrors.push(`Row ${i + 2} (${facilityName}): Facility created but milestones failed - ${milestoneError.message}`);
-          }
-
-          try {
-            for (const device of EQUIPMENT_DEVICES) {
-              await facilitiesService.createEquipment({
-                facility_id: facility.id,
-                name: device.name,
-                equipment_type: device.type,
-                status: 'Not Ordered'
-              });
-            }
-          } catch (equipmentError) {
-            console.error(`[Import] FAILED to create equipment for "${facilityName}":`, equipmentError);
-            importErrors.push(`Row ${i + 2} (${facilityName}): Facility created but equipment failed - ${equipmentError.message}`);
-          }
-
-          successCount++;
         } catch (rowError) {
           console.error(`[Import] Unexpected error for row ${i + 2}:`, rowError);
           importErrors.push(`Row ${i + 2} (${facilityName}): ${rowError.message}`);
