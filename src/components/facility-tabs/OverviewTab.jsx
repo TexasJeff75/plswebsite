@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { Calendar, AlertTriangle, Activity, Edit2, Save, X } from 'lucide-react';
+import { Calendar, AlertTriangle, Activity, Edit2, Save, X, CheckCircle2 } from 'lucide-react';
+import FormError from '../FormError';
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
+import { validateForm, validators } from '../../utils/formValidation';
 
 export default function OverviewTab({ facility, isEditor, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   if (!facility) return null;
 
@@ -37,6 +41,8 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
 
   const startEditing = () => {
     setError(null);
+    setValidationErrors({});
+    setSuccess(null);
     setEditedData({
       site_configuration: facility.site_configuration || '',
       deployment_phase: facility.deployment_phase || '',
@@ -53,14 +59,51 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
     setIsEditing(false);
     setEditedData({});
     setError(null);
+    setValidationErrors({});
   };
 
   const saveChanges = async () => {
+    const rules = {
+      site_configuration: (val) => validators.required(val, 'Configuration'),
+      deployment_phase: (val) => validators.required(val, 'Deployment phase'),
+      projected_deployment_date: (val) => {
+        if (val && editedData.actual_deployment_date) {
+          return validators.dateRange(val, editedData.actual_deployment_date, {
+            start: 'Projected deployment',
+            end: 'Actual deployment'
+          });
+        }
+        return null;
+      },
+      projected_go_live_date: (val) => {
+        if (val && editedData.actual_go_live_date) {
+          return validators.dateRange(val, editedData.actual_go_live_date, {
+            start: 'Projected go-live',
+            end: 'Actual go-live'
+          });
+        }
+        return null;
+      }
+    };
+
+    const { isValid, errors } = validateForm(editedData, rules);
+
+    if (!isValid) {
+      setValidationErrors(errors);
+      setError('Please fix the errors below');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
+      setValidationErrors({});
+
       const updatedFacility = await facilitiesService.update(facility.id, editedData);
       setIsEditing(false);
+      setSuccess('Configuration updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+
       if (onUpdate) {
         onUpdate(updatedFacility);
       }
@@ -107,9 +150,12 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 rounded p-3 text-red-300 text-sm">
-          {error}
+      <FormError message={error} onDismiss={() => setError(null)} />
+
+      {success && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-start gap-3 mb-4">
+          <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-green-200">{success}</p>
         </div>
       )}
 

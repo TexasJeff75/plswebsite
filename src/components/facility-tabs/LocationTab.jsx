@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Edit2, Save, X, Loader2, RefreshCw } from 'lucide-react';
+import { MapPin, Navigation, Edit2, Save, X, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import FacilityMapEmbed from '../maps/FacilityMapEmbed';
+import FormField from '../FormField';
+import FormError from '../FormError';
 import { facilitiesService } from '../../services/facilitiesService';
 import { geocodingService } from '../../services/geocodingService';
+import { validateForm, validators } from '../../utils/formValidation';
 
 export default function LocationTab({ facility, isEditor, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [nearbyFacilities, setNearbyFacilities] = useState([]);
 
   useEffect(() => {
@@ -72,20 +77,51 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
   }
 
   async function saveChanges() {
+    const rules = {
+      address: (val) => validators.required(val, 'Street address'),
+      city: (val) => validators.required(val, 'City'),
+      state: (val) => validators.required(val, 'State'),
+      latitude: (val) => {
+        if (val && editedData.longitude) {
+          return validators.coordinates(val, editedData.longitude);
+        }
+        return null;
+      },
+      longitude: (val) => {
+        if (val && editedData.latitude) {
+          return validators.coordinates(editedData.latitude, val);
+        }
+        return null;
+      }
+    };
+
+    const { isValid, errors } = validateForm(editedData, rules);
+
+    if (!isValid) {
+      setValidationErrors(errors);
+      setError('Please fix the errors below');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
+      setValidationErrors({});
+
       const dataToSave = {
         ...editedData,
         latitude: editedData.latitude ? parseFloat(editedData.latitude) : null,
         longitude: editedData.longitude ? parseFloat(editedData.longitude) : null
       };
+
       await facilitiesService.update(facility.id, dataToSave);
       setIsEditing(false);
+      setSuccess('Location updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
       if (onUpdate) onUpdate();
     } catch (err) {
       console.error('Error saving changes:', err);
-      setError(err.message || 'Failed to save changes');
+      setError(err.message || 'Failed to save location');
     } finally {
       setSaving(false);
     }
@@ -169,9 +205,12 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 rounded p-3 text-red-300 text-sm">
-          {error}
+      <FormError message={error} onDismiss={() => setError(null)} />
+
+      {success && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-start gap-3 mb-4">
+          <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-green-200">{success}</p>
         </div>
       )}
 
@@ -183,56 +222,79 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
           </h3>
 
           {isEditing ? (
-            <div className="space-y-3">
-              <div>
-                <label className="text-slate-400 text-xs block mb-1">Street Address</label>
+            <div className="space-y-4">
+              <FormField
+                label="Street Address"
+                error={validationErrors.address}
+                required
+              >
                 <input
                   type="text"
                   value={editedData.address}
                   onChange={(e) => setEditedData({ ...editedData, address: e.target.value })}
-                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
+                  className={`w-full bg-slate-700 text-white px-3 py-2 rounded border ${
+                    validationErrors.address ? 'border-red-500' : 'border-slate-600'
+                  } focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm`}
                   placeholder="123 Main Street"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">City</label>
+              </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="City"
+                  error={validationErrors.city}
+                  required
+                >
                   <input
                     type="text"
                     value={editedData.city}
                     onChange={(e) => setEditedData({ ...editedData, city: e.target.value })}
-                    className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
+                    className={`w-full bg-slate-700 text-white px-3 py-2 rounded border ${
+                      validationErrors.city ? 'border-red-500' : 'border-slate-600'
+                    } focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm`}
                   />
-                </div>
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">State</label>
+                </FormField>
+
+                <FormField
+                  label="State"
+                  error={validationErrors.state}
+                  required
+                >
                   <input
                     type="text"
                     value={editedData.state}
                     onChange={(e) => setEditedData({ ...editedData, state: e.target.value })}
-                    className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
+                    className={`w-full bg-slate-700 text-white px-3 py-2 rounded border ${
+                      validationErrors.state ? 'border-red-500' : 'border-slate-600'
+                    } focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm`}
                   />
-                </div>
+                </FormField>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">County</label>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="County"
+                  help="Optional"
+                >
                   <input
                     type="text"
                     value={editedData.county}
                     onChange={(e) => setEditedData({ ...editedData, county: e.target.value })}
                     className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
                   />
-                </div>
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">Region</label>
+                </FormField>
+
+                <FormField
+                  label="Region"
+                  help="Optional"
+                >
                   <input
                     type="text"
                     value={editedData.region}
                     onChange={(e) => setEditedData({ ...editedData, region: e.target.value })}
                     className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
                   />
-                </div>
+                </FormField>
               </div>
             </div>
           ) : (
@@ -256,40 +318,52 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
           </h3>
 
           {isEditing ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">Latitude</label>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="Latitude"
+                  help="Range: -90 to 90"
+                  error={validationErrors.latitude}
+                >
                   <input
                     type="text"
                     value={editedData.latitude}
                     onChange={(e) => setEditedData({ ...editedData, latitude: e.target.value })}
-                    className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm font-mono"
+                    className={`w-full bg-slate-700 text-white px-3 py-2 rounded border ${
+                      validationErrors.latitude ? 'border-red-500' : 'border-slate-600'
+                    } focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm font-mono`}
                     placeholder="39.8283"
                   />
-                </div>
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">Longitude</label>
+                </FormField>
+
+                <FormField
+                  label="Longitude"
+                  help="Range: -180 to 180"
+                  error={validationErrors.longitude}
+                >
                   <input
                     type="text"
                     value={editedData.longitude}
                     onChange={(e) => setEditedData({ ...editedData, longitude: e.target.value })}
-                    className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm font-mono"
+                    className={`w-full bg-slate-700 text-white px-3 py-2 rounded border ${
+                      validationErrors.longitude ? 'border-red-500' : 'border-slate-600'
+                    } focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm font-mono`}
                     placeholder="-98.5795"
                   />
-                </div>
+                </FormField>
               </div>
+
               <button
                 onClick={geocodeAddress}
-                disabled={geocoding}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-sm transition-colors disabled:opacity-50"
+                disabled={geocoding || !editedData.address}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {geocoding ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <RefreshCw className="w-4 h-4" />
                 )}
-                {geocoding ? 'Geocoding...' : 'Get Coordinates from Address'}
+                {geocoding ? 'Geocoding...' : 'Auto-fill from Address'}
               </button>
             </div>
           ) : (
