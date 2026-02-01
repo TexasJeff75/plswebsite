@@ -56,7 +56,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
 
     setSaving(true);
     try {
-      const milestone = await facilitiesService.createMilestone({
+      const milestoneData = {
         facility_id: facility.id,
         name: newMilestone.name,
         description: newMilestone.description || null,
@@ -66,7 +66,12 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         target_date: newMilestone.target_date || null,
         priority: newMilestone.priority ? parseInt(newMilestone.priority) : 5,
         milestone_order: milestones.length + 1,
-      });
+      };
+
+      console.log('Creating milestone with data:', milestoneData);
+      const milestone = await facilitiesService.createMilestone(milestoneData);
+      console.log('Milestone created successfully:', milestone);
+
       setMilestones([...milestones, milestone]);
       setNewMilestone({
         name: '',
@@ -81,6 +86,8 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error adding milestone:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      alert(`Failed to create milestone: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }

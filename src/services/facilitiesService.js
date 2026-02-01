@@ -158,13 +158,20 @@ export const facilitiesService = {
   },
 
   async createMilestone(milestone) {
+    console.log('facilitiesService.createMilestone called with:', milestone);
+
     const { data, error } = await supabase
       .from('milestones')
       .insert([milestone])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating milestone:', error);
+      throw error;
+    }
+
+    console.log('Milestone created, data returned:', data);
     return data;
   },
 
