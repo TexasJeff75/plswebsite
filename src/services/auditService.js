@@ -10,7 +10,12 @@ export const auditService = {
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
-    return data || [];
+
+    // Format the response to include user display name
+    return (data || []).map(log => ({
+      ...log,
+      user: log.user_display_name || 'System'
+    }));
   },
 
   async getActivityLogCount(facilityId) {

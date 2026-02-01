@@ -1,15 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { History, Download } from 'lucide-react';
+import { History, Download, Filter } from 'lucide-react';
 import { auditService } from '../../services/auditService';
 
 export default function ActivityLogTab({ facility }) {
   const [activityLog, setActivityLog] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterField, setFilterField] = useState('');
+  const [filterTable, setFilterTable] = useState('');
+  const [filterAction, setFilterAction] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
 
   const ITEMS_PER_PAGE = 50;
+
+  // Helper function to format table names for display
+  const formatTableName = (tableName) => {
+    if (!tableName) return 'Unknown';
+    return tableName
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Helper function to format field names for display
+  const formatFieldName = (fieldName) => {
+    if (!fieldName) return '';
+    return fieldName
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Get action badge color
+  const getActionColor = (action) => {
+    switch(action) {
+      case 'created': return 'bg-green-600/20 text-green-300';
+      case 'updated': return 'bg-blue-600/20 text-blue-300';
+      case 'deleted': return 'bg-red-600/20 text-red-300';
+      default: return 'bg-slate-600/20 text-slate-300';
+    }
+  };
+
+  // Format relative time
+  const formatRelativeTime = (timestamp) => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const seconds = Math.floor((now - then) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return then.toLocaleDateString();
+  };
 
   useEffect(() => {
     loadActivityLog();
@@ -67,9 +109,16 @@ export default function ActivityLogTab({ facility }) {
   }
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-  const filteredLog = filterField
-    ? activityLog.filter(entry => entry.field_name?.includes(filterField))
-    : activityLog;
+
+  // Apply filters
+  const filteredLog = activityLog.filter(entry => {
+    if (filterTable && entry.table_name !== filterTable) return false;
+    if (filterAction && entry.action !== filterAction) return false;
+    return true;
+  });
+
+  // Get unique table names for filter dropdown
+  const uniqueTables = [...new Set(activityLog.map(entry => entry.table_name))].filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -87,18 +136,48 @@ export default function ActivityLogTab({ facility }) {
         </button>
       </div>
 
-      {/* Filter */}
+      {/* Filters */}
       <div className="bg-slate-800 rounded-lg p-4">
-        <input
-          type="text"
-          placeholder="Filter by field name..."
-          value={filterField}
-          onChange={(e) => {
-            setFilterField(e.target.value);
-            setPage(0);
-          }}
-          className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 placeholder-slate-500"
-        />
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-slate-400" />
+          <h4 className="text-sm font-medium text-slate-300">Filters</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Table</label>
+            <select
+              value={filterTable}
+              onChange={(e) => {
+                setFilterTable(e.target.value);
+                setPage(0);
+              }}
+              className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 text-sm"
+            >
+              <option value="">All Tables</option>
+              {uniqueTables.map(table => (
+                <option key={table} value={table}>
+                  {formatTableName(table)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Action</label>
+            <select
+              value={filterAction}
+              onChange={(e) => {
+                setFilterAction(e.target.value);
+                setPage(0);
+              }}
+              className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 text-sm"
+            >
+              <option value="">All Actions</option>
+              <option value="created">Created</option>
+              <option value="updated">Updated</option>
+              <option value="deleted">Deleted</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Activity Log List */}
@@ -110,43 +189,73 @@ export default function ActivityLogTab({ facility }) {
         ) : (
           <div className="divide-y divide-slate-700">
             {filteredLog.map(entry => (
-              <div key={entry.id} className="p-4 hover:bg-slate-700 transition-colors">
-                <div className="flex justify-between items-start gap-4 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold">
-                      <span className="text-teal-300">{entry.action}</span> {entry.field_name}
-                    </p>
-                    <p className="text-slate-400 text-xs mt-1">
-                      {new Date(entry.timestamp).toLocaleString()}
-                    </p>
+              <div key={entry.id} className="p-4 hover:bg-slate-750 transition-colors">
+                <div className="flex items-start gap-3">
+                  {/* Timeline dot */}
+                  <div className="flex-shrink-0 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      entry.action === 'created' ? 'bg-green-400' :
+                      entry.action === 'updated' ? 'bg-blue-400' :
+                      'bg-red-400'
+                    }`} />
                   </div>
-                  <div className="flex-shrink-0">
-                    <span className="bg-slate-700 px-2 py-1 rounded text-xs text-slate-300">
-                      {entry.user || 'Unknown User'}
-                    </span>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getActionColor(entry.action)}`}>
+                            {entry.action.toUpperCase()}
+                          </span>
+                          <span className="text-slate-500 text-xs">•</span>
+                          <span className="text-slate-300 text-sm font-medium">
+                            {formatTableName(entry.table_name)}
+                          </span>
+                          {entry.field_name && (
+                            <>
+                              <span className="text-slate-500 text-xs">•</span>
+                              <span className="text-slate-400 text-sm">
+                                {formatFieldName(entry.field_name)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <span className="font-medium text-teal-300">{entry.user}</span>
+                          <span>•</span>
+                          <span title={new Date(entry.timestamp).toLocaleString()}>
+                            {formatRelativeTime(entry.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Value changes */}
+                    {(entry.old_value || entry.new_value) && (
+                      <div className="mt-3 pt-3 border-t border-slate-700/50">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {entry.old_value && (
+                            <div>
+                              <p className="text-slate-400 text-xs mb-1.5 font-medium">Previous Value</p>
+                              <div className="bg-slate-900/50 border border-slate-700/50 px-3 py-2 rounded text-sm text-slate-300 break-words max-h-24 overflow-y-auto">
+                                {entry.old_value}
+                              </div>
+                            </div>
+                          )}
+                          {entry.new_value && (
+                            <div>
+                              <p className="text-slate-400 text-xs mb-1.5 font-medium">New Value</p>
+                              <div className="bg-teal-500/10 border border-teal-500/30 px-3 py-2 rounded text-sm text-teal-200 break-words max-h-24 overflow-y-auto">
+                                {entry.new_value}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {(entry.old_value || entry.new_value) && (
-                  <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-700">
-                    {entry.old_value && (
-                      <div>
-                        <p className="text-slate-400 text-xs mb-1">Old Value</p>
-                        <div className="bg-slate-700 px-3 py-2 rounded text-sm text-slate-300 break-words max-h-20 overflow-y-auto">
-                          {entry.old_value}
-                        </div>
-                      </div>
-                    )}
-                    {entry.new_value && (
-                      <div>
-                        <p className="text-slate-400 text-xs mb-1">New Value</p>
-                        <div className="bg-slate-700 px-3 py-2 rounded text-sm text-teal-300 break-words max-h-20 overflow-y-auto">
-                          {entry.new_value}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             ))}
           </div>
