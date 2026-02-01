@@ -20,6 +20,7 @@ import Notifications from './components/Notifications';
 import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
 import Settings from './components/Settings';
+import Documents from './components/Documents';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -100,6 +101,11 @@ function App() {
                 <Route path="reports" element={<Reports />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
+                <Route path="documents" element={
+                  <ProtectedRoute requireAdmin>
+                    <Documents />
+                  </ProtectedRoute>
+                } />
                 <Route path="users" element={
                   <ProtectedRoute requireAdmin>
                     <Users />

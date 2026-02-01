@@ -372,5 +372,222 @@ export const unifiedDocumentService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Retire a document
+   * @param {string} documentId - Document to retire
+   * @param {string} reason - Reason for retirement
+   */
+  async retireDocument(documentId, reason = null) {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+      .from('unified_documents')
+      .update({
+        status: 'retired',
+        retired_at: new Date().toISOString(),
+        retired_by: user?.id,
+        retirement_reason: reason,
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', documentId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Replace a document with a new version
+   * @param {string} oldDocumentId - Document being replaced
+   * @param {string} entityType - Entity type for new document
+   * @param {string} entityId - Entity ID for new document
+   * @param {File} file - New file
+   * @param {object} metadata - Metadata for new document
+   * @param {string} storageBucket - Storage bucket (optional)
+   */
+  async replaceDocument(oldDocumentId, entityType, entityId, file, metadata = {}, storageBucket = null) {
+    try {
+      // Get the old document
+      const oldDoc = await this.getDocument(oldDocumentId);
+      if (!oldDoc) throw new Error('Document not found');
+
+      // Upload new document with replacement reference
+      const newDoc = await this.uploadDocument(
+        entityType,
+        entityId,
+        file,
+        {
+          ...metadata,
+          document_name: metadata.document_name || oldDoc.document_name,
+          document_type: metadata.document_type || oldDoc.document_type,
+          description: metadata.description || oldDoc.description,
+          tags: metadata.tags || oldDoc.tags,
+        },
+        storageBucket
+      );
+
+      // Link the documents
+      const { error: linkError } = await supabase
+        .from('unified_documents')
+        .update({
+          replaces_document_id: oldDocumentId
+        })
+        .eq('id', newDoc.id);
+
+      if (linkError) throw linkError;
+
+      // Retire the old document
+      await this.retireDocument(oldDocumentId, 'Replaced by newer version');
+
+      // Return the new document with updated replacement info
+      return await this.getDocument(newDoc.id);
+    } catch (error) {
+      console.error('Error replacing document:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all documents (admin view)
+   * @param {object} filters - Optional filters
+   */
+  async getAllDocuments(filters = {}) {
+    let query = supabase
+      .from('unified_documents')
+      .select('*');
+
+    // Status filter (default to active only)
+    if (filters.status) {
+      if (Array.isArray(filters.status)) {
+        query = query.in('status', filters.status);
+      } else {
+        query = query.eq('status', filters.status);
+      }
+    } else {
+      query = query.eq('status', 'active');
+    }
+
+    // Text search
+    if (filters.search) {
+      query = query.or(`document_name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    }
+
+    // Entity type filter
+    if (filters.entity_type) {
+      query = query.eq('entity_type', filters.entity_type);
+    }
+
+    // Document type filter
+    if (filters.document_type) {
+      query = query.eq('document_type', filters.document_type);
+    }
+
+    // Organization filter
+    if (filters.organization_id) {
+      query = query.eq('organization_id', filters.organization_id);
+    }
+
+    // Tags filter
+    if (filters.tags && filters.tags.length > 0) {
+      query = query.contains('tags', filters.tags);
+    }
+
+    // Sorting
+    const sortField = filters.sort_by || 'created_at';
+    const sortOrder = filters.sort_order === 'asc' ? { ascending: true } : { ascending: false };
+    query = query.order(sortField, sortOrder);
+
+    // Pagination
+    if (filters.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters.offset) {
+      query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get document replacement chain
+   * @param {string} documentId - Document ID
+   */
+  async getDocumentChain(documentId) {
+    const chain = [];
+    let currentId = documentId;
+
+    // Walk backwards to find original
+    while (currentId) {
+      const { data, error } = await supabase
+        .from('unified_documents')
+        .select('*')
+        .eq('id', currentId)
+        .single();
+
+      if (error || !data) break;
+
+      chain.unshift(data);
+      currentId = data.replaces_document_id;
+    }
+
+    // Walk forwards to find latest
+    currentId = documentId;
+    const startIndex = chain.findIndex(d => d.id === documentId);
+
+    while (currentId) {
+      const { data, error } = await supabase
+        .from('unified_documents')
+        .select('*')
+        .eq('replaces_document_id', currentId)
+        .maybeSingle();
+
+      if (error || !data) break;
+
+      if (!chain.find(d => d.id === data.id)) {
+        chain.push(data);
+      }
+      currentId = data.id;
+    }
+
+    return chain;
+  },
+
+  /**
+   * Get document statistics
+   */
+  async getDocumentStats(filters = {}) {
+    let query = supabase
+      .from('unified_documents')
+      .select('entity_type, status, document_type', { count: 'exact' });
+
+    if (filters.organization_id) {
+      query = query.eq('organization_id', filters.organization_id);
+    }
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const stats = {
+      total: count || 0,
+      byEntityType: {},
+      byStatus: {},
+      byDocumentType: {}
+    };
+
+    data?.forEach(doc => {
+      stats.byEntityType[doc.entity_type] = (stats.byEntityType[doc.entity_type] || 0) + 1;
+      stats.byStatus[doc.status] = (stats.byStatus[doc.status] || 0) + 1;
+      if (doc.document_type) {
+        stats.byDocumentType[doc.document_type] = (stats.byDocumentType[doc.document_type] || 0) + 1;
+      }
+    });
+
+    return stats;
   }
 };
