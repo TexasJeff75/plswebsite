@@ -59,7 +59,9 @@ export default function Documents() {
         status: filters.status || ['active', 'retired', 'archived'],
       };
 
-      if (selectedOrganization?.id) {
+      // Only apply organization filter for non-admins or if explicitly filtering
+      // Admins can see all documents by default
+      if (selectedOrganization?.id && !isAdmin) {
         filterParams.organization_id = selectedOrganization.id;
       }
 
@@ -75,7 +77,8 @@ export default function Documents() {
   async function loadStats() {
     try {
       const statsParams = {};
-      if (selectedOrganization?.id) {
+      // Only apply organization filter for non-admins
+      if (selectedOrganization?.id && !isAdmin) {
         statsParams.organization_id = selectedOrganization.id;
       }
       const statsData = await unifiedDocumentService.getDocumentStats(statsParams);
@@ -301,6 +304,12 @@ export default function Documents() {
                 className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
               />
             </div>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-sm text-blue-200">
+            Admin view: Showing all documents across all organizations
           </div>
         )}
       </div>
