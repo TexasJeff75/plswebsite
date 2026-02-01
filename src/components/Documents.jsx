@@ -34,7 +34,7 @@ export default function Documents() {
   const [filters, setFilters] = useState({
     search: '',
     entity_type: '',
-    status: 'active',
+    status: '',
     document_type: '',
   });
   const [showFilters, setShowFilters] = useState(false);
@@ -56,9 +56,13 @@ export default function Documents() {
       setLoading(true);
       const filterParams = {
         ...filters,
-        organization_id: selectedOrganization?.id,
         status: filters.status || ['active', 'retired', 'archived'],
       };
+
+      if (selectedOrganization?.id) {
+        filterParams.organization_id = selectedOrganization.id;
+      }
+
       const docs = await unifiedDocumentService.getAllDocuments(filterParams);
       setDocuments(docs);
     } catch (error) {
@@ -70,9 +74,11 @@ export default function Documents() {
 
   async function loadStats() {
     try {
-      const statsData = await unifiedDocumentService.getDocumentStats({
-        organization_id: selectedOrganization?.id,
-      });
+      const statsParams = {};
+      if (selectedOrganization?.id) {
+        statsParams.organization_id = selectedOrganization.id;
+      }
+      const statsData = await unifiedDocumentService.getDocumentStats(statsParams);
       setStats(statsData);
     } catch (error) {
       console.error('Error loading stats:', error);
