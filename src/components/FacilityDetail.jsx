@@ -8,8 +8,7 @@ import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, Trend
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
 import PersonnelTrainingTab from './facility-tabs/PersonnelTrainingTab';
-import EquipmentTab from './facility-tabs/EquipmentTabImproved';
-import IntegrationTab from './facility-tabs/IntegrationTab';
+import EquipmentIntegrationTab from './facility-tabs/EquipmentIntegrationTab';
 import FacilityReadinessTab from './facility-tabs/FacilityReadinessTab';
 import MilestonesTab from './facility-tabs/MilestonesTab';
 import DocumentsTab from './facility-tabs/DocumentsTab';
@@ -185,8 +184,7 @@ export default function FacilityDetail() {
   const tabs = [
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
     { label: 'Personnel & Training', component: <PersonnelTrainingTab facility={facility} isEditor={isEditor} /> },
-    { label: 'Equipment', component: <EquipmentTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
-    { label: 'Integration', component: <IntegrationTab facility={facility} isEditor={isEditor} /> },
+    { label: 'Equipment & Integration', component: <EquipmentIntegrationTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
     { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Documents', component: <DocumentsTab facility={facility} isEditor={isEditor} /> },

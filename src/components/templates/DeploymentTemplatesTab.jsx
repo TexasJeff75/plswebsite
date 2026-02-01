@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { templatesService } from '../../services/templatesService';
 import { format } from 'date-fns';
 import {
-  Plus, Edit2, Trash2, Copy, X, ChevronDown, Check, Loader2
+  Plus, Edit2, Trash2, Copy, X, ChevronDown, Check, Loader2, RefreshCw
 } from 'lucide-react';
 
 const TEMPLATE_TYPES = [
@@ -139,6 +139,22 @@ export default function DeploymentTemplatesTab() {
     }
   }
 
+  async function handleSyncToFacilities(template) {
+    if (!confirm(`Push equipment updates from "${template.template_name}" to all facilities using this template?\n\nThis will add new equipment items but won't remove existing ones.`)) return;
+
+    try {
+      setSaving(true);
+      const results = await templatesService.syncTemplateToFacilities(template.id);
+      const totalAdded = results.reduce((sum, r) => sum + r.equipment_added, 0);
+      alert(`Successfully synced template to ${results.length} facilities.\n${totalAdded} equipment items added.`);
+    } catch (error) {
+      console.error('Error syncing template:', error);
+      alert('Failed to sync template to facilities');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function toggleMilestone(id) {
     setFormData(prev => {
       const isSelected = prev.selectedMilestones.includes(id);
@@ -252,6 +268,14 @@ export default function DeploymentTemplatesTab() {
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleSyncToFacilities(template)}
+                          className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded-lg transition-colors"
+                          title="Push updates to facilities"
+                          disabled={saving}
+                        >
+                          <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                           onClick={() => handleDuplicate(template)}

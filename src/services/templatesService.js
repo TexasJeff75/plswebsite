@@ -350,7 +350,9 @@ export const templatesService = {
         required: te.is_required,
         procurement_method: te.equipment?.procurement_method_default || 'purchase',
         status: 'Ordered',
-        equipment_status: 'not_ordered'
+        equipment_status: 'not_ordered',
+        from_template: true,
+        template_equipment_id: te.id
       }));
 
       const { error } = await supabase.from('equipment').insert(equipment);
@@ -358,5 +360,51 @@ export const templatesService = {
     }
 
     return { success: true };
+  },
+
+  async syncTemplateToFacilities(templateId) {
+    const { data, error } = await supabase.rpc('sync_template_equipment_to_facilities', {
+      p_template_id: templateId
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async syncTemplateToFacility(facilityId, templateId) {
+    const template = await this.getDeploymentTemplate(templateId);
+    if (!template) throw new Error('Template not found');
+
+    const { data: existingEquipment } = await supabase
+      .from('equipment')
+      .select('equipment_type')
+      .eq('facility_id', facilityId);
+
+    const existingTypes = new Set(existingEquipment?.map(e => e.equipment_type) || []);
+
+    if (template.template_equipment?.length > 0) {
+      const newEquipment = template.template_equipment
+        .filter(te => !existingTypes.has(te.equipment?.equipment_type))
+        .map(te => ({
+          facility_id: facilityId,
+          name: te.equipment?.equipment_name || 'Equipment',
+          equipment_type: te.equipment?.equipment_type,
+          required: te.is_required,
+          procurement_method: te.equipment?.procurement_method_default || 'purchase',
+          status: 'Not Ordered',
+          equipment_status: 'not_ordered',
+          from_template: true,
+          template_equipment_id: te.id
+        }));
+
+      if (newEquipment.length > 0) {
+        const { error } = await supabase.from('equipment').insert(newEquipment);
+        if (error) throw error;
+      }
+
+      return { added: newEquipment.length };
+    }
+
+    return { added: 0 };
   }
 };
