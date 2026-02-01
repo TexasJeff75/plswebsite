@@ -184,7 +184,7 @@ export default function ActivityLogTab({ facility }) {
       <div className="bg-slate-800 rounded-lg overflow-hidden">
         {filteredLog.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            {filterField ? 'No matching entries found' : 'No activity recorded yet'}
+            {(filterTable || filterAction) ? 'No matching entries found' : 'No activity recorded yet'}
           </div>
         ) : (
           <div className="divide-y divide-slate-700">
