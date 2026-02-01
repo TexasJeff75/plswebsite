@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { templatesService } from '../../services/templatesService';
+import { equipmentCatalogDocumentService } from '../../services/equipmentCatalogDocumentService';
 import {
-  Plus, Edit2, Trash2, X, ChevronDown, Check, Loader2
+  Plus, Edit2, Trash2, X, ChevronDown, Check, Loader2, FileText, Upload, Download, Eye, ChevronRight
 } from 'lucide-react';
 
 const EQUIPMENT_TYPES = [
@@ -22,6 +23,15 @@ const PROCUREMENT_METHODS = [
   { id: 'client_provided', label: 'Client Provided' },
 ];
 
+const DOCUMENT_TYPES = [
+  { id: 'manual', label: 'User Manual' },
+  { id: 'specification', label: 'Technical Specification' },
+  { id: 'installation_guide', label: 'Installation Guide' },
+  { id: 'maintenance_schedule', label: 'Maintenance Schedule' },
+  { id: 'sds', label: 'Safety Data Sheet' },
+  { id: 'other', label: 'Other' },
+];
+
 export default function EquipmentCatalogTab() {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +47,15 @@ export default function EquipmentCatalogTab() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Document management state
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [documentCounts, setDocumentCounts] = useState({});
+
   useEffect(() => {
     loadData();
   }, []);
@@ -46,10 +65,88 @@ export default function EquipmentCatalogTab() {
     try {
       const data = await templatesService.getEquipmentCatalog();
       setEquipment(data);
+
+      // Load document counts for each equipment
+      const counts = {};
+      await Promise.all(data.map(async (item) => {
+        try {
+          const docs = await equipmentCatalogDocumentService.getDocuments(item.id);
+          counts[item.id] = docs.length;
+        } catch (error) {
+          console.error('Error loading document count:', error);
+          counts[item.id] = 0;
+        }
+      }));
+      setDocumentCounts(counts);
     } catch (error) {
       console.error('Error loading equipment catalog:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadDocuments(equipmentId) {
+    setLoadingDocuments(true);
+    try {
+      const docs = await equipmentCatalogDocumentService.getDocuments(equipmentId);
+      setDocuments(docs);
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  }
+
+  function openDocumentsModal(item) {
+    setSelectedEquipment(item);
+    setShowDocumentsModal(true);
+    loadDocuments(item.id);
+  }
+
+  async function handleDocumentUpload(file, documentInfo) {
+    if (!selectedEquipment || !file) return;
+
+    setUploadingDocument(true);
+    try {
+      await equipmentCatalogDocumentService.uploadDocument(
+        selectedEquipment.id,
+        file,
+        documentInfo
+      );
+
+      // Reload documents and update count
+      loadDocuments(selectedEquipment.id);
+      const docs = await equipmentCatalogDocumentService.getDocuments(selectedEquipment.id);
+      setDocumentCounts(prev => ({ ...prev, [selectedEquipment.id]: docs.length }));
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Failed to upload document. Please try again.');
+    } finally {
+      setUploadingDocument(false);
+    }
+  }
+
+  async function handleDownloadDocument(doc) {
+    try {
+      const url = await equipmentCatalogDocumentService.getDocumentUrl(doc.storage_path);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert('Failed to download document. Please try again.');
+    }
+  }
+
+  async function handleDeleteDocument(docId) {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      await equipmentCatalogDocumentService.deleteDocument(docId);
+      loadDocuments(selectedEquipment.id);
+      const docs = await equipmentCatalogDocumentService.getDocuments(selectedEquipment.id);
+      setDocumentCounts(prev => ({ ...prev, [selectedEquipment.id]: docs.length }));
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Failed to delete document. Please try again.');
     }
   }
 
@@ -144,13 +241,14 @@ export default function EquipmentCatalogTab() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Manufacturer</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Model</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Default Procurement</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Documents</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {equipment.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan="7" className="px-4 py-12 text-center text-slate-400">
                     No equipment in catalog yet. Add some to get started.
                   </td>
                 </tr>
@@ -173,6 +271,18 @@ export default function EquipmentCatalogTab() {
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {PROCUREMENT_METHODS.find(p => p.id === item.procurement_method_default)?.label || item.procurement_method_default}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => openDocumentsModal(item)}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm text-teal-400 hover:text-teal-300 hover:bg-slate-700/50 rounded-lg transition-colors"
+                          title="Manage Documents"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>{documentCounts[item.id] || 0}</span>
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
@@ -325,7 +435,268 @@ export default function EquipmentCatalogTab() {
           </div>
         </div>
       )}
+
+      {/* Documents Modal */}
+      {showDocumentsModal && selectedEquipment && (
+        <DocumentsModal
+          equipment={selectedEquipment}
+          documents={documents}
+          loading={loadingDocuments}
+          uploading={uploadingDocument}
+          onClose={() => {
+            setShowDocumentsModal(false);
+            setSelectedEquipment(null);
+            setDocuments([]);
+          }}
+          onUpload={handleDocumentUpload}
+          onDownload={handleDownloadDocument}
+          onDelete={handleDeleteDocument}
+        />
+      )}
     </>
+  );
+}
+
+function DocumentsModal({ equipment, documents, loading, uploading, onClose, onUpload, onDownload, onDelete }) {
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadFormData, setUploadFormData] = useState({
+    document_name: '',
+    document_type: 'manual',
+    description: '',
+    version: ''
+  });
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadFormData(prev => ({
+        ...prev,
+        document_name: file.name
+      }));
+    }
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) return;
+
+    await onUpload(selectedFile, uploadFormData);
+    setShowUploadForm(false);
+    setSelectedFile(null);
+    setUploadFormData({
+      document_name: '',
+      document_type: 'manual',
+      description: '',
+      version: ''
+    });
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes) return 'Unknown';
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Reference Documents</h2>
+            <p className="text-sm text-slate-400 mt-0.5">{equipment.equipment_name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Upload Button */}
+          {!showUploadForm && (
+            <button
+              onClick={() => setShowUploadForm(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 border-2 border-dashed border-slate-600 hover:border-teal-500 text-slate-400 hover:text-teal-400 rounded-lg transition-colors"
+            >
+              <Upload className="w-5 h-5" />
+              <span>Upload Document</span>
+            </button>
+          )}
+
+          {/* Upload Form */}
+          {showUploadForm && (
+            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-4">
+              <h3 className="text-white font-medium mb-4">Upload New Document</h3>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">File</label>
+                  <input
+                    type="file"
+                    onChange={handleFileSelect}
+                    className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-teal-500 file:text-slate-900 hover:file:bg-teal-600"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Document Name</label>
+                    <input
+                      type="text"
+                      value={uploadFormData.document_name}
+                      onChange={(e) => setUploadFormData({ ...uploadFormData, document_name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                      placeholder="Document name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Type</label>
+                    <select
+                      value={uploadFormData.document_type}
+                      onChange={(e) => setUploadFormData({ ...uploadFormData, document_type: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                    >
+                      {DOCUMENT_TYPES.map(type => (
+                        <option key={type.id} value={type.id}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Version (Optional)</label>
+                  <input
+                    type="text"
+                    value={uploadFormData.version}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, version: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                    placeholder="e.g., v1.0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Description (Optional)</label>
+                  <textarea
+                    value={uploadFormData.description}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, description: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm resize-none"
+                    rows={2}
+                    placeholder="Brief description"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowUploadForm(false);
+                      setSelectedFile(null);
+                      setUploadFormData({
+                        document_name: '',
+                        document_type: 'manual',
+                        description: '',
+                        version: ''
+                      });
+                    }}
+                    className="px-4 py-2 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || !uploadFormData.document_name || uploading}
+                    className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Documents List */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+            </div>
+          ) : documents.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No documents uploaded yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {documents.map(doc => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-700 rounded-lg hover:bg-slate-900 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="w-4 h-4 text-teal-400 flex-shrink-0" />
+                      <p className="text-white font-medium truncate">{doc.document_name}</p>
+                      {doc.version && (
+                        <span className="px-2 py-0.5 bg-slate-700 text-slate-300 text-xs rounded">
+                          {doc.version}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <span>{DOCUMENT_TYPES.find(t => t.id === doc.document_type)?.label || doc.document_type}</span>
+                      <span>•</span>
+                      <span>{formatFileSize(doc.file_size)}</span>
+                      <span>•</span>
+                      <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                    </div>
+                    {doc.description && (
+                      <p className="text-sm text-slate-400 mt-1">{doc.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => onDownload(doc)}
+                      className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(doc.id)}
+                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
