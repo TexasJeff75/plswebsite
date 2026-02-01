@@ -155,6 +155,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isProximityAdmin = profile?.role === 'Proximity Admin';
   const isProximityStaff = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(profile?.role);
   const isCustomerAdmin = profile?.role === 'Customer Admin';
   const isCustomerViewer = profile?.role === 'Customer Viewer';
@@ -169,6 +170,7 @@ export const AuthProvider = ({ children }) => {
     signInWithPassword,
     signOut,
     isAdmin: isProximityStaff || isCustomerAdmin,
+    isProximityAdmin,
     isEditor: canEdit,
     isViewer: canView,
     isStaff: isProximityStaff,

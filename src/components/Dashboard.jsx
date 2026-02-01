@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import { dashboardService } from '../services/dashboardService';
+import { useAuth } from '../contexts/AuthContext';
 import { Users, Building2, DollarSign, CheckCircle2, Ticket, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -11,6 +12,7 @@ import {
 import DashboardMapWidget from './maps/DashboardMapWidget';
 
 export default function Dashboard() {
+  const { isProximityAdmin } = useAuth();
   const [clients, setClients] = useState([]);
   const [globalStats, setGlobalStats] = useState(null);
   const [criticalAlerts, setCriticalAlerts] = useState([]);
@@ -201,19 +203,21 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-slate-400 text-xs font-medium">Monthly Revenue</h3>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-emerald-400" />
+        {isProximityAdmin && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-slate-400 text-xs font-medium">Monthly Revenue</h3>
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-white mb-1">{formatCurrency(globalStats?.monthlyRevenue || 0)}</p>
+            <div className="flex items-center gap-1 text-xs text-teal-400">
+              <TrendingUp className="w-3 h-3" />
+              <span>+12% MoM</span>
             </div>
           </div>
-          <p className="text-3xl font-bold text-white mb-1">{formatCurrency(globalStats?.monthlyRevenue || 0)}</p>
-          <div className="flex items-center gap-1 text-xs text-teal-400">
-            <TrendingUp className="w-3 h-3" />
-            <span>+12% MoM</span>
-          </div>
-        </div>
+        )}
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
@@ -244,31 +248,33 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Revenue Trend (MRR)</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <YAxis
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickFormatter={(value) => `$${value / 1000}K`}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="mrr"
-                  stroke="#14b8a6"
-                  strokeWidth={2}
-                  dot={{ fill: '#14b8a6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#14b8a6' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      <div className={`grid grid-cols-1 gap-6 ${isProximityAdmin ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+        {isProximityAdmin && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Revenue Trend (MRR)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    tickFormatter={(value) => `$${value / 1000}K`}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="mrr"
+                    stroke="#14b8a6"
+                    strokeWidth={2}
+                    dot={{ fill: '#14b8a6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#14b8a6' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Deployment Velocity</h3>

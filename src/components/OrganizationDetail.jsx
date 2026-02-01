@@ -4,6 +4,7 @@ import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare,
   Activity, MapPin, Phone, Mail, Calendar, DollarSign, CheckCircle2,
@@ -15,6 +16,7 @@ import { useOrganization } from '../contexts/OrganizationContext';
 export default function OrganizationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isProximityAdmin } = useAuth();
   const [organization, setOrganization] = useState(null);
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -239,13 +241,15 @@ function OverviewTab({ organization, facilities }) {
             </div>
             <p className="text-2xl font-bold text-white">{inProgressSites}</p>
           </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs text-slate-400">MRR</span>
+          {isProximityAdmin && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs text-slate-400">MRR</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{formatCurrency(organization.monthly_recurring_revenue)}</p>
             </div>
-            <p className="text-2xl font-bold text-white">{formatCurrency(organization.monthly_recurring_revenue)}</p>
-          </div>
+          )}
         </div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -394,10 +398,12 @@ function OverviewTab({ organization, facilities }) {
                 <p className="text-white">{format(new Date(organization.contract_end_date), 'MMM d, yyyy')}</p>
               </div>
             )}
-            <div>
-              <p className="text-xs text-slate-400">Annual Contract Value</p>
-              <p className="text-white font-semibold">{formatCurrency(organization.annual_contract_value)}</p>
-            </div>
+            {isProximityAdmin && (
+              <div>
+                <p className="text-xs text-slate-400">Annual Contract Value</p>
+                <p className="text-white font-semibold">{formatCurrency(organization.annual_contract_value)}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -536,27 +542,29 @@ function ContractsTab({ organization }) {
         </div>
       </div>
 
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Pricing</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Monthly Recurring Revenue</p>
-            <p className="text-2xl font-bold text-teal-400">
-              ${(organization.monthly_recurring_revenue || 0).toLocaleString()}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Annual Contract Value</p>
-            <p className="text-2xl font-bold text-white">
-              ${(organization.annual_contract_value || 0).toLocaleString()}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Billing Frequency</p>
-            <p className="text-white capitalize">{organization.billing_frequency || 'Monthly'}</p>
+      {isProximityAdmin && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Pricing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Monthly Recurring Revenue</p>
+              <p className="text-2xl font-bold text-teal-400">
+                ${(organization.monthly_recurring_revenue || 0).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Annual Contract Value</p>
+              <p className="text-2xl font-bold text-white">
+                ${(organization.annual_contract_value || 0).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Billing Frequency</p>
+              <p className="text-white capitalize">{organization.billing_frequency || 'Monthly'}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

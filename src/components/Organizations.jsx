@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Search, Building2, Users, DollarSign, Filter,
   MoreVertical, Eye, Pencil, Archive, X, ChevronDown
 } from 'lucide-react';
 
 export default function Organizations() {
+  const { isProximityAdmin } = useAuth();
   const [organizations, setOrganizations] = useState([]);
   const [filteredOrgs, setFilteredOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ export default function Organizations() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${isProximityAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
@@ -167,17 +169,19 @@ export default function Organizations() {
             </div>
           </div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{formatCurrency(stats.totalMRR)}</p>
-              <p className="text-xs text-slate-400">Total MRR</p>
+        {isProximityAdmin && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(stats.totalMRR)}</p>
+                <p className="text-xs text-slate-400">Total MRR</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl">
@@ -234,7 +238,9 @@ export default function Organizations() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sites</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Compliance</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">MRR</th>
+                {isProximityAdmin && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">MRR</th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
@@ -242,7 +248,7 @@ export default function Organizations() {
             <tbody className="divide-y divide-slate-700">
               {filteredOrgs.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={isProximityAdmin ? "7" : "6"} className="px-6 py-12 text-center text-slate-400">
                     {searchTerm || typeFilter !== 'all' || statusFilter !== 'all'
                       ? 'No clients match your filters'
                       : 'No clients found. Add your first client to get started.'}
@@ -297,9 +303,11 @@ export default function Organizations() {
                           <span className="text-white text-sm">{org.complianceScore}%</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-teal-400 font-semibold">
-                        {formatCurrency(org.monthly_recurring_revenue)}
-                      </td>
+                      {isProximityAdmin && (
+                        <td className="px-6 py-4 text-teal-400 font-semibold">
+                          {formatCurrency(org.monthly_recurring_revenue)}
+                        </td>
+                      )}
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
                           {statusBadge.label}
@@ -556,24 +564,26 @@ function OrganizationModal({ organization, onClose, onSave }) {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Monthly Recurring Revenue
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                  <input
-                    type="number"
-                    name="monthly_recurring_revenue"
-                    value={formData.monthly_recurring_revenue}
-                    onChange={handleChange}
-                    className="w-full pl-8 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
-                    placeholder="0"
-                    min="0"
-                    step="100"
-                  />
+              {isProximityAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Monthly Recurring Revenue
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      name="monthly_recurring_revenue"
+                      value={formData.monthly_recurring_revenue}
+                      onChange={handleChange}
+                      className="w-full pl-8 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                      placeholder="0"
+                      min="0"
+                      step="100"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="border-t border-slate-700 pt-6">

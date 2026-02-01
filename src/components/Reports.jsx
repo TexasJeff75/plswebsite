@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { organizationsService } from '../services/organizationsService';
+import { useAuth } from '../contexts/AuthContext';
 import {
   FileText, Shield, Rocket, DollarSign, Wrench, GraduationCap,
   Calendar, Download, Eye, ChevronDown, X, Loader2, Printer
@@ -60,6 +61,7 @@ const FORMATS = [
 ];
 
 export default function Reports() {
+  const { isProximityAdmin } = useAuth();
   const [selectedReport, setSelectedReport] = useState(null);
   const [dateRange, setDateRange] = useState('this_month');
   const [outputFormat, setOutputFormat] = useState('screen');
@@ -68,6 +70,10 @@ export default function Reports() {
   const [generating, setGenerating] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  const availableReports = REPORTS.filter(report =>
+    report.id !== 'financial' || isProximityAdmin
+  );
 
   const getDateRange = () => {
     const now = new Date();
@@ -493,7 +499,7 @@ export default function Reports() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {REPORTS.map(report => {
+        {availableReports.map(report => {
           const Icon = report.icon;
           return (
             <div key={report.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
