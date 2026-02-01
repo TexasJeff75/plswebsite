@@ -68,7 +68,7 @@ export const facilityStatsService = {
     const categoryMap = new Map();
 
     milestones.forEach(milestone => {
-      const category = milestone.category;
+      const category = milestone.category || 'uncategorized';
       if (!categoryMap.has(category)) {
         categoryMap.set(category, {
           category,
@@ -89,7 +89,8 @@ export const facilityStatsService = {
       'integration': 3,
       'training': 4,
       'go_live': 5,
-      'custom': 6
+      'custom': 6,
+      'uncategorized': 999
     };
 
     const categoryLabels = {
@@ -98,13 +99,14 @@ export const facilityStatsService = {
       'integration': 'Integration',
       'training': 'Training',
       'go_live': 'Go-Live',
-      'custom': 'Custom'
+      'custom': 'Custom',
+      'uncategorized': 'Uncategorized'
     };
 
     return Array.from(categoryMap.entries())
       .map(([category, stats]) => ({
         category,
-        label: categoryLabels[category] || category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' '),
+        label: categoryLabels[category] || (category ? category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ') : 'Unknown'),
         progress: Math.round((stats.completed / stats.total) * 100),
         completed: stats.completed,
         total: stats.total
