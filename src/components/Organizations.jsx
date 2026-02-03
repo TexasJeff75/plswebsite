@@ -113,7 +113,7 @@ export default function Organizations() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading clients...</p>
+          <p className="text-slate-400">Loading organizations...</p>
         </div>
       </div>
     );
@@ -123,7 +123,7 @@ export default function Organizations() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Clients</h1>
+          <h1 className="text-2xl font-bold text-white">Organizations</h1>
           <p className="text-slate-400 text-sm mt-1">Manage your organization accounts</p>
         </div>
         <button
@@ -131,7 +131,7 @@ export default function Organizations() {
           className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium"
         >
           <Plus className="w-5 h-5" />
-          Add Client
+          Add Organization
         </button>
       </div>
 
@@ -143,7 +143,7 @@ export default function Organizations() {
             </div>
             <div>
               <p className="text-2xl font-bold text-white">{stats.total}</p>
-              <p className="text-xs text-slate-400">Total Clients</p>
+              <p className="text-xs text-slate-400">Total Organizations</p>
             </div>
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function Organizations() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search clients..."
+                placeholder="Search organizations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-teal-500"
@@ -234,7 +234,7 @@ export default function Organizations() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Organization</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sites</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Compliance</th>
@@ -250,8 +250,8 @@ export default function Organizations() {
                 <tr>
                   <td colSpan={isProximityAdmin ? "7" : "6"} className="px-6 py-12 text-center text-slate-400">
                     {searchTerm || typeFilter !== 'all' || statusFilter !== 'all'
-                      ? 'No clients match your filters'
-                      : 'No clients found. Add your first client to get started.'}
+                      ? 'No organizations match your filters'
+                      : 'No organizations found. Add your first organization to get started.'}
                   </td>
                 </tr>
               ) : (
@@ -375,6 +375,7 @@ export default function Organizations() {
 }
 
 function OrganizationModal({ organization, onClose, onSave }) {
+  const { isProximityAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: organization?.name || '',
     client_type: organization?.client_type || 'mini_lab_network',
@@ -436,7 +437,7 @@ function OrganizationModal({ organization, onClose, onSave }) {
       <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h2 className="text-xl font-semibold text-white">
-            {organization ? 'Edit Client' : 'Add New Client'}
+            {organization ? 'Edit Organization' : 'Add New Organization'}
           </h2>
           <button
             onClick={onClose}
@@ -472,7 +473,7 @@ function OrganizationModal({ organization, onClose, onSave }) {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Client Type
+                  Organization Type
                 </label>
                 <select
                   name="client_type"
@@ -707,7 +708,7 @@ function OrganizationModal({ organization, onClose, onSave }) {
                 onChange={handleChange}
                 rows="3"
                 className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 resize-none"
-                placeholder="Additional notes about this client..."
+                placeholder="Additional notes about this organization..."
               />
             </div>
           </div>
@@ -725,7 +726,7 @@ function OrganizationModal({ organization, onClose, onSave }) {
               disabled={saving}
               className="px-6 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium disabled:opacity-50"
             >
-              {saving ? 'Saving...' : (organization ? 'Save Changes' : 'Create Client')}
+              {saving ? 'Saving...' : (organization ? 'Save Changes' : 'Create Organization')}
             </button>
           </div>
         </form>
