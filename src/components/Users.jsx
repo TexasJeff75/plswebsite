@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check } from 'lucide-react';
+import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
+import { invitationService } from '../services/invitationService';
 import { useAuth } from '../contexts/AuthContext';
 
 const INTERNAL_ROLES = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
@@ -19,11 +20,19 @@ export default function Users() {
   const { isAdmin, user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [userOrgAssignments, setUserOrgAssignments] = useState([]);
   const [savingAssignments, setSavingAssignments] = useState(false);
+  const [activeTab, setActiveTab] = useState('users');
+  const [newInvitation, setNewInvitation] = useState({
+    email: '',
+    role: 'Customer Viewer',
+    organization_assignments: []
+  });
 
   useEffect(() => {
     loadData();
@@ -32,12 +41,14 @@ export default function Users() {
   async function loadData() {
     try {
       setLoading(true);
-      const [usersData, orgsData] = await Promise.all([
+      const [usersData, orgsData, invitationsData] = await Promise.all([
         usersService.getAll(),
         organizationsService.getAll(),
+        invitationService.getAll(),
       ]);
       setUsers(usersData);
       setOrganizations(orgsData);
+      setInvitations(invitationsData);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -147,6 +158,103 @@ export default function Users() {
     }));
   }
 
+  async function handleSendInvitation() {
+    try {
+      if (!newInvitation.email || !newInvitation.role) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      setSavingAssignments(true);
+
+      const invitation = await invitationService.create(newInvitation);
+
+      try {
+        await invitationService.sendInvitationEmail(invitation);
+      } catch (emailError) {
+        console.error('Failed to send invitation email:', emailError);
+      }
+
+      setShowInviteModal(false);
+      setNewInvitation({
+        email: '',
+        role: 'Customer Viewer',
+        organization_assignments: []
+      });
+      loadData();
+      alert('Invitation sent successfully!');
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      alert(error.message || 'Failed to send invitation');
+    } finally {
+      setSavingAssignments(false);
+    }
+  }
+
+  async function handleResendInvitation(invitationId) {
+    try {
+      const invitation = await invitationService.resend(invitationId);
+
+      try {
+        await invitationService.sendInvitationEmail(invitation);
+      } catch (emailError) {
+        console.error('Failed to send invitation email:', emailError);
+      }
+
+      loadData();
+      alert('Invitation resent successfully!');
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      alert(error.message || 'Failed to resend invitation');
+    }
+  }
+
+  async function handleCancelInvitation(invitationId) {
+    if (!confirm('Are you sure you want to cancel this invitation?')) return;
+
+    try {
+      await invitationService.cancel(invitationId);
+      loadData();
+    } catch (error) {
+      console.error('Error canceling invitation:', error);
+      alert('Failed to cancel invitation');
+    }
+  }
+
+  function addInviteOrgAssignment() {
+    const availableOrgs = organizations.filter(
+      org => org.type === 'customer' && !newInvitation.organization_assignments.find(a => a.organization_id === org.id)
+    );
+    if (availableOrgs.length === 0) return;
+
+    setNewInvitation(prev => ({
+      ...prev,
+      organization_assignments: [
+        ...prev.organization_assignments,
+        {
+          organization_id: availableOrgs[0].id,
+          role: 'viewer'
+        }
+      ]
+    }));
+  }
+
+  function removeInviteOrgAssignment(orgId) {
+    setNewInvitation(prev => ({
+      ...prev,
+      organization_assignments: prev.organization_assignments.filter(a => a.organization_id !== orgId)
+    }));
+  }
+
+  function updateInviteOrgAssignment(orgId, field, value) {
+    setNewInvitation(prev => ({
+      ...prev,
+      organization_assignments: prev.organization_assignments.map(a =>
+        a.organization_id === orgId ? { ...a, [field]: value } : a
+      )
+    }));
+  }
+
   const getRoleBadge = (role) => {
     const colors = {
       'Proximity Admin': 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -159,8 +267,6 @@ export default function Users() {
     };
     return colors[role] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
   };
-
-  const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
 
   if (!isAdmin) {
     return (
@@ -180,6 +286,9 @@ export default function Users() {
     );
   }
 
+  const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
+  const isInviteCustomerRole = CUSTOMER_ROLES.includes(newInvitation.role);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -187,75 +296,205 @@ export default function Users() {
           <h1 className="text-2xl font-bold text-white mb-2">User Management</h1>
           <p className="text-slate-400">Manage user roles and organization access</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <UsersIcon className="w-5 h-5" />
-          <span>{users.length} total users</span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            Invite User
+          </button>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <UsersIcon className="w-5 h-5" />
+            <span>{users.length} total users</span>
+          </div>
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-900 border-b border-slate-700">
-            <tr>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">User</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Role</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Organization(s)</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Joined</th>
-              <th className="text-right px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700">
-            {users.map(user => (
-              <tr key={user.id} className="hover:bg-slate-750 transition-colors">
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="text-white font-medium">{user.display_name}</p>
-                    <p className="text-slate-400 text-sm">{user.email}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getRoleBadge(user.role)}`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {INTERNAL_ROLES.includes(user.role) ? (
-                    <span className="text-slate-500 text-sm">All Organizations</span>
-                  ) : user.organization ? (
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <Building2 className="w-4 h-4 text-slate-500" />
-                      <span className="text-sm">{user.organization.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-slate-500 text-sm">No organization</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-slate-400 text-sm">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => openEditModal(user)}
-                      className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
-                      title="Edit user"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user.id)}
-                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                      title="Delete user"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="border-b border-slate-700">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'users'
+                ? 'border-teal-500 text-white'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            Active Users ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('invitations')}
+            className={`px-4 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'invitations'
+                ? 'border-teal-500 text-white'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            Pending Invitations ({invitations.filter(i => i.status === 'pending').length})
+          </button>
+        </div>
       </div>
+
+      {activeTab === 'users' ? (
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-900 border-b border-slate-700">
+              <tr>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">User</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Role</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Organization(s)</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Joined</th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700">
+              {users.map(user => (
+                <tr key={user.id} className="hover:bg-slate-750 transition-colors">
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-white font-medium">{user.display_name}</p>
+                      <p className="text-slate-400 text-sm">{user.email}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getRoleBadge(user.role)}`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {INTERNAL_ROLES.includes(user.role) ? (
+                      <span className="text-slate-500 text-sm">All Organizations</span>
+                    ) : user.organization ? (
+                      <div className="flex items-center gap-2 text-slate-300">
+                        <Building2 className="w-4 h-4 text-slate-500" />
+                        <span className="text-sm">{user.organization.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-500 text-sm">No organization</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-slate-400 text-sm">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
+                        title="Edit user"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-900 border-b border-slate-700">
+              <tr>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Email</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Role</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Status</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Invited By</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Expires</th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700">
+              {invitations.map(invitation => {
+                const isExpired = new Date(invitation.expires_at) < new Date();
+                const isPending = invitation.status === 'pending' && !isExpired;
+
+                return (
+                  <tr key={invitation.id} className="hover:bg-slate-750 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="text-white font-medium">{invitation.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getRoleBadge(invitation.role)}`}>
+                        {invitation.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {invitation.status === 'pending' ? (
+                        isExpired ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-slate-500/20 text-slate-400 border-slate-500/30">
+                            <XCircle className="w-3 h-3" />
+                            Expired
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                            <Clock className="w-3 h-3" />
+                            Pending
+                          </span>
+                        )
+                      ) : invitation.status === 'accepted' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-green-500/20 text-green-400 border-green-500/30">
+                          <CheckCircle className="w-3 h-3" />
+                          Accepted
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-slate-500/20 text-slate-400 border-slate-500/30">
+                          <XCircle className="w-3 h-3" />
+                          {invitation.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-slate-400 text-sm">
+                      {invitation.invited_by_user?.display_name || invitation.invited_by_user?.email || 'System'}
+                    </td>
+                    <td className="px-6 py-4 text-slate-400 text-sm">
+                      {new Date(invitation.expires_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        {isPending && (
+                          <button
+                            onClick={() => handleResendInvitation(invitation.id)}
+                            className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
+                            title="Resend invitation"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
+                        {isPending && (
+                          <button
+                            onClick={() => handleCancelInvitation(invitation.id)}
+                            className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                            title="Cancel invitation"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {invitations.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                    No invitations sent yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showEditModal && editingUser && (
         <>
@@ -412,6 +651,182 @@ export default function Users() {
                 >
                   {savingAssignments && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {showInviteModal && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowInviteModal(false)} />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="px-6 py-4 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
+                <h2 className="text-xl font-semibold text-white">Invite New User</h2>
+                <p className="text-slate-400 text-sm mt-1">Send an invitation to join the platform. They will sign in with their Microsoft account.</p>
+              </div>
+              <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Email Address *</label>
+                  <input
+                    type="email"
+                    value={newInvitation.email}
+                    onChange={(e) => setNewInvitation({ ...newInvitation, email: e.target.value })}
+                    placeholder="user@example.com"
+                    className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <p className="text-slate-500 text-xs mt-1">User will receive an invitation email to sign in with Microsoft</p>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Role *</label>
+                  <select
+                    value={newInvitation.role}
+                    onChange={(e) => setNewInvitation({ ...newInvitation, role: e.target.value })}
+                    className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <optgroup label="Internal (Proximity)">
+                      {INTERNAL_ROLES.map(role => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Customer">
+                      {CUSTOMER_ROLES.map(role => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <p className="text-slate-500 text-xs mt-1">
+                    {INTERNAL_ROLES.includes(newInvitation.role)
+                      ? 'Internal users have access to all organizations'
+                      : 'Customer users only see their assigned organizations'}
+                  </p>
+                </div>
+
+                {isInviteCustomerRole && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-300 text-sm font-medium">Organization Access</label>
+                      <button
+                        onClick={addInviteOrgAssignment}
+                        disabled={newInvitation.organization_assignments.length >= organizations.filter(o => o.type === 'customer').length}
+                        className="flex items-center gap-1 px-3 py-1 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Organization
+                      </button>
+                    </div>
+
+                    {newInvitation.organization_assignments.length === 0 ? (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3">
+                        <p className="text-yellow-300 text-sm">Customer users must be assigned to at least one organization.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {newInvitation.organization_assignments.map((assignment) => (
+                          <div key={assignment.organization_id} className="flex items-center gap-3 bg-slate-700/50 p-3 rounded-lg">
+                            <div className="flex-1">
+                              <select
+                                value={assignment.organization_id}
+                                onChange={(e) => updateInviteOrgAssignment(assignment.organization_id, 'organization_id', e.target.value)}
+                                className="w-full bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              >
+                                {organizations.filter(org =>
+                                  org.type === 'customer' &&
+                                  (org.id === assignment.organization_id || !newInvitation.organization_assignments.find(a => a.organization_id === org.id))
+                                ).map(org => (
+                                  <option key={org.id} value={org.id}>{org.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="w-32">
+                              <select
+                                value={assignment.role}
+                                onChange={(e) => updateInviteOrgAssignment(assignment.organization_id, 'role', e.target.value)}
+                                className="w-full bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              >
+                                {ORG_ROLES.map(role => (
+                                  <option key={role.value} value={role.value}>{role.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <button
+                              onClick={() => removeInviteOrgAssignment(assignment.organization_id)}
+                              className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-600 rounded transition-colors"
+                              title="Remove"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {INTERNAL_ROLES.includes(newInvitation.role) && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+                    <p className="text-blue-300 text-sm">Internal users can access all organizations and facilities.</p>
+                  </div>
+                )}
+
+                <div className="bg-slate-700/50 border border-slate-600 rounded p-4">
+                  <h3 className="text-white font-medium mb-2 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-teal-400" />
+                    What happens next?
+                  </h3>
+                  <ul className="space-y-2 text-slate-300 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-400 mt-0.5">1.</span>
+                      <span>An invitation email will be sent to <strong>{newInvitation.email || '(email)'}</strong></span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-400 mt-0.5">2.</span>
+                      <span>They click the link and sign in with their Microsoft account</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-400 mt-0.5">3.</span>
+                      <span>Their permissions are automatically configured as <strong>{newInvitation.role}</strong></span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-400 mt-0.5">4.</span>
+                      <span>Invitation expires in 7 days</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-slate-800">
+                <button
+                  onClick={() => {
+                    setShowInviteModal(false);
+                    setNewInvitation({
+                      email: '',
+                      role: 'Customer Viewer',
+                      organization_assignments: []
+                    });
+                  }}
+                  className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendInvitation}
+                  disabled={savingAssignments || !newInvitation.email || (isInviteCustomerRole && newInvitation.organization_assignments.length === 0)}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded font-medium transition-colors flex items-center gap-2"
+                >
+                  {savingAssignments ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send Invitation
+                    </>
+                  )}
                 </button>
               </div>
             </div>
