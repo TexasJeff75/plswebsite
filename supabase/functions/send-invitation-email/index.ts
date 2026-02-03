@@ -117,26 +117,34 @@ Deno.serve(async (req: Request) => {
       </html>
     `;
 
-    console.log(`Sending invitation email to ${email}`);
+    // For now, we'll log the email details
+    // In production, integrate with Resend, SendGrid, or another email service
+    console.log(`=== INVITATION EMAIL ===`);
+    console.log(`To: ${email}`);
     console.log(`Role: ${role}`);
     console.log(`Invite URL: ${inviteUrl}`);
     console.log(`Expires: ${expiryDate}`);
+    console.log(`\n--- Email HTML ---`);
+    console.log(emailHtml);
+    console.log(`===================\n`);
 
-    const { data: emailData, error: emailError } = await supabaseClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        role: role,
-        invite_url: inviteUrl,
-        expires_at: expiresAt,
-      },
-      redirectTo: inviteUrl,
-    });
+    // TODO: Replace with actual email sending service
+    // Example with Resend:
+    // const response = await fetch('https://api.resend.com/emails', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     from: 'Proximity Lab <noreply@yourdomain.com>',
+    //     to: [email],
+    //     subject: 'You\'ve been invited to Proximity Lab Services',
+    //     html: emailHtml,
+    //   }),
+    // });
 
-    if (emailError) {
-      console.error('Supabase email error:', emailError);
-      throw emailError;
-    }
-
-    console.log('Email sent successfully via Supabase');
+    console.log('Email logged successfully (configure email service for production)');
 
     return new Response(
       JSON.stringify({
