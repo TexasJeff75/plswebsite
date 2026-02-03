@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
+import { projectsService } from '../services/projectsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare,
   Activity, MapPin, Phone, Mail, Calendar, DollarSign, CheckCircle2,
-  AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2
+  AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2, Folder
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useOrganization } from '../contexts/OrganizationContext';
@@ -18,6 +19,7 @@ export default function OrganizationDetail() {
   const navigate = useNavigate();
   const { isProximityAdmin } = useAuth();
   const [organization, setOrganization] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -36,13 +38,17 @@ export default function OrganizationDetail() {
       const stats = orgWithStats.find(o => o.id === id);
       setOrganization({ ...orgData, ...stats });
 
-      const { data: facilitiesData } = await supabase
-        .from('facilities')
-        .select('*')
-        .eq('organization_id', id)
-        .order('name');
+      const [projectsData, facilitiesData] = await Promise.all([
+        projectsService.getAll({ organization_id: id }),
+        supabase
+          .from('facilities')
+          .select('*, project:projects(id, name)')
+          .eq('organization_id', id)
+          .order('name')
+      ]);
 
-      setFacilities(facilitiesData || []);
+      setProjects(projectsData || []);
+      setFacilities(facilitiesData.data || []);
     } catch (error) {
       console.error('Error loading organization:', error);
     } finally {
@@ -55,7 +61,7 @@ export default function OrganizationDetail() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading client details...</p>
+          <p className="text-slate-400">Loading organization details...</p>
         </div>
       </div>
     );
@@ -69,7 +75,7 @@ export default function OrganizationDetail() {
           onClick={() => navigate('/organizations')}
           className="mt-4 text-teal-400 hover:text-teal-300"
         >
-          Back to Clients
+          Back to Organizations
         </button>
       </div>
     );
@@ -77,9 +83,8 @@ export default function OrganizationDetail() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Building2 },
-    { id: 'sites', label: 'Sites', icon: MapPin },
+    { id: 'projects', label: 'Projects', icon: Folder },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'contracts', label: 'Contracts', icon: FileText },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'contacts', label: 'Contacts', icon: Mail },
     { id: 'documents', label: 'Documents', icon: FileText },
@@ -148,7 +153,7 @@ export default function OrganizationDetail() {
               </span>
             </div>
             <p className="text-slate-400 text-sm mt-1">
-              {organization.totalFacilities || 0} sites {organization.region ? `in ${organization.region}` : ''}
+              {projects.length} project{projects.length !== 1 ? 's' : ''}, {organization.totalFacilities || 0} facilit{organization.totalFacilities !== 1 ? 'ies' : 'y'} {organization.region ? `in ${organization.region}` : ''}
             </p>
           </div>
         </div>
@@ -175,16 +180,13 @@ export default function OrganizationDetail() {
 
       <div className="min-h-[400px]">
         {activeTab === 'overview' && (
-          <OverviewTab organization={organization} facilities={facilities} isProximityAdmin={isProximityAdmin} />
+          <OverviewTab organization={organization} projects={projects} facilities={facilities} isProximityAdmin={isProximityAdmin} />
         )}
-        {activeTab === 'sites' && (
-          <SitesTab organization={organization} facilities={facilities} onRefresh={loadOrganization} />
+        {activeTab === 'projects' && (
+          <ProjectsTab organization={organization} projects={projects} facilities={facilities} onRefresh={loadOrganization} />
         )}
         {activeTab === 'users' && (
           <UsersTab organization={organization} />
-        )}
-        {activeTab === 'contracts' && (
-          <ContractsTab organization={organization} isProximityAdmin={isProximityAdmin} />
         )}
         {activeTab === 'billing' && (
           <BillingTab organization={organization} />
@@ -203,7 +205,7 @@ export default function OrganizationDetail() {
   );
 }
 
-function OverviewTab({ organization, facilities, isProximityAdmin }) {
+function OverviewTab({ organization, projects, facilities, isProximityAdmin }) {
   const formatCurrency = (amount) => {
     if (!amount) return '$0';
     return new Intl.NumberFormat('en-US', {
@@ -222,8 +224,15 @@ function OverviewTab({ organization, facilities, isProximityAdmin }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
+              <Folder className="w-4 h-4 text-teal-400" />
+              <span className="text-xs text-slate-400">Total Projects</span>
+            </div>
+            <p className="text-2xl font-bold text-white">{projects.length}</p>
+          </div>
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
               <Building2 className="w-4 h-4 text-teal-400" />
-              <span className="text-xs text-slate-400">Total Sites</span>
+              <span className="text-xs text-slate-400">Total Facilities</span>
             </div>
             <p className="text-2xl font-bold text-white">{facilities.length}</p>
           </div>
@@ -289,9 +298,9 @@ function OverviewTab({ organization, facilities, isProximityAdmin }) {
         </div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Recent Sites</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Recent Facilities</h3>
           {facilities.length === 0 ? (
-            <p className="text-slate-400 text-center py-6">No sites added yet</p>
+            <p className="text-slate-400 text-center py-6">No facilities added yet</p>
           ) : (
             <div className="space-y-3">
               {facilities.slice(0, 5).map(facility => (
@@ -329,7 +338,7 @@ function OverviewTab({ organization, facilities, isProximityAdmin }) {
 
       <div className="space-y-6">
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Client Details</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Organization Details</h3>
           <div className="space-y-4">
             {organization.primary_contact_name && (
               <div className="flex items-start gap-3">
@@ -411,7 +420,13 @@ function OverviewTab({ organization, facilities, isProximityAdmin }) {
   );
 }
 
-function SitesTab({ organization, facilities, onRefresh }) {
+function ProjectsTab({ organization, projects, facilities, onRefresh }) {
+  const [expandedProject, setExpandedProject] = useState(null);
+
+  const getProjectFacilities = (projectId) => {
+    return facilities.filter(f => f.project_id === projectId);
+  };
+
   const getStatusColor = (phase) => {
     const colors = {
       live: 'bg-green-500',
@@ -422,147 +437,156 @@ function SitesTab({ organization, facilities, onRefresh }) {
     return colors[phase] || colors.not_started;
   };
 
+  const getStatusBadge = (status) => {
+    const badges = {
+      planning: 'bg-slate-600',
+      in_progress: 'bg-blue-600',
+      on_hold: 'bg-amber-600',
+      completed: 'bg-green-600'
+    };
+    return badges[status] || badges.planning;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">
-          Sites ({facilities.length})
+          Projects ({projects.length})
         </h3>
         <Link
-          to={`/facilities?org=${organization.id}`}
+          to="/projects"
           className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
         >
           <Plus className="w-4 h-4" />
-          Add Site
+          Add Project
         </Link>
       </div>
 
-      {facilities.length === 0 ? (
+      {projects.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-          <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400 mb-4">No sites added yet</p>
+          <Folder className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+          <p className="text-slate-400 mb-4">No projects created yet</p>
           <Link
-            to={`/facilities?org=${organization.id}`}
+            to="/projects"
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
           >
             <Plus className="w-4 h-4" />
-            Add First Site
+            Create First Project
           </Link>
         </div>
       ) : (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Site</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Location</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Go-Live</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {facilities.map(facility => (
-                <tr key={facility.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400 transition-colors">
-                      {facility.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">
-                    {facility.city}, {facility.state}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(facility.deployment_phase)}`} />
-                      <span className="text-white text-sm capitalize">
-                        {facility.deployment_phase?.replace('_', ' ') || 'Not Started'}
-                      </span>
+        <div className="space-y-4">
+          {projects.map(project => {
+            const projectFacilities = getProjectFacilities(project.id);
+            const isExpanded = expandedProject === project.id;
+
+            return (
+              <div key={project.id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <div
+                  className="p-4 cursor-pointer hover:bg-slate-700/30 transition-colors"
+                  onClick={() => setExpandedProject(isExpanded ? null : project.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <Folder className="w-5 h-5 text-teal-400" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <Link
+                            to={`/projects/${project.id}`}
+                            className="text-white font-medium hover:text-teal-400 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {project.name}
+                          </Link>
+                          <span className={`px-2 py-0.5 ${getStatusBadge(project.status)} text-white rounded text-xs font-medium`}>
+                            {project.status?.replace('_', ' ')}
+                          </span>
+                        </div>
+                        {project.description && (
+                          <p className="text-slate-400 text-sm mt-1">{project.description}</p>
+                        )}
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">
-                    {facility.projected_go_live
-                      ? format(new Date(facility.projected_go_live), 'MMM d, yyyy')
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      to={`/facilities/${facility.id}`}
-                      className="text-teal-400 hover:text-teal-300 text-sm"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-slate-400">{projectFacilities.length} facilit{projectFacilities.length !== 1 ? 'ies' : 'y'}</p>
+                      </div>
+                      <svg
+                        className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
 
-function ContractsTab({ organization, isProximityAdmin }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Service Agreement</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Contract Number</p>
-            <p className="text-white font-medium">{organization.contract_number || 'Not assigned'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Contract Status</p>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-              organization.contract_status === 'active' ? 'bg-green-400/10 text-green-400' :
-              organization.contract_status === 'pending' ? 'bg-amber-400/10 text-amber-400' :
-              'bg-slate-400/10 text-slate-400'
-            }`}>
-              {organization.contract_status || 'Active'}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Start Date</p>
-            <p className="text-white">
-              {organization.contract_start_date
-                ? format(new Date(organization.contract_start_date), 'MMMM d, yyyy')
-                : 'Not set'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 mb-1">End Date</p>
-            <p className="text-white">
-              {organization.contract_end_date
-                ? format(new Date(organization.contract_end_date), 'MMMM d, yyyy')
-                : 'Not set'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {isProximityAdmin && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Pricing</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Monthly Recurring Revenue</p>
-              <p className="text-2xl font-bold text-teal-400">
-                ${(organization.monthly_recurring_revenue || 0).toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Annual Contract Value</p>
-              <p className="text-2xl font-bold text-white">
-                ${(organization.annual_contract_value || 0).toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Billing Frequency</p>
-              <p className="text-white capitalize">{organization.billing_frequency || 'Monthly'}</p>
-            </div>
-          </div>
+                {isExpanded && (
+                  <div className="border-t border-slate-700">
+                    {projectFacilities.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Building2 className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                        <p className="text-slate-400 text-sm mb-3">No facilities in this project</p>
+                        <Link
+                          to="/facilities"
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors text-sm"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Facility
+                        </Link>
+                      </div>
+                    ) : (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-slate-700 bg-slate-900/30">
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Facility</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Location</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Phase</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Go-Live</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700">
+                          {projectFacilities.map(facility => (
+                            <tr key={facility.id} className="hover:bg-slate-700/30 transition-colors">
+                              <td className="px-6 py-4">
+                                <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400 transition-colors">
+                                  {facility.name}
+                                </Link>
+                              </td>
+                              <td className="px-6 py-4 text-slate-400">
+                                {facility.city}, {facility.state}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-slate-300 text-sm">
+                                  {facility.phase || 'Not Set'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-slate-400">
+                                {facility.projected_go_live
+                                  ? format(new Date(facility.projected_go_live), 'MMM d, yyyy')
+                                  : '-'}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <Link
+                                  to={`/facilities/${facility.id}`}
+                                  className="text-teal-400 hover:text-teal-300 text-sm"
+                                >
+                                  View
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
