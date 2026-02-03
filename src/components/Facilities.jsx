@@ -61,10 +61,11 @@ export default function Facilities() {
   }
 
   const statusColors = {
-    'Not Started': 'bg-slate-700 text-slate-300',
+    'Planning': 'bg-slate-700 text-slate-300',
     'In Progress': 'bg-blue-600 text-white',
     'Live': 'bg-green-600 text-white',
-    'Blocked': 'bg-red-600 text-white'
+    'On Hold': 'bg-amber-600 text-white',
+    'Cancelled': 'bg-red-600 text-white'
   };
 
   const handleSort = (key) => {
@@ -193,10 +194,11 @@ export default function Facilities() {
             className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="">All Statuses</option>
-            <option value="Not Started">Not Started</option>
+            <option value="Planning">Planning</option>
             <option value="In Progress">In Progress</option>
             <option value="Live">Live</option>
-            <option value="Blocked">Blocked</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
 
           <input
@@ -403,6 +405,7 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
     address: '',
     city: '',
     state: '',
+    zip: '',
     facility_type: 'SNF',
     site_configuration: 'waived',
     projected_go_live: ''
@@ -453,7 +456,7 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
       await facilitiesService.create({
         ...formData,
         projected_go_live: formData.projected_go_live || null,
-        status: 'Not Started',
+        status: 'Planning',
         phase: 'Phase 1'
       });
       onCreated();
@@ -551,7 +554,7 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
                   City
@@ -576,6 +579,21 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
                   onChange={handleChange}
                   className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
                   placeholder="State"
+                  maxLength="2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  ZIP Code
+                </label>
+                <input
+                  type="text"
+                  name="zip"
+                  value={formData.zip}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                  placeholder="ZIP"
+                  maxLength="10"
                 />
               </div>
             </div>
