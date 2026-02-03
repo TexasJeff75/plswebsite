@@ -7,6 +7,7 @@ export const facilitiesService = {
       .select(`
         *,
         organization:organizations(id, name),
+        project:projects(id, name),
         milestones(id, status, milestone_order),
         equipment(id, status)
       `)
@@ -48,6 +49,7 @@ export const facilitiesService = {
       .select(`
         *,
         organization:organizations(id, name),
+        project:projects(id, name),
         milestones(*),
         equipment(*),
         notes(*),

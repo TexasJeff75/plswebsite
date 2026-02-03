@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { facilitiesService } from '../services/facilitiesService';
 import { organizationsService } from '../services/organizationsService';
+import { projectsService } from '../services/projectsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
@@ -94,9 +95,13 @@ export default function Facilities() {
           aValue = a.name?.toLowerCase() || '';
           bValue = b.name?.toLowerCase() || '';
           break;
-        case 'client':
+        case 'organization':
           aValue = a.organization?.name?.toLowerCase() || '';
           bValue = b.organization?.name?.toLowerCase() || '';
+          break;
+        case 'project':
+          aValue = a.project?.name?.toLowerCase() || '';
+          bValue = b.project?.name?.toLowerCase() || '';
           break;
         case 'location':
           aValue = `${a.city}, ${a.state}`.toLowerCase();
@@ -239,11 +244,20 @@ export default function Facilities() {
                   </th>
                   <th
                     className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
-                    onClick={() => handleSort('client')}
+                    onClick={() => handleSort('organization')}
                   >
                     <div className="flex items-center gap-2">
-                      Client
-                      {getSortIcon('client')}
+                      Organization
+                      {getSortIcon('organization')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('project')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Project
+                      {getSortIcon('project')}
                     </div>
                   </th>
                   <th
@@ -309,6 +323,9 @@ export default function Facilities() {
                       </td>
                       <td className="py-4 px-4 text-slate-400">
                         {facility.organization?.name || '-'}
+                      </td>
+                      <td className="py-4 px-4 text-slate-400">
+                        {facility.project?.name || '-'}
                       </td>
                       <td className="py-4 px-4 text-slate-400">
                         {facility.city}, {facility.state}
@@ -381,6 +398,7 @@ export default function Facilities() {
 function AddFacilityModal({ organizations, onClose, onCreated }) {
   const [formData, setFormData] = useState({
     organization_id: '',
+    project_id: '',
     name: '',
     address: '',
     city: '',
@@ -389,17 +407,41 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
     site_configuration: 'waived',
     projected_go_live: ''
   });
+  const [projects, setProjects] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (formData.organization_id) {
+      loadProjects(formData.organization_id);
+    } else {
+      setProjects([]);
+      setFormData(prev => ({ ...prev, project_id: '' }));
+    }
+  }, [formData.organization_id]);
+
+  async function loadProjects(organizationId) {
+    try {
+      const data = await projectsService.getAll({ organization_id: organizationId });
+      setProjects(data);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      setProjects([]);
+    }
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'organization_id') {
+      setFormData(prev => ({ ...prev, [name]: value, project_id: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.organization_id || !formData.name) {
+    if (!formData.organization_id || !formData.project_id || !formData.name) {
       setError('Please fill in all required fields');
       return;
     }
@@ -442,7 +484,7 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                Client *
+                Organization *
               </label>
               <select
                 name="organization_id"
@@ -451,11 +493,33 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
                 className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
                 required
               >
-                <option value="">Select client</option>
+                <option value="">Select organization</option>
                 {organizations.map(org => (
                   <option key={org.id} value={org.id}>{org.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Project *
+              </label>
+              <select
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 disabled:opacity-50"
+                required
+                disabled={!formData.organization_id || projects.length === 0}
+              >
+                <option value="">Select project</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>{project.name}</option>
+                ))}
+              </select>
+              {formData.organization_id && projects.length === 0 && (
+                <p className="text-xs text-amber-400 mt-1">No projects found for this organization. Please create a project first.</p>
+              )}
             </div>
 
             <div>
