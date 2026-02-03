@@ -13,6 +13,8 @@ interface InvitationEmailRequest {
   expiresAt: string;
 }
 
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -128,14 +130,57 @@ Deployment Tracker Platform
     console.log(`Invite URL: ${inviteUrl}`);
     console.log(`Expires: ${expiryDate}`);
 
+    if (!RESEND_API_KEY) {
+      console.warn('RESEND_API_KEY not configured - email will not be sent');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service not configured",
+          message: "Please configure RESEND_API_KEY to enable email sending",
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'Proximity Lab Services <onboarding@proximitylabservices.com>',
+        to: [email],
+        subject: 'You\'re invited to Proximity Lab Services',
+        html: emailHtml,
+        text: emailText,
+      }),
+    });
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.text();
+      console.error('Resend API error:', errorData);
+      throw new Error(`Failed to send email: ${errorData}`);
+    }
+
+    const resendData = await resendResponse.json();
+    console.log('Email sent successfully:', resendData);
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Invitation email prepared successfully",
+        message: "Invitation email sent successfully",
         details: {
           email,
           role,
           expiresAt: expiryDate,
+          emailId: resendData.id,
         },
       }),
       {
