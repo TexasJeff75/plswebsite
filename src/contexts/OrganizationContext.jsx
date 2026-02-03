@@ -5,11 +5,14 @@ import { useAuth } from './AuthContext';
 const OrganizationContext = createContext(null);
 
 const SELECTED_ORG_KEY = 'selectedOrganizationId';
+const SELECTED_PROJECT_KEY = 'selectedProjectId';
 
 export function OrganizationProvider({ children }) {
   const { user, profile } = useAuth();
   const [accessibleOrganizations, setAccessibleOrganizations] = useState([]);
   const [selectedOrganization, setSelectedOrganizationState] = useState(null);
+  const [accessibleProjects, setAccessibleProjects] = useState([]);
+  const [selectedProject, setSelectedProjectState] = useState(null);
   const [isInternalUser, setIsInternalUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userOrgAssignments, setUserOrgAssignments] = useState([]);
@@ -22,10 +25,21 @@ export function OrganizationProvider({ children }) {
     } else {
       setAccessibleOrganizations([]);
       setSelectedOrganizationState(null);
+      setAccessibleProjects([]);
+      setSelectedProjectState(null);
       setIsInternalUser(false);
       setIsLoading(false);
     }
   }, [user, profile]);
+
+  useEffect(() => {
+    if (selectedOrganization) {
+      loadProjectsForOrganization(selectedOrganization.id);
+    } else {
+      setAccessibleProjects([]);
+      setSelectedProjectState(null);
+    }
+  }, [selectedOrganization]);
 
   async function loadOrganizationAccess() {
     setIsLoading(true);
@@ -81,12 +95,47 @@ export function OrganizationProvider({ children }) {
     }
   }
 
+  async function loadProjectsForOrganization(organizationId) {
+    try {
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('name');
+
+      if (error) throw error;
+      setAccessibleProjects(projects || []);
+
+      const savedProjectId = localStorage.getItem(SELECTED_PROJECT_KEY);
+      if (savedProjectId && projects?.find(p => p.id === savedProjectId)) {
+        setSelectedProjectState(projects.find(p => p.id === savedProjectId));
+      } else if (projects && projects.length > 0) {
+        setSelectedProjectState(projects[0]);
+      } else {
+        setSelectedProjectState(null);
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      setAccessibleProjects([]);
+      setSelectedProjectState(null);
+    }
+  }
+
   const setSelectedOrganization = useCallback((org) => {
     setSelectedOrganizationState(org);
     if (org?.id) {
       localStorage.setItem(SELECTED_ORG_KEY, org.id);
     } else {
       localStorage.removeItem(SELECTED_ORG_KEY);
+    }
+  }, []);
+
+  const setSelectedProject = useCallback((project) => {
+    setSelectedProjectState(project);
+    if (project?.id) {
+      localStorage.setItem(SELECTED_PROJECT_KEY, project.id);
+    } else {
+      localStorage.removeItem(SELECTED_PROJECT_KEY);
     }
   }, []);
 
@@ -111,6 +160,9 @@ export function OrganizationProvider({ children }) {
     accessibleOrganizations,
     selectedOrganization,
     setSelectedOrganization,
+    accessibleProjects,
+    selectedProject,
+    setSelectedProject,
     isInternalUser,
     canAccessOrganization,
     getUserOrgRole,

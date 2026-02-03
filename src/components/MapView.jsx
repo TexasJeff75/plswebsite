@@ -4,6 +4,7 @@ import Map, { Marker, Popup } from 'react-map-gl';
 import { MapPin, Search, Loader2, Map as MapIcon, Layers } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
+import { useOrganization } from '../contexts/OrganizationContext';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const STATUS_COLORS = {
@@ -72,6 +73,7 @@ const CustomMarker = memo(function CustomMarker({ facility, onClick, isSelected 
 });
 
 export default function MapView() {
+  const { selectedOrganization, selectedProject } = useOrganization();
   const [facilities, setFacilities] = useState([]);
   const [facilitiesWithCoordinates, setFacilitiesWithCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function MapView() {
 
   useEffect(() => {
     loadFacilities();
-  }, []);
+  }, [selectedOrganization, selectedProject]);
 
   useEffect(() => {
     if (mapRef.current && selectedFacility?.latitude && selectedFacility?.longitude) {
@@ -106,7 +108,13 @@ export default function MapView() {
     try {
       setLoading(true);
       console.log('Loading facilities from database...');
-      const data = await facilitiesService.getAll({});
+      const filters = {};
+      if (selectedProject) {
+        filters.project_id = selectedProject.id;
+      } else if (selectedOrganization) {
+        filters.organization_id = selectedOrganization.id;
+      }
+      const data = await facilitiesService.getAll(filters);
       console.log('Loaded facilities:', data);
       setFacilities(data);
 

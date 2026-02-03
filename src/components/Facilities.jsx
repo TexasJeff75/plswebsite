@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { facilitiesService } from '../services/facilitiesService';
 import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrganization } from '../contexts/OrganizationContext';
 import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import ImportData from './ImportData';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
+  const { selectedOrganization, selectedProject } = useOrganization();
   const [facilities, setFacilities] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ export default function Facilities() {
 
   useEffect(() => {
     loadFacilities();
-  }, [filters]);
+  }, [filters, selectedOrganization, selectedProject]);
 
   async function loadOrganizations() {
     try {
@@ -42,7 +44,13 @@ export default function Facilities() {
   async function loadFacilities() {
     try {
       setLoading(true);
-      const data = await facilitiesService.getAll(filters);
+      const appliedFilters = { ...filters };
+      if (selectedProject) {
+        appliedFilters.project_id = selectedProject.id;
+      } else if (selectedOrganization) {
+        appliedFilters.organization_id = selectedOrganization.id;
+      }
+      const data = await facilitiesService.getAll(appliedFilters);
       setFacilities(data);
     } catch (error) {
       console.error('Error loading facilities:', error);

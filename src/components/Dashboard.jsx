@@ -4,6 +4,7 @@ import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import { dashboardService } from '../services/dashboardService';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrganization } from '../contexts/OrganizationContext';
 import { Users, Building2, DollarSign, CheckCircle2, Ticket, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -13,6 +14,7 @@ import DashboardMapWidget from './maps/DashboardMapWidget';
 
 export default function Dashboard() {
   const { isProximityAdmin } = useAuth();
+  const { selectedOrganization, selectedProject } = useOrganization();
   const [clients, setClients] = useState([]);
   const [globalStats, setGlobalStats] = useState(null);
   const [criticalAlerts, setCriticalAlerts] = useState([]);
@@ -27,10 +29,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [selectedOrganization, selectedProject]);
 
   async function loadDashboardData() {
     try {
+      const filters = {};
+      if (selectedProject) {
+        filters.project_id = selectedProject.id;
+      } else if (selectedOrganization) {
+        filters.organization_id = selectedOrganization.id;
+      }
+
       const [
         clientsData,
         facilityStats,
@@ -40,13 +49,13 @@ export default function Dashboard() {
         sitesByStatus,
         sitesByClient
       ] = await Promise.all([
-        organizationsService.getWithStats(),
-        facilitiesService.getStats(),
-        dashboardService.getRevenueData(),
-        dashboardService.getDeploymentVelocity(),
-        dashboardService.getComplianceTrend(),
-        dashboardService.getSitesByStatus(),
-        dashboardService.getSitesByClient()
+        organizationsService.getWithStats(filters),
+        facilitiesService.getStats(filters),
+        dashboardService.getRevenueData(filters),
+        dashboardService.getDeploymentVelocity(filters),
+        dashboardService.getComplianceTrend(filters),
+        dashboardService.getSitesByStatus(filters),
+        dashboardService.getSitesByClient(filters)
       ]);
 
       setClients(clientsData);

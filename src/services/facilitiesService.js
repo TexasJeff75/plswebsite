@@ -32,6 +32,10 @@ export const facilitiesService = {
       query = query.eq('organization_id', filters.organization_id);
     }
 
+    if (filters.project_id) {
+      query = query.eq('project_id', filters.project_id);
+    }
+
     const { data, error } = await query;
 
     if (error) throw error;
