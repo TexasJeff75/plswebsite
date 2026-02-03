@@ -9,77 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/src/index.css">
-    <style>
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        @keyframes shimmer {
-            0% {
-                background-position: -1000px 0;
-            }
-            100% {
-                background-position: 1000px 0;
-            }
-        }
-
-        .stat-updated {
-            animation: pulse 0.4s ease-out;
-        }
-
-        .filter-btn {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .filter-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, currentColor, transparent);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        .deployment-card {
-            position: relative;
-        }
-
-        .deployment-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            opacity: 0;
-            transition: opacity 0.3s ease-out;
-            pointer-events: none;
-        }
-
-        .deployment-card:hover::before {
-            opacity: 1;
-        }
-    </style>
 </head>
 <body class="font-body bg-midnight text-platinum">
     <div class="video-background">
@@ -121,112 +50,82 @@
             <div class="max-w-7xl mx-auto relative z-10">
                 <div class="text-center mb-12">
                     <h1 class="text-5xl md:text-6xl font-bold mb-6 text-platinum">
-                        Facility Deployment <em class="italic text-champagne font-light">Tracker</em>
+                        Deployment <em class="italic text-champagne font-light">Tracker</em>
                     </h1>
                     <p class="text-xl text-platinum/80 mb-8">
-                        Monitor and track facility deployments across all organizations and projects
+                        Monitor and track deployments across all environments in real-time
                     </p>
                 </div>
 
-                <div class="glass-luxury rounded-2xl p-8 mb-8 relative border border-platinum/10">
-                    <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-champagne/5 via-transparent to-transparent pointer-events-none"></div>
-
-                    <div class="relative z-10">
-                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
-                            <div class="flex flex-wrap gap-3">
-                                <button id="filterAll" class="filter-btn active bg-champagne text-midnight px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
-                                    All
-                                </button>
-                                <button id="filterPending" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne hover:border-champagne/40 duration-300 transform hover:scale-105">
-                                    Pending
-                                </button>
-                                <button id="filterInProgress" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne hover:border-champagne/40 duration-300 transform hover:scale-105">
-                                    In Progress
-                                </button>
-                                <button id="filterCompleted" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne hover:border-champagne/40 duration-300 transform hover:scale-105">
-                                    Completed
-                                </button>
-                                <button id="filterFailed" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne hover:border-champagne/40 duration-300 transform hover:scale-105">
-                                    Failed
-                                </button>
-                            </div>
-                            <button id="addFacilityBtn" class="premium-btn px-8 py-3 rounded-lg font-medium whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                                + Add Facility
+                <div class="glass-luxury rounded-2xl p-8 mb-8">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
+                        <div class="flex flex-wrap gap-4">
+                            <button id="filterAll" class="filter-btn active bg-champagne text-midnight px-6 py-2 rounded-lg font-medium transition-all">
+                                All
+                            </button>
+                            <button id="filterPending" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
+                                Pending
+                            </button>
+                            <button id="filterInProgress" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
+                                In Progress
+                            </button>
+                            <button id="filterCompleted" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
+                                Completed
+                            </button>
+                            <button id="filterFailed" class="filter-btn glass-luxury text-platinum/70 px-6 py-2 rounded-lg font-medium transition-all hover:text-champagne">
+                                Failed
                             </button>
                         </div>
+                        <button id="addDeploymentBtn" class="premium-btn px-6 py-3 rounded-lg font-medium whitespace-nowrap">
+                            + Add Deployment
+                        </button>
+                    </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <div class="stat-card glass-luxury p-6 rounded-xl border border-champagne/20 hover:border-champagne/40 transition-all duration-300 overflow-hidden relative group">
-                                <div class="absolute inset-0 bg-gradient-to-br from-champagne/0 via-transparent to-champagne/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <h3 class="text-platinum/70 text-sm font-medium">Total Facilities</h3>
-                                        <div class="w-10 h-10 rounded-lg bg-champagne/10 flex items-center justify-center group-hover:bg-champagne/20 transition-colors duration-300">
-                                            <svg class="w-5 h-5 text-champagne" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <p id="totalCount" class="text-4xl font-bold text-champagne stat-number">0</p>
-                                </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Total Deployments</h3>
+                                <svg class="w-5 h-5 text-electric" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                </svg>
                             </div>
-
-                            <div class="stat-card glass-luxury p-6 rounded-xl border border-green-400/20 hover:border-green-400/40 transition-all duration-300 overflow-hidden relative group">
-                                <div class="absolute inset-0 bg-gradient-to-br from-green-400/0 via-transparent to-green-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <h3 class="text-platinum/70 text-sm font-medium">Completed</h3>
-                                        <div class="w-10 h-10 rounded-lg bg-green-400/10 flex items-center justify-center group-hover:bg-green-400/20 transition-colors duration-300">
-                                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <p id="completedCount" class="text-4xl font-bold text-green-400 stat-number">0</p>
-                                </div>
-                            </div>
-
-                            <div class="stat-card glass-luxury p-6 rounded-xl border border-bright-blue/20 hover:border-bright-blue/40 transition-all duration-300 overflow-hidden relative group">
-                                <div class="absolute inset-0 bg-gradient-to-br from-bright-blue/0 via-transparent to-bright-blue/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <h3 class="text-platinum/70 text-sm font-medium">In Progress</h3>
-                                        <div class="w-10 h-10 rounded-lg bg-bright-blue/10 flex items-center justify-center group-hover:bg-bright-blue/20 transition-colors duration-300">
-                                            <svg class="w-5 h-5 text-bright-blue animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <p id="inProgressCount" class="text-4xl font-bold text-bright-blue stat-number">0</p>
-                                </div>
-                            </div>
-
-                            <div class="stat-card glass-luxury p-6 rounded-xl border border-red-400/20 hover:border-red-400/40 transition-all duration-300 overflow-hidden relative group">
-                                <div class="absolute inset-0 bg-gradient-to-br from-red-400/0 via-transparent to-red-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <h3 class="text-platinum/70 text-sm font-medium">Failed</h3>
-                                        <div class="w-10 h-10 rounded-lg bg-red-400/10 flex items-center justify-center group-hover:bg-red-400/20 transition-colors duration-300">
-                                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <p id="failedCount" class="text-4xl font-bold text-red-400 stat-number">0</p>
-                                </div>
-                            </div>
+                            <p id="totalCount" class="text-3xl font-bold text-champagne">0</p>
                         </div>
-
-                        <div id="facilitiesContainer" class="space-y-4">
-                            <div class="text-center py-12">
-                                <div class="mb-4 flex justify-center">
-                                    <div class="relative w-16 h-16">
-                                        <div class="absolute inset-0 rounded-full border-4 border-champagne/20"></div>
-                                        <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-champagne border-r-champagne animate-spin"></div>
-                                    </div>
-                                </div>
-                                <p class="text-platinum/60 text-lg font-medium">Loading facilities...</p>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Completed</h3>
+                                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
                             </div>
+                            <p id="completedCount" class="text-3xl font-bold text-green-400">0</p>
+                        </div>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">In Progress</h3>
+                                <svg class="w-5 h-5 text-bright-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p id="inProgressCount" class="text-3xl font-bold text-bright-blue">0</p>
+                        </div>
+                        <div class="glass-luxury champagne-glow p-6 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-platinum/70 text-sm font-medium">Failed</h3>
+                                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p id="failedCount" class="text-3xl font-bold text-red-400">0</p>
+                        </div>
+                    </div>
+
+                    <div id="deploymentsContainer" class="space-y-4">
+                        <div class="text-center py-12">
+                            <svg class="w-16 h-16 mx-auto text-champagne/50 mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-platinum/60 text-lg font-medium">Loading deployments...</p>
                         </div>
                     </div>
                 </div>
@@ -234,54 +133,40 @@
         </div>
     </section>
 
-    <div id="facilityModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md transition-opacity duration-300">
-        <div class="glass-luxury rounded-2xl w-full max-w-2xl relative p-8 border border-platinum/10 transform transition-all duration-300 scale-100 opacity-100">
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-champagne/5 via-transparent to-transparent pointer-events-none"></div>
-
-            <button onclick="closeFacilityModal()" class="absolute top-6 right-6 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-all duration-300 transform hover:scale-110 shadow-lg z-10">
+    <div id="deploymentModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="glass-luxury rounded-2xl w-full max-w-2xl relative p-8">
+            <button onclick="closeDeploymentModal()" class="absolute top-4 right-4 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
 
-            <div class="relative z-10">
-                <div class="flex items-center gap-3 mb-8">
-                    <div class="w-12 h-12 rounded-lg bg-champagne/10 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-champagne" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                        </svg>
-                    </div>
-                    <h2 class="text-3xl font-bold text-platinum">Add New Facility</h2>
-                </div>
+            <h2 class="text-3xl font-bold text-platinum mb-6">Add New Deployment</h2>
 
-            <form id="facilityForm" class="space-y-6 relative z-10">
+            <form id="deploymentForm" class="space-y-6">
                 <div>
-                    <label for="organizationId" class="block text-platinum mb-2 font-medium">Organization</label>
-                    <select id="organizationId" name="organizationId" required
-                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
-                        <option value="">Select Organization</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="projectId" class="block text-platinum mb-2 font-medium">Project</label>
-                    <select id="projectId" name="projectId" required
-                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
-                        <option value="">Select Project</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="facilityName" class="block text-platinum mb-2 font-medium">Facility Name</label>
-                    <input type="text" id="facilityName" name="facilityName" required
+                    <label for="projectName" class="block text-platinum mb-2 font-medium">Project Name</label>
+                    <input type="text" id="projectName" name="projectName" required
                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                 </div>
 
-                <div>
-                    <label for="location" class="block text-platinum mb-2 font-medium">Location</label>
-                    <input type="text" id="location" name="location"
-                           class="elegant-input w-full px-4 py-3 rounded-lg outline-none"
-                           placeholder="e.g., 123 Main St, City, State">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="version" class="block text-platinum mb-2 font-medium">Version</label>
+                        <input type="text" id="version" name="version" required placeholder="e.g., v1.2.3"
+                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                    </div>
+
+                    <div>
+                        <label for="environment" class="block text-platinum mb-2 font-medium">Environment</label>
+                        <select id="environment" name="environment" required
+                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                            <option value="">Select Environment</option>
+                            <option value="development">Development</option>
+                            <option value="staging">Staging</option>
+                            <option value="production">Production</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -293,12 +178,13 @@
                             <option value="in_progress">In Progress</option>
                             <option value="completed">Completed</option>
                             <option value="failed">Failed</option>
+                            <option value="rolled_back">Rolled Back</option>
                         </select>
                     </div>
 
                     <div>
                         <label for="deployedBy" class="block text-platinum mb-2 font-medium">Deployed By</label>
-                        <input type="text" id="deployedBy" name="deployedBy"
+                        <input type="text" id="deployedBy" name="deployedBy" required
                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                     </div>
                 </div>
@@ -307,15 +193,15 @@
                     <label for="notes" class="block text-platinum mb-2 font-medium">Notes (Optional)</label>
                     <textarea id="notes" name="notes" rows="4"
                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none resize-none"
-                              placeholder="Additional notes..."></textarea>
+                              placeholder="Additional deployment notes..."></textarea>
                 </div>
 
-                <div class="flex gap-4 pt-6">
-                    <button type="submit" class="premium-btn flex-1 px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                        Add Facility
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" class="premium-btn flex-1 px-6 py-3 rounded-lg font-medium">
+                        Add Deployment
                     </button>
-                    <button type="button" onclick="closeFacilityModal()"
-                            class="glass-luxury border border-platinum/20 text-platinum flex-1 px-6 py-3 rounded-lg font-medium hover:bg-platinum/5 hover:border-platinum/40 transition-all duration-300 transform hover:scale-105">
+                    <button type="button" onclick="closeDeploymentModal()"
+                            class="glass-luxury border border-platinum/20 text-platinum flex-1 px-6 py-3 rounded-lg font-medium hover:bg-platinum/5 transition-colors">
                         Cancel
                     </button>
                 </div>
@@ -375,13 +261,9 @@
             }
         });
 
-        function closeFacilityModal() {
-            const modal = document.getElementById('facilityModal');
-            modal.style.opacity = '0';
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                document.body.style.overflow = 'auto';
-            }, 300);
+        function closeDeploymentModal() {
+            document.getElementById('deploymentModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
         }
     </script>
 </body>
