@@ -118,25 +118,16 @@ export const invitationService = {
   async sendInvitationEmail(invitation) {
     const inviteUrl = `${window.location.origin}/#/login?invitation=${invitation.invitation_token}`;
 
-    const response = await fetch('/.netlify/functions/send-invitation-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke('send-invitation-email', {
+      body: {
         email: invitation.email,
         role: invitation.role,
         inviteUrl: inviteUrl,
         expiresAt: invitation.expires_at,
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send invitation email');
-    }
-
-    const data = await response.json();
+    if (error) throw error;
     return data;
   },
 
