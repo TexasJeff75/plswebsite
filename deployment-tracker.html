@@ -121,10 +121,10 @@
             <div class="max-w-7xl mx-auto relative z-10">
                 <div class="text-center mb-12">
                     <h1 class="text-5xl md:text-6xl font-bold mb-6 text-platinum">
-                        Deployment <em class="italic text-champagne font-light">Tracker</em>
+                        Facility Deployment <em class="italic text-champagne font-light">Tracker</em>
                     </h1>
                     <p class="text-xl text-platinum/80 mb-8">
-                        Monitor and track deployments across all environments in real-time
+                        Monitor and track facility deployments across all organizations and projects
                     </p>
                 </div>
 
@@ -150,8 +150,8 @@
                                     Failed
                                 </button>
                             </div>
-                            <button id="addDeploymentBtn" class="premium-btn px-8 py-3 rounded-lg font-medium whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                                + Add Deployment
+                            <button id="addFacilityBtn" class="premium-btn px-8 py-3 rounded-lg font-medium whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                                + Add Facility
                             </button>
                         </div>
 
@@ -160,10 +160,10 @@
                                 <div class="absolute inset-0 bg-gradient-to-br from-champagne/0 via-transparent to-champagne/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 <div class="relative z-10">
                                     <div class="flex items-center justify-between mb-3">
-                                        <h3 class="text-platinum/70 text-sm font-medium">Total Deployments</h3>
+                                        <h3 class="text-platinum/70 text-sm font-medium">Total Facilities</h3>
                                         <div class="w-10 h-10 rounded-lg bg-champagne/10 flex items-center justify-center group-hover:bg-champagne/20 transition-colors duration-300">
                                             <svg class="w-5 h-5 text-champagne" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                                             </svg>
                                         </div>
                                     </div>
@@ -217,7 +217,7 @@
                             </div>
                         </div>
 
-                        <div id="deploymentsContainer" class="space-y-4">
+                        <div id="facilitiesContainer" class="space-y-4">
                             <div class="text-center py-12">
                                 <div class="mb-4 flex justify-center">
                                     <div class="relative w-16 h-16">
@@ -225,7 +225,7 @@
                                         <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-champagne border-r-champagne animate-spin"></div>
                                     </div>
                                 </div>
-                                <p class="text-platinum/60 text-lg font-medium">Loading deployments...</p>
+                                <p class="text-platinum/60 text-lg font-medium">Loading facilities...</p>
                             </div>
                         </div>
                     </div>
@@ -234,11 +234,11 @@
         </div>
     </section>
 
-    <div id="deploymentModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md transition-opacity duration-300">
+    <div id="facilityModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md transition-opacity duration-300">
         <div class="glass-luxury rounded-2xl w-full max-w-2xl relative p-8 border border-platinum/10 transform transition-all duration-300 scale-100 opacity-100">
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-champagne/5 via-transparent to-transparent pointer-events-none"></div>
 
-            <button onclick="closeDeploymentModal()" class="absolute top-6 right-6 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-all duration-300 transform hover:scale-110 shadow-lg z-10">
+            <button onclick="closeFacilityModal()" class="absolute top-6 right-6 w-10 h-10 bg-champagne text-midnight rounded-full flex items-center justify-center hover:bg-champagne/80 transition-all duration-300 transform hover:scale-110 shadow-lg z-10">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -248,36 +248,40 @@
                 <div class="flex items-center gap-3 mb-8">
                     <div class="w-12 h-12 rounded-lg bg-champagne/10 flex items-center justify-center">
                         <svg class="w-6 h-6 text-champagne" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m0 0h6M6 12h6m0 0h6"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                         </svg>
                     </div>
-                    <h2 class="text-3xl font-bold text-platinum">Add New Deployment</h2>
+                    <h2 class="text-3xl font-bold text-platinum">Add New Facility</h2>
                 </div>
 
-            <form id="deploymentForm" class="space-y-6 relative z-10">
+            <form id="facilityForm" class="space-y-6 relative z-10">
                 <div>
-                    <label for="projectName" class="block text-platinum mb-2 font-medium">Project Name</label>
-                    <input type="text" id="projectName" name="projectName" required
+                    <label for="organizationId" class="block text-platinum mb-2 font-medium">Organization</label>
+                    <select id="organizationId" name="organizationId" required
+                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                        <option value="">Select Organization</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="projectId" class="block text-platinum mb-2 font-medium">Project</label>
+                    <select id="projectId" name="projectId" required
+                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
+                        <option value="">Select Project</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="facilityName" class="block text-platinum mb-2 font-medium">Facility Name</label>
+                    <input type="text" id="facilityName" name="facilityName" required
                            class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="version" class="block text-platinum mb-2 font-medium">Version</label>
-                        <input type="text" id="version" name="version" required placeholder="e.g., v1.2.3"
-                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
-                    </div>
-
-                    <div>
-                        <label for="environment" class="block text-platinum mb-2 font-medium">Environment</label>
-                        <select id="environment" name="environment" required
-                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
-                            <option value="">Select Environment</option>
-                            <option value="development">Development</option>
-                            <option value="staging">Staging</option>
-                            <option value="production">Production</option>
-                        </select>
-                    </div>
+                <div>
+                    <label for="location" class="block text-platinum mb-2 font-medium">Location</label>
+                    <input type="text" id="location" name="location"
+                           class="elegant-input w-full px-4 py-3 rounded-lg outline-none"
+                           placeholder="e.g., 123 Main St, City, State">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -289,13 +293,12 @@
                             <option value="in_progress">In Progress</option>
                             <option value="completed">Completed</option>
                             <option value="failed">Failed</option>
-                            <option value="rolled_back">Rolled Back</option>
                         </select>
                     </div>
 
                     <div>
                         <label for="deployedBy" class="block text-platinum mb-2 font-medium">Deployed By</label>
-                        <input type="text" id="deployedBy" name="deployedBy" required
+                        <input type="text" id="deployedBy" name="deployedBy"
                                class="elegant-input w-full px-4 py-3 rounded-lg outline-none">
                     </div>
                 </div>
@@ -304,14 +307,14 @@
                     <label for="notes" class="block text-platinum mb-2 font-medium">Notes (Optional)</label>
                     <textarea id="notes" name="notes" rows="4"
                               class="elegant-input w-full px-4 py-3 rounded-lg outline-none resize-none"
-                              placeholder="Additional deployment notes..."></textarea>
+                              placeholder="Additional notes..."></textarea>
                 </div>
 
                 <div class="flex gap-4 pt-6">
                     <button type="submit" class="premium-btn flex-1 px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                        Add Deployment
+                        Add Facility
                     </button>
-                    <button type="button" onclick="closeDeploymentModal()"
+                    <button type="button" onclick="closeFacilityModal()"
                             class="glass-luxury border border-platinum/20 text-platinum flex-1 px-6 py-3 rounded-lg font-medium hover:bg-platinum/5 hover:border-platinum/40 transition-all duration-300 transform hover:scale-105">
                         Cancel
                     </button>
@@ -372,8 +375,8 @@
             }
         });
 
-        function closeDeploymentModal() {
-            const modal = document.getElementById('deploymentModal');
+        function closeFacilityModal() {
+            const modal = document.getElementById('facilityModal');
             modal.style.opacity = '0';
             setTimeout(() => {
                 modal.classList.add('hidden');
