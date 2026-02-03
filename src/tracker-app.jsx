@@ -13,6 +13,7 @@ import DeploymentTrackerMap from './components/DeploymentTrackerMap';
 import Users from './components/Users';
 import Organizations from './components/Organizations';
 import OrganizationDetail from './components/OrganizationDetail';
+import Projects from './components/Projects';
 import SupportTickets from './components/SupportTickets';
 import TicketDetail from './components/TicketDetail';
 import Reports from './components/Reports';
@@ -96,6 +97,7 @@ function App() {
                 <Route path="facilities/:id" element={<FacilityDetail />} />
                 <Route path="organizations" element={<Organizations />} />
                 <Route path="organizations/:id" element={<OrganizationDetail />} />
+                <Route path="projects" element={<Projects />} />
                 <Route path="support" element={<SupportTickets />} />
                 <Route path="support/:id" element={<TicketDetail />} />
                 <Route path="reports" element={<Reports />} />
