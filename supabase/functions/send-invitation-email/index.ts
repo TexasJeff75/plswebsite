@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,8 +14,6 @@ interface InvitationEmailRequest {
   expiresAt: string;
 }
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -24,6 +23,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     const { email, role, inviteUrl, expiresAt }: InvitationEmailRequest = await req.json();
 
     if (!email || !role || !inviteUrl) {
@@ -69,7 +79,7 @@ Deno.serve(async (req: Request) => {
             <div style="background: white; border: 2px solid #00d4aa; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
               <p style="margin: 0 0 15px 0; font-size: 14px; color: #64748b;">Click the button below to accept your invitation:</p>
               <a href="${inviteUrl}" style="display: inline-block; background: #00d4aa; color: #0f172a; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
-                Accept Invitation & Sign In
+                Accept Invitation
               </a>
             </div>
 
@@ -82,7 +92,6 @@ Deno.serve(async (req: Request) => {
             <div style="margin: 25px 0; padding: 20px; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
               <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #0f172a;">What to expect:</h3>
               <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #475569;">
-                <li style="margin: 8px 0;">Sign in securely with your Microsoft account</li>
                 <li style="margin: 8px 0;">Access deployment tracking and facility management tools</li>
                 <li style="margin: 8px 0;">Collaborate with your team in real-time</li>
                 <li style="margin: 8px 0;">View detailed reports and analytics</li>
@@ -108,69 +117,26 @@ Deno.serve(async (req: Request) => {
       </html>
     `;
 
-    const emailText = `
-You've been invited to Proximity Lab Services Deployment Tracker
-
-You've been invited to join as a ${role}.
-
-To accept your invitation and sign in with your Microsoft account, visit:
-${inviteUrl}
-
-This invitation expires on ${expiryDate}.
-
-If you didn't expect this invitation, you can safely ignore this email.
-
----
-Proximity Lab Services
-Deployment Tracker Platform
-    `;
-
     console.log(`Sending invitation email to ${email}`);
     console.log(`Role: ${role}`);
     console.log(`Invite URL: ${inviteUrl}`);
     console.log(`Expires: ${expiryDate}`);
 
-    if (!RESEND_API_KEY) {
-      console.warn('RESEND_API_KEY not configured - email will not be sent');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Email service not configured",
-          message: "Please configure RESEND_API_KEY to enable email sending",
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+    const { data: emailData, error: emailError } = await supabaseClient.auth.admin.inviteUserByEmail(email, {
+      data: {
+        role: role,
+        invite_url: inviteUrl,
+        expires_at: expiresAt,
       },
-      body: JSON.stringify({
-        from: 'Proximity Lab Services <onboarding@proximitylabservices.com>',
-        to: [email],
-        subject: 'You\'re invited to Proximity Lab Services',
-        html: emailHtml,
-        text: emailText,
-      }),
+      redirectTo: inviteUrl,
     });
 
-    if (!resendResponse.ok) {
-      const errorData = await resendResponse.text();
-      console.error('Resend API error:', errorData);
-      throw new Error(`Failed to send email: ${errorData}`);
+    if (emailError) {
+      console.error('Supabase email error:', emailError);
+      throw emailError;
     }
 
-    const resendData = await resendResponse.json();
-    console.log('Email sent successfully:', resendData);
+    console.log('Email sent successfully via Supabase');
 
     return new Response(
       JSON.stringify({
@@ -180,7 +146,6 @@ Deployment Tracker Platform
           email,
           role,
           expiresAt: expiryDate,
-          emailId: resendData.id,
         },
       }),
       {
