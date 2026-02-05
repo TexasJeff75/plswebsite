@@ -82,7 +82,8 @@ Deno.serve(async (req: Request) => {
 
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
     console.log(`[AUTH OK] User ${user.id} proxying request to: ${stratusUrl}`);
-    console.log(`[HEADERS] Sending to StratusDX:`, headers);
+    console.log(`[CREDENTIALS] Using username: ${STRATUS_USERNAME}`);
+    console.log(`[AUTH HEADER] Basic ${basicAuth.substring(0, 20)}...`);
 
     const response = await fetch(stratusUrl, {
       method: req.method,
