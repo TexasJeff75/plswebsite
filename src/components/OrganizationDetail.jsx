@@ -293,39 +293,121 @@ function OverviewTab({ organization, projects, facilities, isProximityAdmin }) {
         </div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Recent Facilities</h3>
-          {facilities.length === 0 ? (
-            <p className="text-slate-400 text-center py-6">No facilities added yet</p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Projects Overview</h3>
+            <Link to="/projects" className="text-teal-400 hover:text-teal-300 text-sm font-medium">
+              View All
+            </Link>
+          </div>
+          {projects.length === 0 ? (
+            <div className="text-center py-8">
+              <Folder className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-400 mb-3">No projects created yet</p>
+              <Link
+                to="/projects"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Create Project
+              </Link>
+            </div>
           ) : (
             <div className="space-y-3">
-              {facilities.slice(0, 5).map(facility => (
-                <Link
-                  key={facility.id}
-                  to={`/facilities/${facility.id}`}
-                  className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      facility.deployment_phase === 'live' ? 'bg-green-500/10 text-green-400' :
-                      facility.deployment_phase === 'in_progress' ? 'bg-blue-500/10 text-blue-400' :
-                      'bg-slate-500/10 text-slate-400'
-                    }`}>
-                      <Building2 className="w-4 h-4" />
+              {projects.map(project => {
+                const projectFacilities = facilities.filter(f => f.project_id === project.id);
+                const liveCount = projectFacilities.filter(f => f.deployment_phase === 'live').length;
+                const inProgressCount = projectFacilities.filter(f => f.deployment_phase === 'in_progress').length;
+                const notStartedCount = projectFacilities.filter(f => !f.deployment_phase || f.deployment_phase === 'not_started').length;
+
+                const getStatusColor = (status) => {
+                  const colors = {
+                    planning: 'bg-slate-600',
+                    in_progress: 'bg-blue-600',
+                    on_hold: 'bg-amber-600',
+                    completed: 'bg-green-600'
+                  };
+                  return colors[status] || colors.planning;
+                };
+
+                return (
+                  <Link
+                    key={project.id}
+                    to={`/projects/${project.id}`}
+                    className="block p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="w-8 h-8 bg-teal-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Folder className="w-4 h-4 text-teal-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-medium text-sm truncate">{project.name}</p>
+                            <span className={`px-2 py-0.5 ${getStatusColor(project.status)} text-white rounded text-xs font-medium flex-shrink-0`}>
+                              {project.status?.replace('_', ' ')}
+                            </span>
+                          </div>
+                          {project.description && (
+                            <p className="text-slate-400 text-xs mt-1 line-clamp-1">{project.description}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium text-sm">{facility.name}</p>
-                      <p className="text-slate-400 text-xs">{facility.city}, {facility.state}</p>
+
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-slate-300">{projectFacilities.length} facilities</span>
+                      </div>
+                      {liveCount > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                          <span className="text-green-400">{liveCount} live</span>
+                        </div>
+                      )}
+                      {inProgressCount > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-blue-400">{inProgressCount} in progress</span>
+                        </div>
+                      )}
+                      {notStartedCount > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-slate-400">{notStartedCount} not started</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    facility.deployment_phase === 'live' ? 'bg-green-500/10 text-green-400' :
-                    facility.deployment_phase === 'in_progress' ? 'bg-blue-500/10 text-blue-400' :
-                    'bg-slate-500/10 text-slate-400'
-                  }`}>
-                    {facility.deployment_phase?.replace('_', ' ') || 'Not Started'}
-                  </span>
-                </Link>
-              ))}
+
+                    {projectFacilities.length > 0 && (
+                      <div className="mt-3">
+                        <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                          <div className="h-full flex">
+                            {liveCount > 0 && (
+                              <div
+                                className="bg-green-500"
+                                style={{ width: `${(liveCount / projectFacilities.length) * 100}%` }}
+                              />
+                            )}
+                            {inProgressCount > 0 && (
+                              <div
+                                className="bg-blue-500"
+                                style={{ width: `${(inProgressCount / projectFacilities.length) * 100}%` }}
+                              />
+                            )}
+                            {notStartedCount > 0 && (
+                              <div
+                                className="bg-slate-500"
+                                style={{ width: `${(notStartedCount / projectFacilities.length) * 100}%` }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
