@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
-
-const STRATUS_BASE_URL = 'https://novagen.stratusdx.net/interface';
-const STRATUS_USERNAME = 'novagen_stratusdx_11';
-const STRATUS_PASSWORD = '9b910d57-49cb';
+import { supabase } from '../lib/supabase';
 
 export default function StratusAPIViewer() {
   const [loading, setLoading] = useState(false);
@@ -15,19 +12,37 @@ export default function StratusAPIViewer() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const basicAuth = btoa(`${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
-  const headers = {
-    'Authorization': `Basic ${basicAuth}`,
-    'Content-Type': 'application/json',
-  };
+  async function callStratusAPI(endpoint) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+    const response = await fetch(proxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || response.statusText);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    }
+    return await response.text();
+  }
 
   async function fetchOrders() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/orders`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch orders: ${response.statusText}`);
-      const data = await response.json();
+      const data = await callStratusAPI('/orders');
       setOrdersData(data);
     } catch (err) {
       setError(`Orders: ${err.message}`);
@@ -41,9 +56,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/confirmations`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch confirmations: ${response.statusText}`);
-      const data = await response.json();
+      const data = await callStratusAPI('/confirmations');
       setConfirmationsData(data);
     } catch (err) {
       setError(`Confirmations: ${err.message}`);
@@ -57,9 +70,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/results`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch results: ${response.statusText}`);
-      const data = await response.json();
+      const data = await callStratusAPI('/results');
       setResultsData(data);
     } catch (err) {
       setError(`Results: ${err.message}`);
@@ -73,9 +84,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/order/${guid}`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch order detail: ${response.statusText}`);
-      const data = await response.json();
+      const data = await callStratusAPI(`/order/${guid}`);
       setSelectedOrder(data);
     } catch (err) {
       setError(`Order Detail: ${err.message}`);
@@ -89,9 +98,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/confirmation/${guid}`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch confirmation detail: ${response.statusText}`);
-      const data = await response.text();
+      const data = await callStratusAPI(`/confirmation/${guid}`);
       setSelectedConfirmation(data);
     } catch (err) {
       setError(`Confirmation Detail: ${err.message}`);
@@ -105,9 +112,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${STRATUS_BASE_URL}/result/${guid}`, { headers });
-      if (!response.ok) throw new Error(`Failed to fetch result detail: ${response.statusText}`);
-      const data = await response.text();
+      const data = await callStratusAPI(`/result/${guid}`);
       setSelectedResult(data);
     } catch (err) {
       setError(`Result Detail: ${err.message}`);
