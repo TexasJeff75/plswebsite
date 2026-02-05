@@ -22,6 +22,7 @@ export default function StratusAPIViewer() {
     const response = await fetch(proxyUrl, {
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         'Content-Type': 'application/json',
       },
     });
