@@ -23,8 +23,9 @@ const STATUS_OPTIONS = [
 
 const RESPONSIBLE_PARTY_OPTIONS = [
   { value: 'AMA', label: 'AMA' },
-  { value: 'Proximity', label: 'Proximity' },
+  { value: 'Client', label: 'Client' },
   { value: 'Facility', label: 'Facility' },
+  { value: 'Proximity', label: 'Proximity' },
   { value: 'Vendor', label: 'Vendor' },
 ];
 
