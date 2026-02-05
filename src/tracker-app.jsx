@@ -22,6 +22,7 @@ import Notifications from './components/Notifications';
 import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
 import StratusMappingSettings from './components/StratusMappingSettings';
+import StratusAPIViewer from './components/StratusAPIViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -125,6 +126,7 @@ function App() {
                   <Route path="templates" element={<Templates />} />
                   <Route path="reference-data" element={<ReferenceData />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
+                  <Route path="stratus-api-viewer" element={<StratusAPIViewer />} />
                 </Route>
               </Route>
 
