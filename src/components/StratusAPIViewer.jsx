@@ -69,11 +69,13 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callStratusAPI('/orders');
+      console.log('Fetching orders from StratusDX...');
+      const data = await callStratusAPI('/order');
+      console.log('Orders response:', data);
       setOrdersData(data);
     } catch (err) {
       setError(`Orders: ${err.message}`);
-      console.error(err);
+      console.error('Orders error:', err);
     } finally {
       setLoading(false);
     }
