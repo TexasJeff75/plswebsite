@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const STRATUS_BASE_URL = "https://novagen.stratusdx.net/interface";
-const STRATUS_USERNAME = "JLutz";
-const STRATUS_PASSWORD = "!Prowler2k$";
+const STRATUS_USERNAME = "novagen_stratusdx_11";
+const STRATUS_PASSWORD = "9b910d57-49cb";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
