@@ -117,34 +117,48 @@ Deno.serve(async (req: Request) => {
       </html>
     `;
 
-    // For now, we'll log the email details
-    // In production, integrate with Resend, SendGrid, or another email service
-    console.log(`=== INVITATION EMAIL ===`);
-    console.log(`To: ${email}`);
-    console.log(`Role: ${role}`);
-    console.log(`Invite URL: ${inviteUrl}`);
-    console.log(`Expires: ${expiryDate}`);
-    console.log(`\n--- Email HTML ---`);
-    console.log(emailHtml);
-    console.log(`===================\n`);
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-    // TODO: Replace with actual email sending service
-    // Example with Resend:
-    // const response = await fetch('https://api.resend.com/emails', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     from: 'Proximity Lab <noreply@yourdomain.com>',
-    //     to: [email],
-    //     subject: 'You\'ve been invited to Proximity Lab Services',
-    //     html: emailHtml,
-    //   }),
-    // });
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({
+          error: "Email service not configured. Please add RESEND_API_KEY to Supabase secrets."
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
 
-    console.log('Email logged successfully (configure email service for production)');
+    console.log(`Sending invitation email to ${email} via Resend...`);
+
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Proximity Lab <onboarding@resend.dev>',
+        to: [email],
+        subject: 'You\'ve been invited to Proximity Lab Services',
+        html: emailHtml,
+      }),
+    });
+
+    const resendData = await resendResponse.json();
+
+    if (!resendResponse.ok) {
+      console.error('Resend API error:', resendData);
+      throw new Error(`Failed to send email: ${resendData.message || 'Unknown error'}`);
+    }
+
+    console.log('Email sent successfully via Resend:', resendData);
 
     return new Response(
       JSON.stringify({
