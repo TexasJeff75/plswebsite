@@ -85,6 +85,7 @@ export default function OrganizationDetail() {
     { id: 'overview', label: 'Overview', icon: Building2 },
     { id: 'projects', label: 'Projects', icon: Folder },
     { id: 'users', label: 'Users', icon: Users },
+    ...(isProximityAdmin ? [{ id: 'revenue', label: 'Revenue', icon: DollarSign }] : []),
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'contacts', label: 'Contacts', icon: Mail },
     { id: 'documents', label: 'Documents', icon: FileText },
@@ -188,6 +189,9 @@ export default function OrganizationDetail() {
         {activeTab === 'users' && (
           <UsersTab organization={organization} />
         )}
+        {activeTab === 'revenue' && isProximityAdmin && (
+          <RevenueTab organization={organization} />
+        )}
         {activeTab === 'billing' && (
           <BillingTab organization={organization} />
         )}
@@ -250,15 +254,6 @@ function OverviewTab({ organization, projects, facilities, isProximityAdmin }) {
             </div>
             <p className="text-2xl font-bold text-white">{inProgressSites}</p>
           </div>
-          {isProximityAdmin && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs text-slate-400">MRR</span>
-              </div>
-              <p className="text-2xl font-bold text-white">{formatCurrency(organization.monthly_recurring_revenue)}</p>
-            </div>
-          )}
         </div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -405,12 +400,6 @@ function OverviewTab({ organization, projects, facilities, isProximityAdmin }) {
               <div>
                 <p className="text-xs text-slate-400">End Date</p>
                 <p className="text-white">{format(new Date(organization.contract_end_date), 'MMM d, yyyy')}</p>
-              </div>
-            )}
-            {isProximityAdmin && (
-              <div>
-                <p className="text-xs text-slate-400">Annual Contract Value</p>
-                <p className="text-white font-semibold">{formatCurrency(organization.annual_contract_value)}</p>
               </div>
             )}
           </div>
@@ -589,6 +578,96 @@ function ProjectsTab({ organization, projects, facilities, onRefresh }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function RevenueTab({ organization }) {
+  const formatCurrency = (amount) => {
+    if (!amount) return '$0';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0
+    }).format(amount);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Revenue Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+              </div>
+              <span className="text-sm text-slate-400">Monthly Recurring Revenue</span>
+            </div>
+            <p className="text-3xl font-bold text-white mt-4">{formatCurrency(organization.monthly_recurring_revenue)}</p>
+            <p className="text-slate-400 text-sm mt-2">MRR</p>
+          </div>
+          <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-teal-500/20 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-teal-400" />
+              </div>
+              <span className="text-sm text-slate-400">Annual Contract Value</span>
+            </div>
+            <p className="text-3xl font-bold text-white mt-4">{formatCurrency(organization.annual_contract_value)}</p>
+            <p className="text-slate-400 text-sm mt-2">ACV</p>
+          </div>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-sm text-slate-400">Annual Recurring Revenue</span>
+            </div>
+            <p className="text-3xl font-bold text-white mt-4">{formatCurrency((organization.monthly_recurring_revenue || 0) * 12)}</p>
+            <p className="text-slate-400 text-sm mt-2">ARR</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Contract Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {organization.contract_number && (
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Contract Number</p>
+              <p className="text-white font-medium">{organization.contract_number}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs text-slate-400 mb-1">Contract Status</p>
+            <p className="text-white capitalize">{organization.contract_status?.replace('_', ' ') || 'Active'}</p>
+          </div>
+          {organization.contract_start_date && (
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Start Date</p>
+              <p className="text-white">{format(new Date(organization.contract_start_date), 'MMM d, yyyy')}</p>
+            </div>
+          )}
+          {organization.contract_end_date && (
+            <div>
+              <p className="text-xs text-slate-400 mb-1">End Date</p>
+              <p className="text-white">{format(new Date(organization.contract_end_date), 'MMM d, yyyy')}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Revenue History</h3>
+        </div>
+        <div className="text-center py-8">
+          <DollarSign className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+          <p className="text-slate-400">Revenue tracking and history coming soon</p>
+          <p className="text-slate-500 text-sm mt-2">Track revenue changes, payment history, and forecasts</p>
+        </div>
+      </div>
     </div>
   );
 }
