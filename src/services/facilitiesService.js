@@ -50,7 +50,7 @@ export const facilitiesService = {
         *,
         organization:organizations(id, name),
         project:projects(id, name),
-        deployment_template:deployment_templates(id, name),
+        deployment_template:deployment_templates(id, template_name),
         milestones(*),
         equipment(*),
         notes(*),

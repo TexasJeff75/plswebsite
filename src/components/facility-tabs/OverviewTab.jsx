@@ -159,7 +159,7 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
           <p className="text-white font-medium text-sm">
-            {facility.deployment_template?.name || 'No template applied'}
+            {facility.deployment_template?.template_name || 'No template applied'}
           </p>
         </div>
         <div className="bg-slate-800 p-3 rounded">

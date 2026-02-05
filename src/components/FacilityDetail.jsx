@@ -216,7 +216,7 @@ export default function FacilityDetail() {
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
           <p className="text-white font-semibold text-sm">
-            {facility.deployment_template?.name || 'No template applied'}
+            {facility.deployment_template?.template_name || 'No template applied'}
           </p>
         </div>
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
