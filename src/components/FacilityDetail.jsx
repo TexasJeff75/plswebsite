@@ -178,8 +178,6 @@ export default function FacilityDetail() {
   const statusColor = facilityStatsService.getStatusBadgeColor(overallStatus);
   const statusTextColor = facilityStatsService.getStatusTextColor(overallStatus);
   const completionPercentage = facilityStatsService.calculateCompletionPercentage(facility.milestones);
-  const monthlyCost = facilityStatsService.getMonthlyCost(facility);
-  const configLabel = facilityStatsService.getConfigurationLabel(facility.site_configuration);
 
   const tabs = [
     { label: 'Regulatory', component: <RegulatoryTab facility={facility} isEditor={isEditor} /> },
@@ -214,18 +212,12 @@ export default function FacilityDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
-          <p className="text-white font-semibold text-sm">{configLabel}</p>
-        </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-slate-400 text-xs mb-1">Monthly Cost</p>
-          <p className="text-white font-semibold text-sm">${monthlyCost}</p>
-        </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-slate-400 text-xs mb-1">Phase</p>
-          <p className="text-white font-semibold text-sm uppercase">{facility.deployment_phase}</p>
+          <p className="text-white font-semibold text-sm">
+            {facility.deployment_template?.name || 'No template applied'}
+          </p>
         </div>
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <p className="text-slate-400 text-xs mb-1">Overall Status</p>

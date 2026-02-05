@@ -44,8 +44,6 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
     setValidationErrors({});
     setSuccess(null);
     setEditedData({
-      site_configuration: facility.site_configuration || '',
-      deployment_phase: facility.deployment_phase || '',
       projected_deployment_date: facility.projected_deployment_date || '',
       actual_deployment_date: facility.actual_deployment_date || '',
       projected_go_live_date: facility.projected_go_live_date || '',
@@ -64,8 +62,6 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
 
   const saveChanges = async () => {
     const rules = {
-      site_configuration: (val) => validators.required(val, 'Configuration'),
-      deployment_phase: (val) => validators.required(val, 'Deployment phase'),
       projected_deployment_date: (val) => {
         if (val && editedData.actual_deployment_date) {
           return validators.dateRange(val, editedData.actual_deployment_date, {
@@ -159,47 +155,12 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
-          {isEditing ? (
-            <select
-              value={editedData.site_configuration}
-              onChange={(e) => setEditedData({ ...editedData, site_configuration: e.target.value })}
-              className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
-            >
-              <option value="">Select</option>
-              <option value="standard">Standard</option>
-              <option value="premium">Premium</option>
-              <option value="enterprise">Enterprise</option>
-              <option value="custom">Custom</option>
-            </select>
-          ) : (
-            <p className="text-white font-medium text-sm">{facilityStatsService.getConfigurationLabel(facility.site_configuration)}</p>
-          )}
-        </div>
-        <div className="bg-slate-800 p-3 rounded">
-          <p className="text-slate-400 text-xs mb-1">Monthly Fee</p>
-          <p className="text-white font-medium text-sm">${facilityStatsService.getMonthlyCost(facility)}</p>
-        </div>
-        <div className="bg-slate-800 p-3 rounded">
-          <p className="text-slate-400 text-xs mb-1">Phase</p>
-          {isEditing ? (
-            <select
-              value={editedData.deployment_phase}
-              onChange={(e) => setEditedData({ ...editedData, deployment_phase: e.target.value })}
-              className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
-            >
-              <option value="">Select</option>
-              <option value="planning">Planning</option>
-              <option value="deployment">Deployment</option>
-              <option value="testing">Testing</option>
-              <option value="go_live">Go Live</option>
-              <option value="operational">Operational</option>
-            </select>
-          ) : (
-            <p className="text-white font-medium text-sm uppercase">{facility.deployment_phase}</p>
-          )}
+          <p className="text-white font-medium text-sm">
+            {facility.deployment_template?.name || 'No template applied'}
+          </p>
         </div>
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Status</p>
