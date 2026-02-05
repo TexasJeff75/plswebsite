@@ -1,52 +1,33 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+const nodemailer = require('nodemailer');
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+exports.handler = async (event, context) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+      body: '',
+    };
+  }
 
-interface InvitationEmailRequest {
-  email: string;
-  role: string;
-  inviteUrl: string;
-  expiresAt: string;
-}
-
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-
-    const { email, role, inviteUrl, expiresAt }: InvitationEmailRequest = await req.json();
+    const { email, role, inviteUrl, expiresAt } = JSON.parse(event.body);
 
     if (!email || !role || !inviteUrl) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Missing required fields' }),
+      };
     }
 
     const expiryDate = new Date(expiresAt).toLocaleDateString('en-US', {
@@ -117,60 +98,102 @@ Deno.serve(async (req: Request) => {
       </html>
     `;
 
-    console.log(`Sending invitation email to ${email}`);
-    console.log(`Role: ${role}`);
-    console.log(`Invite URL: ${inviteUrl}`);
-    console.log(`Expires: ${expiryDate}`);
+    const emailText = `
+You've been invited to Proximity Lab Services Deployment Tracker
 
-    const { data: emailData, error: emailError } = await supabaseClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        role: role,
-        invite_url: inviteUrl,
-        expires_at: expiresAt,
-      },
-      redirectTo: inviteUrl,
-    });
+You've been invited to join as a ${role}.
 
-    if (emailError) {
-      console.error('Supabase email error:', emailError);
-      throw emailError;
+To accept your invitation, visit:
+${inviteUrl}
+
+This invitation expires on ${expiryDate}.
+
+If you didn't expect this invitation, you can safely ignore this email.
+
+---
+Proximity Lab Services
+Deployment Tracker Platform
+    `;
+
+    const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const SMTP_PORT = process.env.SMTP_PORT || 587;
+    const SMTP_USER = process.env.SMTP_USER;
+    const SMTP_PASS = process.env.SMTP_PASS;
+    const SMTP_FROM = process.env.SMTP_FROM || 'noreply@proximitylabservices.com';
+
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.log('Email would be sent to:', email);
+      console.log('Role:', role);
+      console.log('Invite URL:', inviteUrl);
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          success: true,
+          message: 'Email service not configured - invitation created but email not sent',
+          debug: {
+            email,
+            role,
+            inviteUrl,
+            expiresAt: expiryDate,
+          },
+        }),
+      };
     }
 
-    console.log('Email sent successfully via Supabase');
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+      },
+    });
 
-    return new Response(
-      JSON.stringify({
+    await transporter.sendMail({
+      from: `"Proximity Lab Services" <${SMTP_FROM}>`,
+      to: email,
+      subject: "You're invited to Proximity Lab Services",
+      text: emailText,
+      html: emailHtml,
+    });
+
+    console.log('Email sent successfully to:', email);
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         success: true,
-        message: "Invitation email sent successfully",
+        message: 'Invitation email sent successfully',
         details: {
           email,
           role,
           expiresAt: expiryDate,
         },
       }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    };
   } catch (error) {
-    console.error("Error processing invitation email:", error);
+    console.error('Error sending invitation email:', error);
 
-    return new Response(
-      JSON.stringify({
-        error: "Failed to process invitation email",
+    return {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        error: 'Failed to send invitation email',
         details: error.message,
       }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    };
   }
-});
+};
