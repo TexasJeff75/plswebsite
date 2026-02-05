@@ -21,6 +21,13 @@ const STATUS_OPTIONS = [
   { value: 'not_applicable', label: 'N/A', icon: Minus, color: 'bg-gray-600 text-gray-200' },
 ];
 
+const RESPONSIBLE_PARTY_OPTIONS = [
+  { value: 'AMA', label: 'AMA' },
+  { value: 'Proximity', label: 'Proximity' },
+  { value: 'Facility', label: 'Facility' },
+  { value: 'Vendor', label: 'Vendor' },
+];
+
 const STATUS_COLORS = {
   'not_started': 'bg-slate-700 text-slate-300',
   'in_progress': 'bg-blue-700 text-white',
@@ -268,13 +275,16 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1">Responsible Party</label>
-              <input
-                type="text"
+              <select
                 value={newMilestone.responsible_party}
                 onChange={(e) => setNewMilestone({ ...newMilestone, responsible_party: e.target.value })}
-                placeholder="e.g., Proximity, Facility"
                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-              />
+              >
+                <option value="">Select responsible party</option>
+                {RESPONSIBLE_PARTY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1">Target Date</label>
@@ -383,12 +393,16 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-slate-400 text-xs mb-1">Responsible Party</label>
-                          <input
-                            type="text"
+                          <select
                             value={editingMilestone.responsible_party || ''}
                             onChange={(e) => setEditingMilestone({ ...editingMilestone, responsible_party: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
-                          />
+                          >
+                            <option value="">Select responsible party</option>
+                            {RESPONSIBLE_PARTY_OPTIONS.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-slate-400 text-xs mb-1">Target Date</label>
