@@ -110,16 +110,26 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithMicrosoft = async () => {
     try {
-      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      // Use current origin to handle both custom domain and direct deployment
+      const redirectUrl = `${window.location.origin}/tracker.html`;
+      console.log('Microsoft OAuth redirect URL:', redirectUrl);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           scopes: 'email profile openid',
-          redirectTo: `${siteUrl}/tracker.html`
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('OAuth error:', error);
+        throw error;
+      }
       return { data, error: null };
     } catch (error) {
       console.error('Error signing in with Microsoft:', error);
