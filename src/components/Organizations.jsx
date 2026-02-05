@@ -392,6 +392,7 @@ function OrganizationModal({ organization, onClose, onSave }) {
     zip: organization?.zip || '',
     region: organization?.region || '',
     monthly_recurring_revenue: organization?.monthly_recurring_revenue || 0,
+    annual_contract_value: organization?.annual_contract_value || 0,
     notes: organization?.notes || ''
   });
   const [saving, setSaving] = useState(false);
@@ -399,9 +400,10 @@ function OrganizationModal({ organization, onClose, onSave }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const revenueFields = ['monthly_recurring_revenue', 'annual_contract_value'];
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'monthly_recurring_revenue' ? parseFloat(value) || 0 : value
+      [name]: revenueFields.includes(name) ? parseFloat(value) || 0 : value
     }));
   };
 
@@ -566,24 +568,44 @@ function OrganizationModal({ organization, onClose, onSave }) {
               </div>
 
               {isProximityAdmin && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Monthly Recurring Revenue
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                    <input
-                      type="number"
-                      name="monthly_recurring_revenue"
-                      value={formData.monthly_recurring_revenue}
-                      onChange={handleChange}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
-                      placeholder="0"
-                      min="0"
-                      step="100"
-                    />
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Monthly Recurring Revenue (MRR)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                      <input
+                        type="number"
+                        name="monthly_recurring_revenue"
+                        value={formData.monthly_recurring_revenue}
+                        onChange={handleChange}
+                        className="w-full pl-8 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                        placeholder="0"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
                   </div>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Annual Contract Value (ACV)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                      <input
+                        type="number"
+                        name="annual_contract_value"
+                        value={formData.annual_contract_value}
+                        onChange={handleChange}
+                        className="w-full pl-8 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                        placeholder="0"
+                        min="0"
+                        step="1000"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
