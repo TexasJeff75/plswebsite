@@ -81,12 +81,15 @@ Deno.serve(async (req: Request) => {
     };
 
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
-    console.log(`Proxying request to: ${stratusUrl}`);
+    console.log(`[AUTH OK] User ${user.id} proxying request to: ${stratusUrl}`);
+    console.log(`[HEADERS] Sending to StratusDX:`, headers);
 
     const response = await fetch(stratusUrl, {
       method: req.method,
       headers,
     });
+
+    console.log(`[RESPONSE] Status: ${response.status}`);
 
     const contentType = response.headers.get('content-type');
     let data;
@@ -96,6 +99,8 @@ Deno.serve(async (req: Request) => {
     } else {
       data = await response.text();
     }
+
+    console.log(`[DATA] Response data:`, typeof data === 'string' ? data.substring(0, 200) : JSON.stringify(data).substring(0, 200));
 
     return new Response(
       typeof data === 'string' ? data : JSON.stringify(data),

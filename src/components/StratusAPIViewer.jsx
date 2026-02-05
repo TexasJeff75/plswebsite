@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function StratusAPIViewer() {
@@ -11,6 +11,32 @@ export default function StratusAPIViewer() {
   const [selectedConfirmation, setSelectedConfirmation] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
   const [error, setError] = useState(null);
+  const [jwtDebug, setJwtDebug] = useState(null);
+
+  useEffect(() => {
+    async function debugJWT() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        try {
+          const parts = session.access_token.split('.');
+          const payload = JSON.parse(atob(parts[1]));
+          setJwtDebug({
+            hasToken: true,
+            expiresAt: new Date(payload.exp * 1000).toISOString(),
+            isExpired: Date.now() > payload.exp * 1000,
+            userId: payload.sub,
+            email: payload.email,
+            payload
+          });
+        } catch (e) {
+          setJwtDebug({ error: 'Failed to decode JWT', details: e.message });
+        }
+      } else {
+        setJwtDebug({ hasToken: false });
+      }
+    }
+    debugJWT();
+  }, []);
 
   async function callStratusAPI(endpoint) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -131,6 +157,49 @@ export default function StratusAPIViewer() {
           View live data from the StratusDX API to help configure facility mappings
         </p>
       </div>
+
+      {jwtDebug && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Key className="w-4 h-4 text-teal-400" />
+            <h4 className="text-white font-medium">JWT Debug Info</h4>
+          </div>
+          {jwtDebug.hasToken ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Status:</span>
+                {jwtDebug.isExpired ? (
+                  <span className="text-red-400">Expired</span>
+                ) : (
+                  <span className="text-green-400">Valid</span>
+                )}
+              </div>
+              <div>
+                <span className="text-slate-400">User ID:</span>
+                <span className="text-slate-300 ml-2 font-mono text-xs">{jwtDebug.userId}</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Email:</span>
+                <span className="text-slate-300 ml-2">{jwtDebug.email}</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Expires:</span>
+                <span className="text-slate-300 ml-2">{jwtDebug.expiresAt}</span>
+              </div>
+              <details className="mt-3">
+                <summary className="text-slate-400 cursor-pointer hover:text-slate-300">
+                  View Full Payload
+                </summary>
+                <pre className="mt-2 bg-slate-900 rounded p-3 text-xs text-slate-300 overflow-auto max-h-48">
+                  {JSON.stringify(jwtDebug.payload, null, 2)}
+                </pre>
+              </details>
+            </div>
+          ) : (
+            <p className="text-red-400 text-sm">No JWT token found</p>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
