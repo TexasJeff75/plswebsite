@@ -93,11 +93,43 @@ Deno.serve(async (req: Request) => {
         const orderData = await detailResponse.json();
         console.log(`Retrieved order ${guid}`);
 
+        let organizationId = existing?.organization_id;
+        let facilityId = existing?.facility_id;
+
+        if (!organizationId) {
+          const facilityIdentifier = orderData.facility_name || orderData.facility_id || '';
+          const orgIdentifier = orderData.organization_name || orderData.organization_id || '';
+
+          if (facilityIdentifier) {
+            const { data: mapping } = await supabaseClient
+              .rpc('find_stratus_facility_mapping', {
+                p_facility_identifier: facilityIdentifier,
+                p_organization_identifier: orgIdentifier || null,
+              });
+
+            if (mapping && mapping.length > 0) {
+              organizationId = mapping[0].organization_id;
+              facilityId = mapping[0].facility_id;
+              console.log(`Mapped to org: ${organizationId}, facility: ${facilityId}`);
+
+              await supabaseClient
+                .from('stratus_facility_mappings')
+                .update({
+                  last_matched_at: new Date().toISOString(),
+                  match_count: supabaseClient.raw('match_count + 1'),
+                })
+                .eq('id', mapping[0].mapping_id);
+            }
+          }
+        }
+
         if (existing) {
           const { error: updateError } = await supabaseClient
             .from('lab_orders')
             .update({
               order_data: orderData,
+              organization_id: organizationId || existing.organization_id,
+              facility_id: facilityId || existing.facility_id,
               sync_status: 'retrieved',
               retrieved_at: new Date().toISOString(),
             })
@@ -113,6 +145,8 @@ Deno.serve(async (req: Request) => {
             .from('lab_orders')
             .insert({
               stratus_guid: guid,
+              organization_id: organizationId,
+              facility_id: facilityId,
               order_data: orderData,
               sync_status: 'retrieved',
               retrieved_at: new Date().toISOString(),

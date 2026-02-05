@@ -21,6 +21,7 @@ import Reports from './components/Reports';
 import Notifications from './components/Notifications';
 import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
+import StratusMappingSettings from './components/StratusMappingSettings';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -123,6 +124,7 @@ function App() {
                   <Route index element={<Navigate to="/settings/templates" replace />} />
                   <Route path="templates" element={<Templates />} />
                   <Route path="reference-data" element={<ReferenceData />} />
+                  <Route path="stratus-mappings" element={<StratusMappingSettings />} />
                 </Route>
               </Route>
 

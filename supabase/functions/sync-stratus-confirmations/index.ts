@@ -102,15 +102,20 @@ Deno.serve(async (req: Request) => {
         const hl7Message = hl7Match ? hl7Match[1] : confirmationText;
 
         let labOrderId = null;
+        let organizationId = existing?.organization_id;
+        let facilityId = existing?.facility_id;
+
         if (accessionNumber) {
           const { data: linkedOrder } = await supabaseClient
             .from('lab_orders')
-            .select('id')
+            .select('id, organization_id, facility_id')
             .eq('accession_number', accessionNumber)
             .maybeSingle();
 
           if (linkedOrder) {
             labOrderId = linkedOrder.id;
+            organizationId = organizationId || linkedOrder.organization_id;
+            facilityId = facilityId || linkedOrder.facility_id;
           }
         }
 
@@ -119,6 +124,8 @@ Deno.serve(async (req: Request) => {
             .from('lab_order_confirmations')
             .update({
               lab_order_id: labOrderId,
+              organization_id: organizationId,
+              facility_id: facilityId,
               accession_number: accessionNumber,
               received_time: receivedTime,
               hl7_message: hl7Message,
@@ -139,6 +146,8 @@ Deno.serve(async (req: Request) => {
             .insert({
               stratus_guid: guid,
               lab_order_id: labOrderId,
+              organization_id: organizationId,
+              facility_id: facilityId,
               accession_number: accessionNumber,
               received_time: receivedTime,
               hl7_message: hl7Message,

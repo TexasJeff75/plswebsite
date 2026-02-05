@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { FileText, Database } from 'lucide-react';
+import { FileText, Database, Link as LinkIcon } from 'lucide-react';
 
 const SETTINGS_NAV = [
   { path: '/settings/templates', label: 'Templates', icon: FileText },
   { path: '/settings/reference-data', label: 'Reference Data', icon: Database },
+  { path: '/settings/stratus-mappings', label: 'StratusDX Mappings', icon: LinkIcon },
 ];
 
 export default function Settings() {

@@ -104,6 +104,9 @@ Deno.serve(async (req: Request) => {
         const accessionNumber = accessionMatch ? accessionMatch[1] : null;
 
         let labOrderId = null;
+        let organizationId = existing?.organization_id;
+        let facilityId = existing?.facility_id;
+
         if (accessionNumber) {
           const { data: linkedOrder } = await supabaseClient
             .from('lab_orders')
@@ -113,6 +116,8 @@ Deno.serve(async (req: Request) => {
 
           if (linkedOrder) {
             labOrderId = linkedOrder.id;
+            organizationId = organizationId || linkedOrder.organization_id;
+            facilityId = facilityId || linkedOrder.facility_id;
           }
         }
 
@@ -121,6 +126,8 @@ Deno.serve(async (req: Request) => {
             .from('lab_results')
             .update({
               lab_order_id: labOrderId,
+              organization_id: organizationId,
+              facility_id: facilityId,
               accession_number: accessionNumber,
               result_data: resultData,
               hl7_result: typeof resultData === 'string' ? resultData : null,
@@ -141,6 +148,8 @@ Deno.serve(async (req: Request) => {
             .insert({
               stratus_guid: guid,
               lab_order_id: labOrderId,
+              organization_id: organizationId,
+              facility_id: facilityId,
               accession_number: accessionNumber,
               result_data: resultData,
               hl7_result: typeof resultData === 'string' ? resultData : null,
