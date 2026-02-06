@@ -74,22 +74,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Use Basic Auth for StratusDX (same as other sync functions)
+    // Use Basic Auth for StratusDX (exactly like sync-stratus-orders)
     const basicAuth = btoa(`${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
 
-    const headers = {
+    const stratusHeaders = {
       "Authorization": `Basic ${basicAuth}`,
       "Content-Type": "application/json",
     };
 
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
     console.log(`[AUTH OK] User: ${user.email} (${user.id})`);
-    console.log(`[REQUEST] ${req.method} ${stratusUrl}`);
-    console.log(`[AUTH HEADER] Basic ${basicAuth.substring(0, 20)}...`);
+    console.log(`[REQUEST] GET ${stratusUrl}`);
+    console.log(`[CREDENTIALS] ${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
+    console.log(`[AUTH HEADER] Basic ${basicAuth}`);
 
+    // Always use GET for list endpoints (same as sync functions)
     const response = await fetch(stratusUrl, {
-      method: req.method,
-      headers,
+      method: "GET",
+      headers: stratusHeaders,
     });
 
     console.log(`[RESPONSE] Status: ${response.status} ${response.statusText}`);
