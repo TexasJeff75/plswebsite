@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const STRATUS_BASE_URL = "https://novagen.stratusdx.net/interface";
+const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
 const STRATUS_USERNAME = "novagen_stratusdx_11";
 const STRATUS_PASSWORD = "9b910d57-49cb";
 
