@@ -70,7 +70,7 @@ export default function StratusAPIViewer() {
     setError(null);
     try {
       console.log('Fetching orders from StratusDX...');
-      const data = await callStratusAPI('/order');
+      const data = await callStratusAPI('/orders');
       console.log('Orders response:', data);
       setOrdersData(data);
     } catch (err) {
@@ -85,7 +85,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callStratusAPI('/confirmations');
+      const data = await callStratusAPI('/order/received');
       setConfirmationsData(data);
     } catch (err) {
       setError(`Confirmations: ${err.message}`);
@@ -127,7 +127,7 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callStratusAPI(`/confirmation/${guid}`);
+      const data = await callStratusAPI(`/order/received/${guid}`);
       setSelectedConfirmation(data);
     } catch (err) {
       setError(`Confirmation Detail: ${err.message}`);
@@ -157,6 +157,13 @@ export default function StratusAPIViewer() {
         <h3 className="text-xl font-semibold text-white mb-2">StratusDX API Viewer</h3>
         <p className="text-slate-400 text-sm">
           View live data from the StratusDX API to help configure facility mappings
+        </p>
+      </div>
+
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <p className="text-blue-400 text-sm">
+          <strong>Data Flow:</strong> Orders are submitted to StratusDX. Confirmations indicate the order was received.
+          Results contain the final test data. Use accession numbers to link confirmations and results back to orders.
         </p>
       </div>
 
@@ -223,8 +230,9 @@ export default function StratusAPIViewer() {
             <Database className="w-5 h-5 text-teal-400" />
             <div className="text-left">
               <p className="text-white font-medium">Orders</p>
+              <p className="text-slate-400 text-xs">GET /interface/orders</p>
               {ordersData && (
-                <p className="text-slate-400 text-sm">{ordersData.result_count} pending</p>
+                <p className="text-slate-400 text-sm mt-1">{ordersData.result_count} pending</p>
               )}
             </div>
           </div>
@@ -240,8 +248,9 @@ export default function StratusAPIViewer() {
             <CheckCircle2 className="w-5 h-5 text-blue-400" />
             <div className="text-left">
               <p className="text-white font-medium">Confirmations</p>
+              <p className="text-slate-400 text-xs">GET /interface/order/received</p>
               {confirmationsData && (
-                <p className="text-slate-400 text-sm">{confirmationsData.result_count} pending</p>
+                <p className="text-slate-400 text-sm mt-1">{confirmationsData.result_count} pending</p>
               )}
             </div>
           </div>
@@ -254,11 +263,12 @@ export default function StratusAPIViewer() {
           className="flex items-center justify-between p-4 bg-slate-800 border border-slate-700 rounded-lg hover:border-teal-500 transition-colors disabled:opacity-50"
         >
           <div className="flex items-center gap-3">
-            <Database className="w-5 h-5 text-purple-400" />
+            <Database className="w-5 h-5 text-green-400" />
             <div className="text-left">
               <p className="text-white font-medium">Results</p>
+              <p className="text-slate-400 text-xs">GET /interface/results</p>
               {resultsData && (
-                <p className="text-slate-400 text-sm">{resultsData.result_count} pending</p>
+                <p className="text-slate-400 text-sm mt-1">{resultsData.result_count} pending</p>
               )}
             </div>
           </div>
@@ -338,7 +348,7 @@ export default function StratusAPIViewer() {
                     <span className="text-slate-300 text-sm font-mono">{guid}</span>
                     <button
                       onClick={() => fetchResultDetail(guid)}
-                      className="p-2 text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors"
+                      className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -367,9 +377,14 @@ export default function StratusAPIViewer() {
             <pre className="bg-slate-900 rounded-lg p-4 overflow-auto text-sm text-slate-300 max-h-96">
               {JSON.stringify(selectedOrder, null, 2)}
             </pre>
-            {(selectedOrder.facility_name || selectedOrder.facility_id) && (
+            {(selectedOrder.facility_name || selectedOrder.facility_id || selectedOrder.accession_number) && (
               <div className="mt-4 p-4 bg-teal-500/10 border border-teal-500/30 rounded-lg">
-                <p className="text-teal-400 font-medium mb-2">Facility Identifiers for Mapping:</p>
+                <p className="text-teal-400 font-medium mb-2">Key Identifiers:</p>
+                {selectedOrder.accession_number && (
+                  <p className="text-slate-300 text-sm">
+                    <span className="text-slate-400">Accession Number:</span> {selectedOrder.accession_number}
+                  </p>
+                )}
                 {selectedOrder.facility_name && (
                   <p className="text-slate-300 text-sm">
                     <span className="text-slate-400">Facility Name:</span> {selectedOrder.facility_name}
