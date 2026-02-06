@@ -71,7 +71,7 @@ export default function StratusAPIViewer() {
         message: `Session valid, user: ${session.user.email}`,
       });
 
-      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+      const proxyUrl = `/.netlify/functions/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
 
       addDebugLog({
         type: 'info',
@@ -79,23 +79,14 @@ export default function StratusAPIViewer() {
         message: `Proxy URL: ${proxyUrl}`,
       });
 
-      const headers = {
-        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 20) + '...',
-        'Content-Type': 'application/json',
-      };
-
       addDebugLog({
         type: 'info',
         endpoint,
-        message: `Request headers configured`,
-        details: headers,
+        message: `Using Netlify function proxy`,
       });
 
       const response = await fetch(proxyUrl, {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
         },
       });
@@ -444,7 +435,7 @@ export default function StratusAPIViewer() {
           <div>
             <span className="text-slate-400">Function Endpoint:</span>
             <p className="text-slate-300 font-mono text-xs mt-1 break-all">
-              {import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy
+              /.netlify/functions/stratus-api-proxy
             </p>
           </div>
           <div>
