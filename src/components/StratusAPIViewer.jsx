@@ -12,6 +12,7 @@ export default function StratusAPIViewer() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [error, setError] = useState(null);
   const [jwtDebug, setJwtDebug] = useState(null);
+  const [debugLogs, setDebugLogs] = useState([]);
 
   useEffect(() => {
     async function debugJWT() {
@@ -38,44 +39,141 @@ export default function StratusAPIViewer() {
     debugJWT();
   }, []);
 
-  async function callStratusAPI(endpoint) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
+  function addDebugLog(log) {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [...prev, { ...log, timestamp }].slice(-20));
+  }
 
-    const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
-    const response = await fetch(proxyUrl, {
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json',
-      },
+  async function callStratusAPI(endpoint) {
+    const startTime = Date.now();
+
+    addDebugLog({
+      type: 'request',
+      endpoint,
+      message: `Starting request to ${endpoint}`,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || response.statusText);
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const error = 'Not authenticated - no session found';
+        addDebugLog({
+          type: 'error',
+          endpoint,
+          message: error,
+        });
+        throw new Error(error);
+      }
 
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
+      addDebugLog({
+        type: 'info',
+        endpoint,
+        message: `Session valid, user: ${session.user.email}`,
+      });
+
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+
+      addDebugLog({
+        type: 'info',
+        endpoint,
+        message: `Proxy URL: ${proxyUrl}`,
+      });
+
+      const headers = {
+        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 20) + '...',
+        'Content-Type': 'application/json',
+      };
+
+      addDebugLog({
+        type: 'info',
+        endpoint,
+        message: `Request headers configured`,
+        details: headers,
+      });
+
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const duration = Date.now() - startTime;
+
+      addDebugLog({
+        type: 'info',
+        endpoint,
+        message: `Response received: ${response.status} ${response.statusText} (${duration}ms)`,
+        details: {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: response.headers.get('content-type'),
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        addDebugLog({
+          type: 'error',
+          endpoint,
+          message: `Request failed: ${response.status} ${response.statusText}`,
+          details: errorText,
+        });
+        throw new Error(`${response.status}: ${errorText || response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      let data;
+
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+        addDebugLog({
+          type: 'success',
+          endpoint,
+          message: `JSON response parsed successfully`,
+          details: typeof data === 'object' ? JSON.stringify(data).substring(0, 200) + '...' : data,
+        });
+      } else {
+        data = await response.text();
+        addDebugLog({
+          type: 'success',
+          endpoint,
+          message: `Text response received (${data.length} characters)`,
+          details: data.substring(0, 200) + '...',
+        });
+      }
+
+      return data;
+    } catch (error) {
+      addDebugLog({
+        type: 'error',
+        endpoint,
+        message: `Exception: ${error.message}`,
+        details: error.stack,
+      });
+      throw error;
     }
-    return await response.text();
   }
 
   async function fetchOrders() {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching orders from StratusDX...');
+      console.group('%c📦 Fetching Orders', 'color: #14b8a6; font-weight: bold;');
+      console.log('Endpoint: /orders');
+      console.log('Target: https://novagen.stratusdx.net/interface/orders');
       const data = await callStratusAPI('/orders');
-      console.log('Orders response:', data);
+      console.log('✅ Orders response:', data);
+      console.groupEnd();
       setOrdersData(data);
     } catch (err) {
+      console.group('%c❌ Orders Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Orders: ${err.message}`);
-      console.error('Orders error:', err);
     } finally {
       setLoading(false);
     }
@@ -85,11 +183,18 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
+      console.group('%c✅ Fetching Confirmations', 'color: #3b82f6; font-weight: bold;');
+      console.log('Endpoint: /order/received');
       const data = await callStratusAPI('/order/received');
+      console.log('✅ Confirmations response:', data);
+      console.groupEnd();
       setConfirmationsData(data);
     } catch (err) {
+      console.group('%c❌ Confirmations Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Confirmations: ${err.message}`);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -99,11 +204,18 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
+      console.group('%c🧪 Fetching Results', 'color: #10b981; font-weight: bold;');
+      console.log('Endpoint: /results');
       const data = await callStratusAPI('/results');
+      console.log('✅ Results response:', data);
+      console.groupEnd();
       setResultsData(data);
     } catch (err) {
+      console.group('%c❌ Results Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Results: ${err.message}`);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -113,11 +225,18 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
+      console.group('%c🔍 Fetching Order Detail', 'color: #14b8a6; font-weight: bold;');
+      console.log('GUID:', guid);
       const data = await callStratusAPI(`/order/${guid}`);
+      console.log('✅ Order detail:', data);
+      console.groupEnd();
       setSelectedOrder(data);
     } catch (err) {
+      console.group('%c❌ Order Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Order Detail: ${err.message}`);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -127,11 +246,18 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
+      console.group('%c🔍 Fetching Confirmation Detail', 'color: #3b82f6; font-weight: bold;');
+      console.log('GUID:', guid);
       const data = await callStratusAPI(`/order/received/${guid}`);
+      console.log('✅ Confirmation detail:', data);
+      console.groupEnd();
       setSelectedConfirmation(data);
     } catch (err) {
+      console.group('%c❌ Confirmation Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Confirmation Detail: ${err.message}`);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -141,11 +267,18 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
+      console.group('%c🔍 Fetching Result Detail', 'color: #10b981; font-weight: bold;');
+      console.log('GUID:', guid);
       const data = await callStratusAPI(`/result/${guid}`);
+      console.log('✅ Result detail:', data);
+      console.groupEnd();
       setSelectedResult(data);
     } catch (err) {
+      console.group('%c❌ Result Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.groupEnd();
       setError(`Result Detail: ${err.message}`);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -213,12 +346,121 @@ export default function StratusAPIViewer() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-red-400 font-medium">Error</p>
             <p className="text-red-300 text-sm mt-1">{error}</p>
           </div>
         </div>
       )}
+
+      {debugLogs.length > 0 && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">
+          <details className="group">
+            <summary className="px-4 py-3 cursor-pointer hover:bg-slate-700/30 transition-colors flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-yellow-400" />
+                <h4 className="text-white font-medium">API Debug Logs ({debugLogs.length})</h4>
+              </div>
+              <span className="text-slate-400 text-sm group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="p-4 bg-slate-900/50 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
+                {debugLogs.map((log, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg border ${
+                      log.type === 'error'
+                        ? 'bg-red-500/5 border-red-500/30'
+                        : log.type === 'success'
+                        ? 'bg-green-500/5 border-green-500/30'
+                        : log.type === 'request'
+                        ? 'bg-blue-500/5 border-blue-500/30'
+                        : 'bg-slate-700/30 border-slate-600/30'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2 mb-1">
+                      <span className="text-xs text-slate-400 font-mono">{log.timestamp}</span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${
+                          log.type === 'error'
+                            ? 'bg-red-500/20 text-red-300'
+                            : log.type === 'success'
+                            ? 'bg-green-500/20 text-green-300'
+                            : log.type === 'request'
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-slate-500/20 text-slate-300'
+                        }`}
+                      >
+                        {log.type.toUpperCase()}
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">{log.endpoint}</span>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-2">{log.message}</p>
+                    {log.details && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+                          View Details
+                        </summary>
+                        <pre className="mt-2 bg-slate-900 rounded p-2 text-xs text-slate-300 overflow-auto">
+                          {typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setDebugLogs([])}
+                className="mt-4 w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+              >
+                Clear Logs
+              </button>
+            </div>
+          </details>
+        </div>
+      )}
+
+      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+        <h4 className="text-white font-medium mb-3">Environment Check</h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-slate-400">Supabase URL:</span>
+            <p className="text-slate-300 font-mono text-xs mt-1">
+              {import.meta.env.VITE_SUPABASE_URL ?
+                import.meta.env.VITE_SUPABASE_URL.substring(0, 30) + '...' :
+                <span className="text-red-400">Not configured</span>
+              }
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-400">Anon Key:</span>
+            <p className="text-slate-300 font-mono text-xs mt-1">
+              {import.meta.env.VITE_SUPABASE_ANON_KEY ?
+                import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 20) + '...' :
+                <span className="text-red-400">Not configured</span>
+              }
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-400">Function Endpoint:</span>
+            <p className="text-slate-300 font-mono text-xs mt-1 break-all">
+              {import.meta.env.VITE_SUPABASE_URL}/functions/v1/stratus-api-proxy
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-400">Auth Status:</span>
+            <p className="text-slate-300 text-xs mt-1">
+              {jwtDebug?.hasToken ? (
+                jwtDebug.isExpired ?
+                  <span className="text-red-400">Token Expired</span> :
+                  <span className="text-green-400">Authenticated</span>
+              ) : (
+                <span className="text-red-400">Not Authenticated</span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <button
