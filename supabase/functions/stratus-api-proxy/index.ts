@@ -85,14 +85,42 @@ Deno.serve(async (req: Request) => {
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
     console.log(`[AUTH OK] User: ${user.email} (${user.id})`);
     console.log(`[REQUEST] GET ${stratusUrl}`);
-    console.log(`[CREDENTIALS] ${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
-    console.log(`[AUTH HEADER] Basic ${basicAuth}`);
 
-    // Always use GET for list endpoints (same as sync functions)
-    const response = await fetch(stratusUrl, {
-      method: "GET",
-      headers: stratusHeaders,
-    });
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    let response: Response | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[ATTEMPT ${attempt}/${maxRetries}] Fetching...`);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        response = await fetch(stratusUrl, {
+          method: "GET",
+          headers: stratusHeaders,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        console.log(`[SUCCESS] Connected on attempt ${attempt}`);
+        break;
+      } catch (fetchError) {
+        lastError = fetchError as Error;
+        console.error(`[ATTEMPT ${attempt} FAILED] ${fetchError.message}`);
+
+        if (attempt < maxRetries) {
+          const delay = attempt * 1000;
+          console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error('Failed to connect after retries');
+    }
 
     console.log(`[RESPONSE] Status: ${response.status} ${response.statusText}`);
     console.log(`[RESPONSE HEADERS]`, Object.fromEntries(response.headers.entries()));
