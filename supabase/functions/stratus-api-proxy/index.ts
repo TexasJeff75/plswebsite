@@ -11,6 +11,58 @@ const STRATUS_BASE_URL = "https://novagen.stratusdx.net/interface";
 const STRATUS_USERNAME = "novagen_stratusdx_11";
 const STRATUS_PASSWORD = "9b910d57-49cb";
 
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getStratusToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    console.log('[TOKEN] Using cached token');
+    return cachedToken.token;
+  }
+
+  console.log('[TOKEN] Fetching new token from StratusDX');
+
+  const basicAuth = btoa(`${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
+  const authUrl = `${STRATUS_BASE_URL}/auth/login`;
+
+  console.log(`[AUTH] POST ${authUrl}`);
+  console.log(`[AUTH] Basic ${basicAuth}`);
+
+  const authResponse = await fetch(authUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${basicAuth}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  console.log(`[AUTH] Response: ${authResponse.status} ${authResponse.statusText}`);
+
+  if (!authResponse.ok) {
+    const errorText = await authResponse.text();
+    console.error(`[AUTH] Failed to authenticate: ${errorText}`);
+    throw new Error(`StratusDX authentication failed: ${authResponse.status} ${errorText}`);
+  }
+
+  const authData = await authResponse.json();
+  console.log(`[AUTH] Success! Token data:`, authData);
+
+  if (!authData.token && !authData.access_token && !authData.jwt) {
+    console.error('[AUTH] No token found in response:', authData);
+    throw new Error('No token received from StratusDX');
+  }
+
+  const token = authData.token || authData.access_token || authData.jwt;
+  const expiresIn = authData.expires_in || authData.expiresIn || 3600;
+
+  cachedToken = {
+    token,
+    expiresAt: Date.now() + (expiresIn * 1000) - 60000, // Refresh 1 minute before expiry
+  };
+
+  console.log(`[TOKEN] Cached new token, expires in ${expiresIn}s`);
+  return token;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -74,17 +126,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const basicAuth = btoa(`${STRATUS_USERNAME}:${STRATUS_PASSWORD}`);
+    // Get JWT token from StratusDX
+    const stratusToken = await getStratusToken();
+
     const headers = {
-      "Authorization": `Basic ${basicAuth}`,
+      "Authorization": `Bearer ${stratusToken}`,
       "Content-Type": "application/json",
     };
 
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
     console.log(`[AUTH OK] User: ${user.email} (${user.id})`);
     console.log(`[REQUEST] ${req.method} ${stratusUrl}`);
-    console.log(`[CREDENTIALS] Username: ${STRATUS_USERNAME}, Password: ${STRATUS_PASSWORD.substring(0, 8)}...`);
-    console.log(`[AUTH HEADER] Basic ${basicAuth}`);
+    console.log(`[AUTH HEADER] Bearer ${stratusToken.substring(0, 30)}...`);
 
     const response = await fetch(stratusUrl, {
       method: req.method,
