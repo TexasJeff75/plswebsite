@@ -81,27 +81,34 @@ Deno.serve(async (req: Request) => {
     };
 
     const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
-    console.log(`[AUTH OK] User ${user.id} proxying request to: ${stratusUrl}`);
-    console.log(`[CREDENTIALS] Using username: ${STRATUS_USERNAME}`);
-    console.log(`[AUTH HEADER] Basic ${basicAuth.substring(0, 20)}...`);
+    console.log(`[AUTH OK] User: ${user.email} (${user.id})`);
+    console.log(`[REQUEST] ${req.method} ${stratusUrl}`);
+    console.log(`[CREDENTIALS] Username: ${STRATUS_USERNAME}, Password: ${STRATUS_PASSWORD.substring(0, 8)}...`);
+    console.log(`[AUTH HEADER] Basic ${basicAuth}`);
 
     const response = await fetch(stratusUrl, {
       method: req.method,
       headers,
     });
 
-    console.log(`[RESPONSE] Status: ${response.status}`);
+    console.log(`[RESPONSE] Status: ${response.status} ${response.statusText}`);
+    console.log(`[RESPONSE HEADERS]`, Object.fromEntries(response.headers.entries()));
 
     const contentType = response.headers.get('content-type');
     let data;
 
     if (contentType && contentType.includes('application/json')) {
       data = await response.json();
+      console.log(`[DATA] JSON Response:`, JSON.stringify(data, null, 2));
     } else {
       data = await response.text();
+      console.log(`[DATA] Text Response (${data.length} chars):`, data.substring(0, 500));
     }
 
-    console.log(`[DATA] Response data:`, typeof data === 'string' ? data.substring(0, 200) : JSON.stringify(data).substring(0, 200));
+    if (!response.ok) {
+      console.error(`[ERROR] StratusDX returned error status ${response.status}`);
+      console.error(`[ERROR] Response body:`, data);
+    }
 
     return new Response(
       typeof data === 'string' ? data : JSON.stringify(data),
