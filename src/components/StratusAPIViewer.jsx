@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key } from 'lucide-react';
+import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key, Download, Settings2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function StratusAPIViewer() {
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [ordersData, setOrdersData] = useState(null);
   const [confirmationsData, setConfirmationsData] = useState(null);
   const [resultsData, setResultsData] = useState(null);
@@ -13,6 +14,8 @@ export default function StratusAPIViewer() {
   const [error, setError] = useState(null);
   const [jwtDebug, setJwtDebug] = useState(null);
   const [debugLogs, setDebugLogs] = useState([]);
+  const [limit, setLimit] = useState(50);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     async function debugJWT() {
@@ -44,8 +47,9 @@ export default function StratusAPIViewer() {
     setDebugLogs(prev => [...prev, { ...log, timestamp }].slice(-20));
   }
 
-  async function callStratusAPI(endpoint) {
+  async function callStratusAPI(endpoint, options = {}) {
     const startTime = Date.now();
+    const { useLimit = true } = options;
 
     addDebugLog({
       type: 'request',
@@ -71,7 +75,10 @@ export default function StratusAPIViewer() {
         message: `Session valid, user: ${session.user.email}`,
       });
 
-      const proxyUrl = `/.netlify/functions/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+      let proxyUrl = `/.netlify/functions/stratus-api-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+      if (useLimit && limit) {
+        proxyUrl += `&limit=${limit}`;
+      }
 
       addDebugLog({
         type: 'info',
@@ -82,7 +89,7 @@ export default function StratusAPIViewer() {
       addDebugLog({
         type: 'info',
         endpoint,
-        message: `Using Netlify function proxy`,
+        message: `Using Netlify function proxy (limit: ${useLimit ? limit : 'none'})`,
       });
 
       const response = await fetch(proxyUrl, {
@@ -216,14 +223,14 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      console.group('%c🔍 Fetching Order Detail', 'color: #14b8a6; font-weight: bold;');
+      console.group('%c Fetching Order Detail', 'color: #14b8a6; font-weight: bold;');
       console.log('GUID:', guid);
-      const data = await callStratusAPI(`/order/${guid}`);
-      console.log('✅ Order detail:', data);
+      const data = await callStratusAPI(`/order/${guid}`, { useLimit: false });
+      console.log('Order detail:', data);
       console.groupEnd();
       setSelectedOrder(data);
     } catch (err) {
-      console.group('%c❌ Order Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.group('%c Order Detail Error', 'color: #ef4444; font-weight: bold;');
       console.error('Error message:', err.message);
       console.error('Full error:', err);
       console.groupEnd();
@@ -237,14 +244,14 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      console.group('%c🔍 Fetching Confirmation Detail', 'color: #3b82f6; font-weight: bold;');
+      console.group('%c Fetching Confirmation Detail', 'color: #3b82f6; font-weight: bold;');
       console.log('GUID:', guid);
-      const data = await callStratusAPI(`/order/received/${guid}`);
-      console.log('✅ Confirmation detail:', data);
+      const data = await callStratusAPI(`/order/received/${guid}`, { useLimit: false });
+      console.log('Confirmation detail:', data);
       console.groupEnd();
       setSelectedConfirmation(data);
     } catch (err) {
-      console.group('%c❌ Confirmation Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.group('%c Confirmation Detail Error', 'color: #ef4444; font-weight: bold;');
       console.error('Error message:', err.message);
       console.error('Full error:', err);
       console.groupEnd();
@@ -258,20 +265,111 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      console.group('%c🔍 Fetching Result Detail', 'color: #10b981; font-weight: bold;');
+      console.group('%c Fetching Result Detail', 'color: #10b981; font-weight: bold;');
       console.log('GUID:', guid);
-      const data = await callStratusAPI(`/result/${guid}`);
-      console.log('✅ Result detail:', data);
+      const data = await callStratusAPI(`/result/${guid}`, { useLimit: false });
+      console.log('Result detail:', data);
       console.groupEnd();
       setSelectedResult(data);
     } catch (err) {
-      console.group('%c❌ Result Detail Error', 'color: #ef4444; font-weight: bold;');
+      console.group('%c Result Detail Error', 'color: #ef4444; font-weight: bold;');
       console.error('Error message:', err.message);
       console.error('Full error:', err);
       console.groupEnd();
       setError(`Result Detail: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function syncOrdersToDatabase() {
+    setSyncing(true);
+    setError(null);
+    try {
+      if (!ordersData?.results?.length) {
+        throw new Error('No orders to sync. Fetch orders first.');
+      }
+
+      addDebugLog({
+        type: 'request',
+        endpoint: 'sync',
+        message: `Starting sync of ${ordersData.results.length} orders to database`,
+      });
+
+      const processedOrders = [];
+      const errors = [];
+
+      for (const guid of ordersData.results) {
+        try {
+          const { data: existing } = await supabase
+            .from('lab_orders')
+            .select('id, sync_status')
+            .eq('stratus_guid', guid)
+            .maybeSingle();
+
+          if (existing && existing.sync_status === 'acknowledged') {
+            addDebugLog({
+              type: 'info',
+              endpoint: 'sync',
+              message: `Order ${guid} already exists, skipping`,
+            });
+            continue;
+          }
+
+          addDebugLog({
+            type: 'info',
+            endpoint: 'sync',
+            message: `Fetching details for ${guid}...`,
+          });
+
+          const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
+
+          if (existing) {
+            await supabase
+              .from('lab_orders')
+              .update({
+                order_data: orderData,
+                sync_status: 'retrieved',
+                retrieved_at: new Date().toISOString(),
+              })
+              .eq('id', existing.id);
+          } else {
+            await supabase
+              .from('lab_orders')
+              .insert({
+                stratus_guid: guid,
+                order_data: orderData,
+                sync_status: 'retrieved',
+                retrieved_at: new Date().toISOString(),
+              });
+          }
+
+          processedOrders.push(guid);
+          addDebugLog({
+            type: 'success',
+            endpoint: 'sync',
+            message: `Synced order ${guid}`,
+          });
+        } catch (err) {
+          errors.push({ guid, error: err.message });
+          addDebugLog({
+            type: 'error',
+            endpoint: 'sync',
+            message: `Failed to sync ${guid}: ${err.message}`,
+          });
+        }
+      }
+
+      addDebugLog({
+        type: 'success',
+        endpoint: 'sync',
+        message: `Sync complete: ${processedOrders.length} synced, ${errors.length} errors`,
+      });
+
+    } catch (err) {
+      setError(`Sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -290,6 +388,54 @@ export default function StratusAPIViewer() {
           Results contain the final test data. Use accession numbers to link confirmations and results back to orders.
         </p>
       </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+        >
+          <Settings2 className="w-4 h-4" />
+          Settings
+        </button>
+
+        {ordersData?.results?.length > 0 && (
+          <button
+            onClick={syncOrdersToDatabase}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Download className={`w-4 h-4 ${syncing ? 'animate-bounce' : ''}`} />
+            {syncing ? 'Syncing...' : `Sync ${ordersData.results.length} Orders to Database`}
+          </button>
+        )}
+      </div>
+
+      {showSettings && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-white font-medium mb-4">API Settings</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Records Limit</label>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:border-teal-500 focus:outline-none"
+              >
+                <option value={5}>5 records</option>
+                <option value={10}>10 records</option>
+                <option value={25}>25 records</option>
+                <option value={50}>50 records</option>
+                <option value={100}>100 records</option>
+                <option value={250}>250 records</option>
+                <option value={500}>500 records</option>
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Number of records to fetch per request
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {jwtDebug && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">

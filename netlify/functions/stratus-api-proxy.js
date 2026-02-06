@@ -27,6 +27,8 @@ exports.handler = async (event, context) => {
 
   try {
     const endpoint = event.queryStringParameters?.endpoint;
+    const limit = event.queryStringParameters?.limit;
+    const offset = event.queryStringParameters?.offset;
 
     if (!endpoint) {
       return {
@@ -43,7 +45,14 @@ exports.handler = async (event, context) => {
       "Content-Type": "application/json",
     };
 
-    const stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
+    let stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
+
+    const queryParams = [];
+    if (limit) queryParams.push(`limit=${limit}`);
+    if (offset) queryParams.push(`offset=${offset}`);
+    if (queryParams.length > 0) {
+      stratusUrl += (endpoint.includes('?') ? '&' : '?') + queryParams.join('&');
+    }
     console.log(`[REQUEST] GET ${stratusUrl}`);
 
     const maxRetries = 3;
