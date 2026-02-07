@@ -52,22 +52,35 @@ Deno.serve(async (req: Request) => {
 
     console.log("Fetching pending orders from StratusDX...");
 
-    const listResponse = await fetch(`${STRATUS_BASE_URL}/orders`, {
-      method: "GET",
-      headers,
-    });
-
-    if (!listResponse.ok) {
-      throw new Error(`Failed to fetch orders: ${listResponse.statusText}`);
-    }
-
-    const ordersData: StratusOrdersResponse = await listResponse.json();
-    console.log(`Found ${ordersData.result_count} pending orders`);
-
     const processedOrders = [];
     const errors = [];
+    let totalProcessed = 0;
+    let batchNumber = 0;
+    let continueProcessing = true;
 
-    for (const guid of ordersData.results) {
+    while (continueProcessing) {
+      batchNumber++;
+      console.log(`\n=== Processing Batch ${batchNumber} ===`);
+
+      const listResponse = await fetch(`${STRATUS_BASE_URL}/orders`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!listResponse.ok) {
+        throw new Error(`Failed to fetch orders: ${listResponse.statusText}`);
+      }
+
+      const ordersData: StratusOrdersResponse = await listResponse.json();
+      console.log(`Batch ${batchNumber}: Found ${ordersData.result_count} pending orders (Total in queue: ${ordersData.total_count})`);
+
+      if (!ordersData.results || ordersData.results.length === 0) {
+        console.log("No more orders to process");
+        continueProcessing = false;
+        break;
+      }
+
+      for (const guid of ordersData.results) {
       try {
         const { data: existing } = await supabaseClient
           .from('lab_orders')
@@ -182,11 +195,12 @@ Deno.serve(async (req: Request) => {
           })
           .eq('stratus_guid', guid);
 
-        processedOrders.push({ guid, status: 'success' });
+        processedOrders.push({ guid, status: 'success', batch: batchNumber });
+        totalProcessed++;
 
       } catch (error) {
         console.error(`Error processing order ${guid}:`, error);
-        errors.push({ guid, error: error.message });
+        errors.push({ guid, error: error.message, batch: batchNumber });
 
         await supabaseClient
           .from('lab_orders')
@@ -198,13 +212,22 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log(`Batch ${batchNumber} complete. Processed: ${ordersData.results.length}`);
+    }
+
+    console.log(`\n=== Sync Complete ===`);
+    console.log(`Total batches: ${batchNumber}`);
+    console.log(`Total processed: ${totalProcessed}`);
+    console.log(`Total errors: ${errors.length}`);
+
     return new Response(
       JSON.stringify({
         success: true,
         message: "Order sync completed",
         summary: {
-          total: ordersData.result_count,
-          processed: processedOrders.length,
+          batches: batchNumber,
+          total_processed: totalProcessed,
+          successful: processedOrders.length,
           errors: errors.length,
         },
         processedOrders,
