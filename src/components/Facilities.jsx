@@ -5,8 +5,9 @@ import { organizationsService } from '../services/organizationsService';
 import { projectsService } from '../services/projectsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
-import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown, ArrowRightLeft } from 'lucide-react';
 import ImportData from './ImportData';
+import ReassignFacilitiesModal from './ReassignFacilitiesModal';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
@@ -16,6 +17,8 @@ export default function Facilities() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filters, setFilters] = useState({
     search: '',
@@ -140,6 +143,23 @@ export default function Facilities() {
     });
   }, [facilities, sortConfig]);
 
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === sortedFacilities.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedFacilities.map(f => f.id)));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -218,6 +238,34 @@ export default function Facilities() {
           />
         </div>
 
+        {selectedIds.size > 0 && isEditor && (
+          <div className="mb-6 bg-teal-900/90 border border-teal-700 rounded-xl px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                {selectedIds.size}
+              </div>
+              <span className="text-teal-100 text-sm font-medium">
+                {selectedIds.size === 1 ? '1 facility' : `${selectedIds.size} facilities`} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowReassignModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Reassign to Project
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="p-2 text-teal-300 hover:text-white hover:bg-teal-800 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-12">
             <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"/>
@@ -235,6 +283,16 @@ export default function Facilities() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-700">
+                  {isEditor && (
+                    <th className="py-3 pl-4 pr-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={sortedFacilities.length > 0 && selectedIds.size === sortedFacilities.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th
                     className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
                     onClick={() => handleSort('name')}
@@ -316,8 +374,20 @@ export default function Facilities() {
                   const totalMilestones = facility.milestones?.length || 9;
                   const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
+                  const isSelected = selectedIds.has(facility.id);
+
                   return (
-                    <tr key={facility.id} className="border-b border-slate-800 hover:bg-slate-900/50 transition-colors">
+                    <tr key={facility.id} className={`border-b border-slate-800 hover:bg-slate-900/50 transition-colors ${isSelected ? 'bg-teal-900/20' : ''}`}>
+                      {isEditor && (
+                        <td className="py-4 pl-4 pr-2 w-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(facility.id)}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0 cursor-pointer"
+                          />
+                        </td>
+                      )}
                       <td className="py-4 px-4">
                         <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400">
                           {facility.name}
@@ -397,6 +467,21 @@ export default function Facilities() {
           onClose={() => setShowImportModal(false)}
           onImportComplete={() => {
             setShowImportModal(false);
+            loadFacilities();
+          }}
+        />
+      )}
+
+      {showReassignModal && (
+        <ReassignFacilitiesModal
+          facilityIds={[...selectedIds]}
+          facilities={sortedFacilities}
+          currentProjectId={null}
+          currentProjectName={null}
+          onClose={() => setShowReassignModal(false)}
+          onReassigned={() => {
+            setShowReassignModal(false);
+            setSelectedIds(new Set());
             loadFacilities();
           }}
         />
