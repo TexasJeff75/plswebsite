@@ -6,8 +6,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Building2, Folder, Calendar, User, AlertCircle, Clock,
-  CheckCircle2, Plus, Pencil, MapPin, TrendingUp, Activity
+  CheckCircle2, Plus, Pencil, MapPin, TrendingUp, Activity,
+  Eye, Trash2, MoreHorizontal, ChevronRight
 } from 'lucide-react';
+import { facilityStatsService } from '../services/facilityStatsService';
 import { format } from 'date-fns';
 
 export default function ProjectDetail() {
@@ -36,7 +38,7 @@ export default function ProjectDetail() {
 
       const { data: facilitiesData } = await supabase
         .from('facilities')
-        .select('*')
+        .select('*, milestones(id, status, category)')
         .eq('project_id', id)
         .order('name');
 
@@ -75,7 +77,6 @@ export default function ProjectDetail() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Folder },
-    { id: 'facilities', label: 'Facilities', icon: Building2 },
     { id: 'activity', label: 'Activity', icon: Activity }
   ];
 
@@ -162,10 +163,7 @@ export default function ProjectDetail() {
 
       <div className="min-h-[400px]">
         {activeTab === 'overview' && (
-          <OverviewTab project={project} organization={organization} facilities={facilities} />
-        )}
-        {activeTab === 'facilities' && (
-          <FacilitiesTab project={project} facilities={facilities} onRefresh={loadProject} />
+          <OverviewTab project={project} organization={organization} facilities={facilities} isEditor={isEditor} onRefresh={loadProject} />
         )}
         {activeTab === 'activity' && (
           <ActivityTab project={project} />
@@ -175,220 +173,302 @@ export default function ProjectDetail() {
   );
 }
 
-function OverviewTab({ project, organization, facilities }) {
-  const liveFacilities = facilities.filter(f => f.deployment_phase === 'live').length;
-  const inProgressFacilities = facilities.filter(f => f.deployment_phase === 'in_progress').length;
-  const notStartedFacilities = facilities.filter(f => !f.deployment_phase || f.deployment_phase === 'not_started').length;
+function OverviewTab({ project, organization, facilities, isEditor, onRefresh }) {
+  const navigate = useNavigate();
+  const [removingId, setRemovingId] = useState(null);
+  const [actionMenuId, setActionMenuId] = useState(null);
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Building2 className="w-4 h-4 text-teal-400" />
-              <span className="text-xs text-slate-400">Total Facilities</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{facilities.length}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-slate-400">Live</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{liveFacilities}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-slate-400">In Progress</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{inProgressFacilities}</p>
-          </div>
-        </div>
+  const facilitiesWithStats = facilities.map(f => {
+    const status = facilityStatsService.calculateOverallStatus(f);
+    const milestoneProgress = facilityStatsService.calculateCompletionPercentage(f.milestones);
+    const completedMilestones = f.milestones?.filter(m => m.status === 'complete').length || 0;
+    const totalMilestones = f.milestones?.length || 0;
+    return { ...f, calculatedStatus: status, milestoneProgress, completedMilestones, totalMilestones };
+  });
 
-        {project.description && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
-            <p className="text-slate-300 leading-relaxed">{project.description}</p>
-          </div>
-        )}
+  const liveFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'live').length;
+  const inProgressFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'in_progress').length;
+  const blockedFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'blocked').length;
+  const notStartedFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'not_started').length;
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Project Progress</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-slate-400">Completion</span>
-                <span className="text-sm font-medium text-white">
-                  {facilities.length > 0 ? Math.round((liveFacilities / facilities.length) * 100) : 0}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div
-                  className="h-2 rounded-full bg-teal-500"
-                  style={{ width: `${facilities.length > 0 ? (liveFacilities / facilities.length) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4 pt-2">
-              <div className="text-center">
-                <p className="text-xl font-bold text-green-400">{liveFacilities}</p>
-                <p className="text-xs text-slate-400">Live</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-blue-400">{inProgressFacilities}</p>
-                <p className="text-xs text-slate-400">In Progress</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-slate-400">{notStartedFacilities}</p>
-                <p className="text-xs text-slate-400">Not Started</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+  async function handleRemoveFacility(facilityId) {
+    if (!confirm('Remove this facility from the project? The facility will not be deleted, only unlinked from this project.')) return;
+    setRemovingId(facilityId);
+    try {
+      await supabase
+        .from('facilities')
+        .update({ project_id: null })
+        .eq('id', facilityId);
+      onRefresh();
+    } catch (err) {
+      console.error('Error removing facility:', err);
+    } finally {
+      setRemovingId(null);
+      setActionMenuId(null);
+    }
+  }
 
-      <div className="space-y-6">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Project Details</h3>
-          <div className="space-y-4">
-            {organization && (
-              <div className="flex items-start gap-3">
-                <Building2 className="w-4 h-4 text-slate-400 mt-1" />
-                <div>
-                  <p className="text-xs text-slate-400">Organization</p>
-                  <Link
-                    to={`/organizations/${organization.id}`}
-                    className="text-teal-400 hover:text-teal-300 transition-colors"
-                  >
-                    {organization.name}
-                  </Link>
-                </div>
-              </div>
-            )}
-            {project.project_manager && (
-              <div className="flex items-start gap-3">
-                <User className="w-4 h-4 text-slate-400 mt-1" />
-                <div>
-                  <p className="text-xs text-slate-400">Project Manager</p>
-                  <p className="text-white">{project.project_manager}</p>
-                </div>
-              </div>
-            )}
-            {project.start_date && (
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-slate-400 mt-1" />
-                <div>
-                  <p className="text-xs text-slate-400">Start Date</p>
-                  <p className="text-white">{format(new Date(project.start_date), 'MMM d, yyyy')}</p>
-                </div>
-              </div>
-            )}
-            {project.target_completion_date && (
-              <div className="flex items-start gap-3">
-                <TrendingUp className="w-4 h-4 text-slate-400 mt-1" />
-                <div>
-                  <p className="text-xs text-slate-400">Target Completion</p>
-                  <p className="text-white">{format(new Date(project.target_completion_date), 'MMM d, yyyy')}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FacilitiesTab({ project, facilities, onRefresh }) {
-  const getStatusColor = (phase) => {
-    const colors = {
-      live: 'bg-green-500',
-      in_progress: 'bg-blue-500',
-      blocked: 'bg-red-500',
-      not_started: 'bg-slate-500'
-    };
-    return colors[phase] || colors.not_started;
+  const getProgressBarColor = (progress) => {
+    if (progress >= 100) return 'bg-green-500';
+    if (progress >= 50) return 'bg-teal-500';
+    if (progress > 0) return 'bg-blue-500';
+    return 'bg-slate-600';
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-white">
-          Facilities ({facilities.length})
-        </h3>
-        <Link
-          to="/facilities"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Facility
-        </Link>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-4 h-4 text-teal-400" />
+                <span className="text-xs text-slate-400">Total</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{facilities.length}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <span className="text-xs text-slate-400">Live</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{liveFacilities}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-slate-400">In Progress</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{inProgressFacilities}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <span className="text-xs text-slate-400">Blocked</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{blockedFacilities}</p>
+            </div>
+          </div>
+
+          {project.description && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
+              <p className="text-slate-300 leading-relaxed">{project.description}</p>
+            </div>
+          )}
+
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Project Progress</h3>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400">Facilities Live</span>
+                  <span className="text-sm font-medium text-white">
+                    {facilities.length > 0 ? Math.round((liveFacilities / facilities.length) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full bg-teal-500"
+                    style={{ width: `${facilities.length > 0 ? (liveFacilities / facilities.length) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-4 pt-2">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-green-400">{liveFacilities}</p>
+                  <p className="text-xs text-slate-400">Live</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-blue-400">{inProgressFacilities}</p>
+                  <p className="text-xs text-slate-400">In Progress</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-red-400">{blockedFacilities}</p>
+                  <p className="text-xs text-slate-400">Blocked</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-slate-400">{notStartedFacilities}</p>
+                  <p className="text-xs text-slate-400">Not Started</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Project Details</h3>
+            <div className="space-y-4">
+              {organization && (
+                <div className="flex items-start gap-3">
+                  <Building2 className="w-4 h-4 text-slate-400 mt-1" />
+                  <div>
+                    <p className="text-xs text-slate-400">Organization</p>
+                    <Link
+                      to={`/organizations/${organization.id}`}
+                      className="text-teal-400 hover:text-teal-300 transition-colors"
+                    >
+                      {organization.name}
+                    </Link>
+                  </div>
+                </div>
+              )}
+              {project.project_manager && (
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 text-slate-400 mt-1" />
+                  <div>
+                    <p className="text-xs text-slate-400">Project Manager</p>
+                    <p className="text-white">{project.project_manager}</p>
+                  </div>
+                </div>
+              )}
+              {project.start_date && (
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-4 h-4 text-slate-400 mt-1" />
+                  <div>
+                    <p className="text-xs text-slate-400">Start Date</p>
+                    <p className="text-white">{format(new Date(project.start_date), 'MMM d, yyyy')}</p>
+                  </div>
+                </div>
+              )}
+              {project.target_completion_date && (
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="w-4 h-4 text-slate-400 mt-1" />
+                  <div>
+                    <p className="text-xs text-slate-400">Target Completion</p>
+                    <p className="text-white">{format(new Date(project.target_completion_date), 'MMM d, yyyy')}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {facilities.length === 0 ? (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-          <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400 mb-4">No facilities in this project yet</p>
-          <Link
-            to="/facilities"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add First Facility
-          </Link>
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <h3 className="text-lg font-semibold text-white">
+            Facilities ({facilities.length})
+          </h3>
+          {isEditor && (
+            <Link
+              to="/facilities"
+              className="flex items-center gap-2 px-3 py-1.5 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Facility
+            </Link>
+          )}
         </div>
-      ) : (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Facility</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Location</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Phase</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Go-Live</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {facilities.map(facility => (
-                <tr key={facility.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400 transition-colors">
-                      {facility.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">
-                    {facility.city}, {facility.state}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(facility.deployment_phase)}`} />
-                      <span className="text-white text-sm capitalize">
-                        {facility.deployment_phase?.replace('_', ' ') || 'Not Started'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">
-                    {facility.projected_go_live
-                      ? format(new Date(facility.projected_go_live), 'MMM d, yyyy')
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      to={`/facilities/${facility.id}`}
-                      className="text-teal-400 hover:text-teal-300 text-sm"
-                    >
-                      View
-                    </Link>
-                  </td>
+
+        {facilities.length === 0 ? (
+          <div className="p-12 text-center">
+            <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400 mb-4">No facilities in this project yet</p>
+            {isEditor && (
+              <Link
+                to="/facilities"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add First Facility
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700 bg-slate-900/30">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Facility</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Milestones</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Go-Live</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {facilitiesWithStats.map(facility => {
+                  const statusBadgeColor = facilityStatsService.getStatusBadgeColor(facility.calculatedStatus);
+                  const statusLabel = facility.calculatedStatus.replace('_', ' ');
+
+                  return (
+                    <tr key={facility.id} className="hover:bg-slate-700/30 transition-colors group">
+                      <td className="px-6 py-4">
+                        <Link to={`/facilities/${facility.id}`} className="text-white font-medium hover:text-teal-400 transition-colors">
+                          {facility.name}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 text-slate-400 text-sm">
+                        {[facility.city, facility.state].filter(Boolean).join(', ') || '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold capitalize ${statusBadgeColor} ${facilityStatsService.getStatusTextColor(facility.calculatedStatus)}`}>
+                          {statusLabel}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {facility.totalMilestones > 0 ? (
+                          <div className="flex items-center gap-3 min-w-[140px]">
+                            <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${getProgressBarColor(facility.milestoneProgress)}`}
+                                style={{ width: `${facility.milestoneProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-slate-400 whitespace-nowrap">
+                              {facility.completedMilestones}/{facility.totalMilestones}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">No milestones</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-slate-400 text-sm">
+                        {facility.projected_go_live_date
+                          ? format(new Date(facility.projected_go_live_date), 'MMM d, yyyy')
+                          : '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            to={`/facilities/${facility.id}`}
+                            className="p-1.5 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
+                            title="View"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          {isEditor && (
+                            <>
+                              <Link
+                                to={`/facilities/${facility.id}`}
+                                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Link>
+                              <button
+                                onClick={() => handleRemoveFacility(facility.id)}
+                                disabled={removingId === facility.id}
+                                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                                title="Remove from project"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
