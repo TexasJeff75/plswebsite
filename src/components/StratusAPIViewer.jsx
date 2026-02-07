@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key, Download, Settings2 } from 'lucide-react';
+import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key, Download, Settings2, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { exploreStratusAPI } from '../services/labDataService';
 
 export default function StratusAPIViewer() {
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,9 @@ export default function StratusAPIViewer() {
   const [debugLogs, setDebugLogs] = useState([]);
   const [limit, setLimit] = useState(50);
   const [showSettings, setShowSettings] = useState(false);
+  const [showExplorer, setShowExplorer] = useState(false);
+  const [explorerResults, setExplorerResults] = useState(null);
+  const [exploring, setExploring] = useState(false);
 
   useEffect(() => {
     async function debugJWT() {
@@ -377,6 +381,36 @@ export default function StratusAPIViewer() {
     }
   }
 
+  async function runAPIExplorer(endpoint) {
+    setExploring(true);
+    setError(null);
+    try {
+      addDebugLog({
+        type: 'request',
+        endpoint: 'explorer',
+        message: `Exploring ${endpoint} endpoint...`,
+      });
+
+      const results = await exploreStratusAPI(endpoint);
+      setExplorerResults(results);
+
+      addDebugLog({
+        type: 'success',
+        endpoint: 'explorer',
+        message: `Exploration complete: ${results.total_tests} tests run`,
+      });
+    } catch (err) {
+      setError(`Explorer failed: ${err.message}`);
+      addDebugLog({
+        type: 'error',
+        endpoint: 'explorer',
+        message: `Exploration failed: ${err.message}`,
+      });
+    } finally {
+      setExploring(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -393,13 +427,21 @@ export default function StratusAPIViewer() {
         </p>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
         >
           <Settings2 className="w-4 h-4" />
           Settings
+        </button>
+
+        <button
+          onClick={() => setShowExplorer(!showExplorer)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+        >
+          <Search className="w-4 h-4" />
+          API Explorer
         </button>
 
         {ordersData?.results?.length > 0 && (
@@ -438,6 +480,121 @@ export default function StratusAPIViewer() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {showExplorer && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-white font-medium mb-4">API Explorer</h4>
+          <p className="text-slate-400 text-sm mb-4">
+            Test the API endpoints with various parameters to discover pagination options and hidden features.
+          </p>
+
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => runAPIExplorer('/orders')}
+              disabled={exploring}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /orders
+            </button>
+            <button
+              onClick={() => runAPIExplorer('/confirmations')}
+              disabled={exploring}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /confirmations
+            </button>
+            <button
+              onClick={() => runAPIExplorer('/results')}
+              disabled={exploring}
+              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /results
+            </button>
+          </div>
+
+          {exploring && (
+            <div className="flex items-center gap-2 text-blue-400 text-sm">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Running exploration tests...
+            </div>
+          )}
+
+          {explorerResults && (
+            <div className="space-y-4 mt-4">
+              <div className="bg-slate-900/50 border border-slate-600 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="text-white font-medium">Exploration Results</h5>
+                  <span className="text-sm text-slate-400">{explorerResults.total_tests} tests</span>
+                </div>
+
+                {explorerResults.recommendations && explorerResults.recommendations.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-blue-400 font-medium text-sm mb-2">Recommendations:</p>
+                    <ul className="text-sm text-blue-300 space-y-1">
+                      {explorerResults.recommendations.map((rec, idx) => (
+                        <li key={idx} className="flex gap-2">
+                          <span>•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {explorerResults.results?.map((result, idx) => (
+                    <div key={idx} className="bg-slate-800/50 border border-slate-600 rounded p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-white">{result.test}</span>
+                        {result.success ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-400" />
+                        )}
+                      </div>
+
+                      {result.params && (
+                        <div className="text-xs text-slate-400 mb-1">
+                          Params: {JSON.stringify(result.params)}
+                        </div>
+                      )}
+
+                      {result.result_count && (
+                        <div className="text-xs text-teal-400">
+                          Result Count: {result.result_count}
+                        </div>
+                      )}
+
+                      {result.total_count && (
+                        <div className="text-xs text-blue-400">
+                          Total Count: {result.total_count}
+                        </div>
+                      )}
+
+                      {result.error && (
+                        <div className="text-xs text-red-400 mt-1">
+                          Error: {result.error}
+                        </div>
+                      )}
+
+                      {result.url && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
+                            Show URL
+                          </summary>
+                          <code className="text-xs text-slate-400 block mt-1 break-all">
+                            {result.url}
+                          </code>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
