@@ -113,7 +113,20 @@ exports.handler = async (event) => {
         const existingResult = existing?.[0];
 
         if (existingResult && existingResult.sync_status === 'acknowledged') {
-          console.log(`Result ${guid} already acknowledged, skipping`);
+          console.log(`Result ${guid} already acknowledged locally, re-ACKing on StratusDX to clear queue`);
+          try {
+            const reAckResponse = await stratusFetch(`${STRATUS_BASE_URL}/result/${guid}/ack`, 'POST');
+            if (reAckResponse.ok) {
+              console.log(`Re-ACK successful for result ${guid}`);
+              processedResults.push({ guid, accessionNumber: null, status: 're-acknowledged' });
+            } else {
+              console.error(`Re-ACK failed for result ${guid}: ${reAckResponse.statusText}`);
+              errors.push({ guid, error: `Re-ACK failed: ${reAckResponse.statusText}` });
+            }
+          } catch (reAckErr) {
+            console.error(`Re-ACK error for result ${guid}: ${reAckErr.message}`);
+            errors.push({ guid, error: `Re-ACK error: ${reAckErr.message}` });
+          }
           continue;
         }
 

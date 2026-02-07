@@ -58,8 +58,9 @@ Deno.serve(async (req: Request) => {
     let totalProcessed = 0;
     let batchNumber = 0;
     let continueProcessing = true;
+    const MAX_BATCHES = 20;
 
-    while (continueProcessing) {
+    while (continueProcessing && batchNumber < MAX_BATCHES) {
       batchNumber++;
       console.log(`\n=== Processing Batch ${batchNumber} (max 5 orders per batch) ===`);
 
@@ -90,7 +91,24 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
 
         if (existing && existing.sync_status === 'acknowledged') {
-          console.log(`Order ${guid} already acknowledged, skipping`);
+          console.log(`Order ${guid} already acknowledged locally, re-ACKing on StratusDX to clear queue`);
+          try {
+            const reAckResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, {
+              method: "POST",
+              headers,
+            });
+            if (reAckResponse.ok) {
+              console.log(`Re-ACK successful for ${guid}`);
+              processedOrders.push({ guid, status: 're-acknowledged', batch: batchNumber });
+              totalProcessed++;
+            } else {
+              console.error(`Re-ACK failed for ${guid}: ${reAckResponse.statusText}`);
+              errors.push({ guid, error: `Re-ACK failed: ${reAckResponse.statusText}` });
+            }
+          } catch (reAckErr) {
+            console.error(`Re-ACK error for ${guid}: ${reAckErr.message}`);
+            errors.push({ guid, error: `Re-ACK error: ${reAckErr.message}` });
+          }
           continue;
         }
 
@@ -215,8 +233,9 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Batch ${batchNumber} complete. Processed: ${ordersData.results.length}`);
 
-    // Check if we should continue processing more batches
-    if (ordersData.results.length < ordersData.total_count) {
+    if (ordersData.results.length >= ordersData.total_count) {
+      continueProcessing = false;
+    } else {
       console.log(`More orders available in queue. Fetching next batch...`);
     }
   }

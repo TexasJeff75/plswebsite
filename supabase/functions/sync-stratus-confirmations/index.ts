@@ -76,7 +76,23 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
 
         if (existing && existing.sync_status === 'acknowledged') {
-          console.log(`Confirmation ${guid} already acknowledged, skipping`);
+          console.log(`Confirmation ${guid} already acknowledged locally, re-ACKing on StratusDX to clear queue`);
+          try {
+            const reAckResponse = await fetch(`${STRATUS_BASE_URL}/order/received/${guid}/ack`, {
+              method: "POST",
+              headers,
+            });
+            if (reAckResponse.ok) {
+              console.log(`Re-ACK successful for confirmation ${guid}`);
+              processedConfirmations.push({ guid, accessionNumber: null, status: 're-acknowledged' });
+            } else {
+              console.error(`Re-ACK failed for confirmation ${guid}: ${reAckResponse.statusText}`);
+              errors.push({ guid, error: `Re-ACK failed: ${reAckResponse.statusText}` });
+            }
+          } catch (reAckErr) {
+            console.error(`Re-ACK error for confirmation ${guid}: ${reAckErr.message}`);
+            errors.push({ guid, error: `Re-ACK error: ${reAckErr.message}` });
+          }
           continue;
         }
 

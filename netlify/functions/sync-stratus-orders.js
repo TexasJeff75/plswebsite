@@ -97,8 +97,9 @@ exports.handler = async (event) => {
     let totalProcessed = 0;
     let batchNumber = 0;
     let continueProcessing = true;
+    const MAX_BATCHES = 20;
 
-    while (continueProcessing) {
+    while (continueProcessing && batchNumber < MAX_BATCHES) {
       batchNumber++;
       console.log(`=== Batch ${batchNumber} ===`);
 
@@ -125,7 +126,21 @@ exports.handler = async (event) => {
           const existingOrder = existing?.[0];
 
           if (existingOrder && existingOrder.sync_status === 'acknowledged') {
-            console.log(`Order ${guid} already acknowledged, skipping`);
+            console.log(`Order ${guid} already acknowledged locally, re-ACKing on StratusDX to clear queue`);
+            try {
+              const reAckResponse = await stratusFetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, 'POST');
+              if (reAckResponse.ok) {
+                console.log(`Re-ACK successful for ${guid}`);
+                processedOrders.push({ guid, status: 're-acknowledged', batch: batchNumber });
+                totalProcessed++;
+              } else {
+                console.error(`Re-ACK failed for ${guid}: ${reAckResponse.statusText}`);
+                errors.push({ guid, error: `Re-ACK failed: ${reAckResponse.statusText}` });
+              }
+            } catch (reAckErr) {
+              console.error(`Re-ACK error for ${guid}: ${reAckErr.message}`);
+              errors.push({ guid, error: `Re-ACK error: ${reAckErr.message}` });
+            }
             continue;
           }
 
