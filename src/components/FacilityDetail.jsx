@@ -4,7 +4,8 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder } from 'lucide-react';
+import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search } from 'lucide-react';
+import { projectsService } from '../services/projectsService';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
 import PersonnelTrainingTab from './facility-tabs/PersonnelTrainingTab';
@@ -31,6 +32,7 @@ export default function FacilityDetail() {
   const [dateForm, setDateForm] = useState({});
   const [locationForm, setLocationForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
 
   useEffect(() => {
     loadFacility();
@@ -226,13 +228,22 @@ export default function FacilityDetail() {
           <p className="text-slate-400">{facility.address}, {facility.city}, {facility.state}</p>
         </div>
         {isEditor && (
-          <button
-            onClick={openTemplateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            Apply Template
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowReassignModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Reassign Project
+            </button>
+            <button
+              onClick={openTemplateModal}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              Apply Template
+            </button>
+          </div>
         )}
       </div>
 
@@ -656,6 +667,201 @@ export default function FacilityDetail() {
           </div>
         </div>
       )}
+
+      {showReassignModal && (
+        <ReassignProjectModal
+          facility={facility}
+          onClose={() => setShowReassignModal(false)}
+          onReassigned={() => {
+            setShowReassignModal(false);
+            loadFacility();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReassignProjectModal({ facility, onClose, onReassigned }) {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProjectId, setSelectedProjectId] = useState(facility.project?.id || '');
+  const [reassigning, setReassigning] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  async function loadProjects() {
+    try {
+      const data = await projectsService.getAll();
+      setProjects(data || []);
+    } catch (err) {
+      console.error('Error loading projects:', err);
+      setError('Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReassign() {
+    setReassigning(true);
+    setError('');
+    try {
+      const newProjectId = selectedProjectId || null;
+      await facilitiesService.update(facility.id, { project_id: newProjectId });
+      onReassigned();
+    } catch (err) {
+      console.error('Error reassigning facility:', err);
+      setError(err.message || 'Failed to reassign facility');
+    } finally {
+      setReassigning(false);
+    }
+  }
+
+  const filteredProjects = projects.filter(p => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return p.name?.toLowerCase().includes(term) || p.organization?.name?.toLowerCase().includes(term);
+  });
+
+  const hasChanged = selectedProjectId !== (facility.project?.id || '');
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Reassign Project</h2>
+            <p className="text-slate-400 text-sm mt-0.5">{facility.name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={reassigning}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {facility.project && (
+            <div className="p-3 bg-slate-700/30 border border-slate-700 rounded-lg">
+              <p className="text-xs text-slate-400 mb-1">Current Project</p>
+              <div className="flex items-center gap-2">
+                <Folder className="w-4 h-4 text-teal-400" />
+                <span className="text-white font-medium text-sm">{facility.project.name}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              <button
+                onClick={() => setSelectedProjectId('')}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  selectedProjectId === ''
+                    ? 'border-amber-500 bg-amber-500/10'
+                    : 'border-slate-700 hover:border-slate-600 hover:bg-slate-700/30'
+                }`}
+              >
+                <p className={`font-medium text-sm ${selectedProjectId === '' ? 'text-amber-400' : 'text-slate-300'}`}>
+                  No Project (Unassigned)
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">Remove from current project without assigning to another</p>
+              </button>
+
+              {filteredProjects.map(project => {
+                const isCurrent = project.id === facility.project?.id;
+                const isSelected = selectedProjectId === project.id;
+
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => setSelectedProjectId(project.id)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      isSelected
+                        ? 'border-teal-500 bg-teal-500/10'
+                        : 'border-slate-700 hover:border-slate-600 hover:bg-slate-700/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Folder className={`w-4 h-4 ${isSelected ? 'text-teal-400' : 'text-slate-400'}`} />
+                        <span className={`font-medium text-sm ${isSelected ? 'text-teal-400' : 'text-white'}`}>
+                          {project.name}
+                        </span>
+                      </div>
+                      {isCurrent && (
+                        <span className="px-2 py-0.5 bg-slate-600 text-slate-300 rounded text-[10px] font-semibold uppercase">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    {project.organization?.name && (
+                      <p className="text-xs text-slate-500 mt-1 pl-6">{project.organization.name}</p>
+                    )}
+                  </button>
+                );
+              })}
+
+              {filteredProjects.length === 0 && searchTerm && (
+                <p className="text-center text-slate-400 text-sm py-4">No projects match your search</p>
+              )}
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700">
+          <button
+            onClick={onClose}
+            disabled={reassigning}
+            className="px-4 py-2 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleReassign}
+            disabled={!hasChanged || reassigning}
+            className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {reassigning ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reassigning...
+              </>
+            ) : (
+              <>
+                <ArrowRightLeft className="w-4 h-4" />
+                Reassign
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
