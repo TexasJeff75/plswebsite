@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { facilityStatsService } from '../services/facilityStatsService';
 import { templatesService } from '../services/templatesService';
-import { format } from 'date-fns';
+import { auditService } from '../services/auditService';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -168,7 +169,7 @@ export default function ProjectDetail() {
           <OverviewTab project={project} organization={organization} facilities={facilities} isEditor={isEditor} onRefresh={loadProject} />
         )}
         {activeTab === 'activity' && (
-          <ActivityTab project={project} />
+          <ActivityTab project={project} facilities={facilities} />
         )}
       </div>
     </div>
@@ -927,41 +928,217 @@ function ApplyTemplateModal({ selectedFacilityIds, facilities, onClose, onApplie
   );
 }
 
-function ActivityTab({ project }) {
-  return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white">Activity Log</h3>
+function ActivityTab({ project, facilities }) {
+  const [activityLog, setActivityLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [filterTable, setFilterTable] = useState('');
+  const [filterAction, setFilterAction] = useState('');
+  const ITEMS_PER_PAGE = 30;
 
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <div className="space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-teal-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Folder className="w-4 h-4 text-teal-400" />
+  const facilityIds = facilities.map(f => f.id);
+  const facilityMap = Object.fromEntries(facilities.map(f => [f.id, f]));
+
+  useEffect(() => {
+    if (facilityIds.length > 0) loadActivity();
+    else setLoading(false);
+  }, [facilityIds.length, page]);
+
+  async function loadActivity() {
+    try {
+      setLoading(true);
+      const [log, count] = await Promise.all([
+        auditService.getProjectActivityLog(facilityIds, ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+        auditService.getProjectActivityLogCount(facilityIds),
+      ]);
+      setActivityLog(log);
+      setTotalCount(count);
+    } catch (err) {
+      console.error('Error loading project activity:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const formatTableName = (name) => {
+    if (!name) return 'Unknown';
+    return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const formatFieldName = (name) => {
+    if (!name) return '';
+    return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const getActionStyle = (action) => {
+    switch (action) {
+      case 'created': return { dot: 'bg-green-400', badge: 'bg-green-500/15 text-green-400' };
+      case 'updated': return { dot: 'bg-blue-400', badge: 'bg-blue-500/15 text-blue-400' };
+      case 'deleted': return { dot: 'bg-red-400', badge: 'bg-red-500/15 text-red-400' };
+      default: return { dot: 'bg-slate-400', badge: 'bg-slate-500/15 text-slate-400' };
+    }
+  };
+
+  const filtered = activityLog.filter(entry => {
+    if (filterTable && entry.table_name !== filterTable) return false;
+    if (filterAction && entry.action !== filterAction) return false;
+    return true;
+  });
+
+  const uniqueTables = [...new Set(activityLog.map(e => e.table_name).filter(Boolean))];
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Activity className="w-5 h-5 text-teal-400" />
+          Project Activity
+          {totalCount > 0 && (
+            <span className="text-sm font-normal text-slate-400">({totalCount} events)</span>
+          )}
+        </h3>
+      </div>
+
+      {facilityIds.length > 0 && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Table</label>
+              <select
+                value={filterTable}
+                onChange={(e) => { setFilterTable(e.target.value); setPage(0); }}
+                className="w-full bg-slate-900 text-white px-3 py-2 rounded-lg border border-slate-700 text-sm focus:outline-none focus:border-teal-500"
+              >
+                <option value="">All Tables</option>
+                {uniqueTables.map(t => (
+                  <option key={t} value={t}>{formatTableName(t)}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <p className="text-white text-sm">Project created</p>
-              <p className="text-slate-400 text-xs mt-1">
-                {project.created_at
-                  ? format(new Date(project.created_at), 'MMMM d, yyyy h:mm a')
-                  : 'Unknown'}
-              </p>
+              <label className="block text-xs text-slate-400 mb-1">Action</label>
+              <select
+                value={filterAction}
+                onChange={(e) => { setFilterAction(e.target.value); setPage(0); }}
+                className="w-full bg-slate-900 text-white px-3 py-2 rounded-lg border border-slate-700 text-sm focus:outline-none focus:border-teal-500"
+              >
+                <option value="">All Actions</option>
+                <option value="created">Created</option>
+                <option value="updated">Updated</option>
+                <option value="deleted">Deleted</option>
+              </select>
             </div>
           </div>
-          {project.updated_at && project.updated_at !== project.created_at && (
-            <div className="flex items-start gap-4">
-              <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <Pencil className="w-4 h-4 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-white text-sm">Project updated</p>
-                <p className="text-slate-400 text-xs mt-1">
-                  {format(new Date(project.updated_at), 'MMMM d, yyyy h:mm a')}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-10 h-10 border-3 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">Loading activity...</p>
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
+          <Activity className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+          <p className="text-slate-400">
+            {facilityIds.length === 0
+              ? 'No facilities in this project yet'
+              : filterTable || filterAction
+                ? 'No matching activity found'
+                : 'No activity recorded yet. Changes to facilities, milestones, equipment, and more will appear here automatically.'}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-700/50">
+          {filtered.map(entry => {
+            const style = getActionStyle(entry.action);
+            const facility = facilityMap[entry.facility_id];
+            return (
+              <div key={entry.id} className="px-5 py-4 hover:bg-slate-700/20 transition-colors">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${style.badge}`}>
+                        {entry.action}
+                      </span>
+                      <span className="text-slate-300 text-sm font-medium">
+                        {formatTableName(entry.table_name)}
+                      </span>
+                      {entry.field_name && (
+                        <>
+                          <span className="text-slate-600 text-xs">/</span>
+                          <span className="text-slate-400 text-sm">
+                            {formatFieldName(entry.field_name)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                      {facility && (
+                        <Link
+                          to={`/facilities/${facility.id}`}
+                          className="text-teal-400 hover:text-teal-300 transition-colors font-medium"
+                        >
+                          {facility.name}
+                        </Link>
+                      )}
+                      {facility && <span className="text-slate-600">--</span>}
+                      <span className="text-slate-400">{entry.user}</span>
+                      <span className="text-slate-600">--</span>
+                      <span title={new Date(entry.timestamp).toLocaleString()}>
+                        {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
+                      </span>
+                    </div>
+                    {entry.action === 'updated' && (entry.old_value || entry.new_value) && (
+                      <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {entry.old_value && (
+                          <div className="px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded text-xs text-slate-400 truncate">
+                            <span className="text-slate-500 mr-1">was:</span> {entry.old_value}
+                          </div>
+                        )}
+                        {entry.new_value && (
+                          <div className="px-3 py-1.5 bg-teal-500/5 border border-teal-500/20 rounded text-xs text-teal-300 truncate">
+                            <span className="text-teal-500/70 mr-1">now:</span> {entry.new_value}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-slate-400 text-sm">
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

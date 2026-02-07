@@ -71,6 +71,33 @@ export const auditService = {
     return data || [];
   },
 
+  async getProjectActivityLog(facilityIds, limit = 50, offset = 0) {
+    if (!facilityIds?.length) return [];
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .in('facility_id', facilityIds)
+      .order('timestamp', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    return (data || []).map(log => ({
+      ...log,
+      user: log.user_display_name || 'System'
+    }));
+  },
+
+  async getProjectActivityLogCount(facilityIds) {
+    if (!facilityIds?.length) return 0;
+    const { count, error } = await supabase
+      .from('activity_log')
+      .select('*', { count: 'exact', head: true })
+      .in('facility_id', facilityIds);
+
+    if (error) throw error;
+    return count || 0;
+  },
+
   formatActivityEntry(entry, users = {}) {
     const timestamp = new Date(entry.timestamp).toLocaleString();
     const userName = users[entry.user_id]?.display_name || 'Unknown User';
