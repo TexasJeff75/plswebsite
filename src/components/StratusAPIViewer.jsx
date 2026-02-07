@@ -426,17 +426,21 @@ export default function StratusAPIViewer() {
 
       for (const guid of ordersData.results) {
         try {
-          const { data: existing } = await supabase
+          const { data: existing, error: selectError } = await supabase
             .from('lab_orders')
             .select('id, sync_status')
             .eq('stratus_guid', guid)
             .maybeSingle();
 
+          if (selectError) {
+            throw new Error(`Failed to check existing order: ${selectError.message}`);
+          }
+
           if (existing && existing.sync_status === 'acknowledged') {
             addDebugLog({
               type: 'info',
               endpoint: 'sync',
-              message: `Order ${guid} already exists, skipping`,
+              message: `Order ${guid} already acknowledged, skipping`,
             });
             continue;
           }
@@ -450,7 +454,7 @@ export default function StratusAPIViewer() {
           const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
 
           if (existing) {
-            await supabase
+            const { error: updateError } = await supabase
               .from('lab_orders')
               .update({
                 order_data: orderData,
@@ -458,8 +462,12 @@ export default function StratusAPIViewer() {
                 retrieved_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
+
+            if (updateError) {
+              throw new Error(`DB update failed: ${updateError.message} (code: ${updateError.code})`);
+            }
           } else {
-            await supabase
+            const { error: insertError } = await supabase
               .from('lab_orders')
               .insert({
                 stratus_guid: guid,
@@ -467,13 +475,17 @@ export default function StratusAPIViewer() {
                 sync_status: 'retrieved',
                 retrieved_at: new Date().toISOString(),
               });
+
+            if (insertError) {
+              throw new Error(`DB insert failed: ${insertError.message} (code: ${insertError.code})`);
+            }
           }
 
           processedOrders.push(guid);
           addDebugLog({
             type: 'success',
             endpoint: 'sync',
-            message: `Synced order ${guid}`,
+            message: `Synced order ${guid} to database`,
           });
         } catch (err) {
           errors.push({ guid, error: err.message });
@@ -490,6 +502,12 @@ export default function StratusAPIViewer() {
         endpoint: 'sync',
         message: `Sync complete: ${processedOrders.length} synced, ${errors.length} errors`,
       });
+
+      if (errors.length > 0) {
+        setError(`Sync partially failed: ${processedOrders.length} succeeded, ${errors.length} failed. Check debug logs for details.`);
+      } else if (processedOrders.length === 0) {
+        setError('No new orders were synced. All orders may already exist in the database.');
+      }
 
     } catch (err) {
       setError(`Sync failed: ${err.message}`);
