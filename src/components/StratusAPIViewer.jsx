@@ -166,7 +166,7 @@ export default function StratusAPIViewer() {
       console.group('%c Fetching Orders', 'color: #14b8a6; font-weight: bold;');
       console.log('Endpoint: /orders');
       console.log('Limit: ', limit);
-      console.log('Target: https://novagen.stratusdx.net/interface/orders');
+      console.log('Target: https://testapi.stratusdx.net/interface/orders');
       const data = await callStratusAPI('/orders');
       console.log('Orders response:', data);
       if (data.total_count && data.result_count) {
