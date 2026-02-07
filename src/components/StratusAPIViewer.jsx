@@ -52,7 +52,7 @@ export default function StratusAPIViewer() {
 
   async function callStratusAPI(endpoint, options = {}) {
     const startTime = Date.now();
-    const { useLimit = true } = options;
+    const { useLimit = true, method = 'GET' } = options;
 
     addDebugLog({
       type: 'request',
@@ -96,6 +96,7 @@ export default function StratusAPIViewer() {
       });
 
       const response = await fetch(proxyUrl, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -481,12 +482,37 @@ export default function StratusAPIViewer() {
             }
           }
 
-          processedOrders.push(guid);
           addDebugLog({
-            type: 'success',
+            type: 'info',
             endpoint: 'sync',
-            message: `Synced order ${guid} to database`,
+            message: `Acknowledging order ${guid}...`,
           });
+
+          try {
+            await callStratusAPI(`/order/${guid}/ack`, { method: 'POST', useLimit: false });
+
+            await supabase
+              .from('lab_orders')
+              .update({
+                sync_status: 'acknowledged',
+                acknowledged_at: new Date().toISOString(),
+              })
+              .eq('stratus_guid', guid);
+
+            addDebugLog({
+              type: 'success',
+              endpoint: 'sync',
+              message: `Order ${guid} synced and acknowledged`,
+            });
+          } catch (ackErr) {
+            addDebugLog({
+              type: 'error',
+              endpoint: 'sync',
+              message: `Order ${guid} saved but ACK failed: ${ackErr.message}`,
+            });
+          }
+
+          processedOrders.push(guid);
         } catch (err) {
           errors.push({ guid, error: err.message });
           addDebugLog({

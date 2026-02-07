@@ -17,7 +17,7 @@ exports.handler = async (event, context) => {
     };
   }
 
-  if (event.httpMethod !== 'GET') {
+  if (!['GET', 'POST'].includes(event.httpMethod)) {
     return {
       statusCode: 405,
       headers: corsHeaders,
@@ -76,11 +76,16 @@ exports.handler = async (event, context) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        response = await fetch(stratusUrl, {
-          method: "GET",
+        const fetchOptions = {
+          method: event.httpMethod,
           headers: stratusHeaders,
           signal: controller.signal,
-        });
+        };
+        if (event.httpMethod === 'POST' && event.body) {
+          fetchOptions.body = event.body;
+        }
+
+        response = await fetch(stratusUrl, fetchOptions);
 
         clearTimeout(timeoutId);
         console.log(`[SUCCESS] Connected on attempt ${attempt}`);
