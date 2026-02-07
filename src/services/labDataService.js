@@ -222,15 +222,11 @@ export async function getLabDataStats(organizationId = null) {
 }
 
 export async function exploreStratusAPI(endpoint, method = 'GET', testParams = {}) {
-  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/explore-stratus-api`;
-  const headers = {
-    'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
-  };
-
-  const response = await fetch(apiUrl, {
+  const response = await fetch('/.netlify/functions/explore-stratus-api', {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
       endpoint,
       method,
