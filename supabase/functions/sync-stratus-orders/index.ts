@@ -51,6 +51,7 @@ Deno.serve(async (req: Request) => {
     };
 
     console.log("Fetching pending orders from StratusDX...");
+    console.log("Note: StratusDX API returns max 5 orders per request. Processing in batches.");
 
     const processedOrders = [];
     const errors = [];
@@ -60,7 +61,7 @@ Deno.serve(async (req: Request) => {
 
     while (continueProcessing) {
       batchNumber++;
-      console.log(`\n=== Processing Batch ${batchNumber} ===`);
+      console.log(`\n=== Processing Batch ${batchNumber} (max 5 orders per batch) ===`);
 
       const listResponse = await fetch(`${STRATUS_BASE_URL}/orders`, {
         method: "GET",
