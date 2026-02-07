@@ -27,8 +27,6 @@ exports.handler = async (event, context) => {
 
   try {
     const endpoint = event.queryStringParameters?.endpoint;
-    const limit = event.queryStringParameters?.limit;
-    const offset = event.queryStringParameters?.offset;
 
     if (!endpoint) {
       return {
@@ -48,12 +46,23 @@ exports.handler = async (event, context) => {
     let stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
 
     const queryParams = [];
-    if (limit) queryParams.push(`max=${limit}`);
-    if (offset) queryParams.push(`offset=${offset}`);
+
+    if (event.queryStringParameters) {
+      for (const [key, value] of Object.entries(event.queryStringParameters)) {
+        if (key !== 'endpoint') {
+          if (key === 'limit') {
+            queryParams.push(`max=${value}`);
+          } else {
+            queryParams.push(`${key}=${value}`);
+          }
+        }
+      }
+    }
+
     if (queryParams.length > 0) {
       stratusUrl += (endpoint.includes('?') ? '&' : '?') + queryParams.join('&');
     }
-    console.log(`[REQUEST] Fetching with params: limit=${limit}, offset=${offset}`);
+    console.log(`[REQUEST] Query params: ${queryParams.join(', ')}`);
     console.log(`[REQUEST] Final URL: ${stratusUrl}`);
 
     const maxRetries = 3;
@@ -102,7 +111,6 @@ exports.handler = async (event, context) => {
       console.log(`[DATA] JSON Response received`);
       if (data.total_count !== undefined && data.result_count !== undefined) {
         console.log(`[PAGINATION] total_count: ${data.total_count}, result_count: ${data.result_count}`);
-        console.log(`[PAGINATION] Requested limit: ${limit || 'default'}`);
       }
     } else {
       data = await response.text();

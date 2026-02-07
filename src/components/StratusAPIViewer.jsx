@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key, Download, Settings2 } from 'lucide-react';
+import { RefreshCw, Eye, Database, AlertCircle, CheckCircle2, Key, Download, Settings2, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function StratusAPIViewer() {
@@ -16,6 +16,9 @@ export default function StratusAPIViewer() {
   const [debugLogs, setDebugLogs] = useState([]);
   const [limit, setLimit] = useState(50);
   const [showSettings, setShowSettings] = useState(false);
+  const [showExplorer, setShowExplorer] = useState(false);
+  const [explorerResults, setExplorerResults] = useState(null);
+  const [exploring, setExploring] = useState(false);
 
   useEffect(() => {
     async function debugJWT() {
@@ -286,6 +289,124 @@ export default function StratusAPIViewer() {
     }
   }
 
+  async function exploreAPIEndpoint(endpoint) {
+    setExploring(true);
+    setError(null);
+    setExplorerResults(null);
+
+    const testConfigs = [
+      { name: 'Base Request', params: {} },
+      { name: 'Pagination: limit', params: { limit: 100 } },
+      { name: 'Pagination: limit', params: { limit: 50 } },
+      { name: 'Pagination: per_page', params: { per_page: 100 } },
+      { name: 'Pagination: count', params: { count: 100 } },
+      { name: 'Pagination: max', params: { max: 100 } },
+      { name: 'Pagination: page_size', params: { page_size: 100 } },
+      { name: 'Pagination: offset&limit', params: { offset: 0, limit: 100 } },
+      { name: 'Pagination: page&per_page', params: { page: 1, per_page: 100 } },
+      { name: 'Pagination: start&end', params: { start: 0, end: 100 } },
+    ];
+
+    const results = [];
+
+    for (const config of testConfigs) {
+      try {
+        addDebugLog({
+          type: 'info',
+          endpoint: 'explorer',
+          message: `Testing ${config.name}...`,
+        });
+
+        const queryParams = new URLSearchParams();
+        queryParams.append('endpoint', endpoint);
+
+        Object.entries(config.params).forEach(([key, value]) => {
+          queryParams.append(key, value);
+        });
+
+        const url = `/.netlify/functions/stratus-api-proxy?${queryParams.toString()}`;
+
+        const response = await fetch(url);
+
+        if (response.ok) {
+          const data = await response.json();
+          results.push({
+            test: config.name,
+            params: config.params,
+            success: true,
+            result_count: data.result_count,
+            total_count: data.total_count,
+            url: url,
+          });
+
+          addDebugLog({
+            type: 'success',
+            endpoint: 'explorer',
+            message: `${config.name} succeeded: ${data.result_count} results`,
+          });
+        } else {
+          const errorText = await response.text();
+          results.push({
+            test: config.name,
+            params: config.params,
+            success: false,
+            error: `${response.status}: ${errorText}`,
+            url: url,
+          });
+
+          addDebugLog({
+            type: 'error',
+            endpoint: 'explorer',
+            message: `${config.name} failed: ${response.status}`,
+          });
+        }
+      } catch (err) {
+        results.push({
+          test: config.name,
+          params: config.params,
+          success: false,
+          error: err.message,
+        });
+
+        addDebugLog({
+          type: 'error',
+          endpoint: 'explorer',
+          message: `${config.name} exception: ${err.message}`,
+        });
+      }
+    }
+
+    const recommendations = [];
+    const successfulTests = results.filter(r => r.success);
+
+    if (successfulTests.length === 0) {
+      recommendations.push('No pagination parameters worked - API likely uses queue-based system (ACK required)');
+    } else {
+      const varyingResults = successfulTests.filter(r =>
+        r.result_count !== successfulTests[0].result_count
+      );
+      if (varyingResults.length > 0) {
+        recommendations.push('Found working pagination parameters with varying results');
+      }
+    }
+
+    setExplorerResults({
+      total_tests: results.length,
+      successful: successfulTests.length,
+      failed: results.length - successfulTests.length,
+      results,
+      recommendations,
+    });
+
+    addDebugLog({
+      type: 'success',
+      endpoint: 'explorer',
+      message: `Exploration complete: ${results.length} tests, ${successfulTests.length} successful`,
+    });
+
+    setExploring(false);
+  }
+
   async function syncOrdersToDatabase() {
     setSyncing(true);
     setError(null);
@@ -406,6 +527,14 @@ export default function StratusAPIViewer() {
           Settings
         </button>
 
+        <button
+          onClick={() => setShowExplorer(!showExplorer)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+        >
+          <Search className="w-4 h-4" />
+          API Explorer
+        </button>
+
         {ordersData?.results?.length > 0 && (
           <button
             onClick={syncOrdersToDatabase}
@@ -445,6 +574,123 @@ export default function StratusAPIViewer() {
         </div>
       )}
 
+      {showExplorer && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-white font-medium mb-4">API Explorer</h4>
+          <p className="text-slate-400 text-sm mb-4">
+            Test the API endpoints with various pagination parameters to discover what works. All tests use the Netlify proxy.
+          </p>
+
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => exploreAPIEndpoint('/orders')}
+              disabled={exploring}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /orders
+            </button>
+            <button
+              onClick={() => exploreAPIEndpoint('/order/received')}
+              disabled={exploring}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /confirmations
+            </button>
+            <button
+              onClick={() => exploreAPIEndpoint('/results')}
+              disabled={exploring}
+              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              Explore /results
+            </button>
+          </div>
+
+          {exploring && (
+            <div className="flex items-center gap-2 text-blue-400 text-sm">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Running exploration tests...
+            </div>
+          )}
+
+          {explorerResults && (
+            <div className="space-y-4 mt-4">
+              <div className="bg-slate-900/50 border border-slate-600 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="text-white font-medium">Exploration Results</h5>
+                  <div className="flex gap-3 text-sm">
+                    <span className="text-green-400">{explorerResults.successful} passed</span>
+                    <span className="text-red-400">{explorerResults.failed} failed</span>
+                  </div>
+                </div>
+
+                {explorerResults.recommendations && explorerResults.recommendations.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-blue-400 font-medium text-sm mb-2">Recommendations:</p>
+                    <ul className="text-sm text-blue-300 space-y-1">
+                      {explorerResults.recommendations.map((rec, idx) => (
+                        <li key={idx} className="flex gap-2">
+                          <span>•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {explorerResults.results?.map((result, idx) => (
+                    <div key={idx} className="bg-slate-800/50 border border-slate-600 rounded p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-white">{result.test}</span>
+                        {result.success ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-400" />
+                        )}
+                      </div>
+
+                      {Object.keys(result.params).length > 0 && (
+                        <div className="text-xs text-slate-400 mb-1">
+                          Params: {JSON.stringify(result.params)}
+                        </div>
+                      )}
+
+                      {result.result_count !== undefined && (
+                        <div className="text-xs text-teal-400">
+                          Result Count: {result.result_count}
+                        </div>
+                      )}
+
+                      {result.total_count !== undefined && (
+                        <div className="text-xs text-blue-400">
+                          Total Count: {result.total_count}
+                        </div>
+                      )}
+
+                      {result.error && (
+                        <div className="text-xs text-red-400 mt-1">
+                          Error: {result.error}
+                        </div>
+                      )}
+
+                      {result.url && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
+                            Show URL
+                          </summary>
+                          <code className="text-xs text-slate-400 block mt-1 break-all">
+                            {result.url}
+                          </code>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {jwtDebug && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
