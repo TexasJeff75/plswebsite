@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Building2, Folder, Calendar, User, AlertCircle, Clock,
   CheckCircle2, Plus, Pencil, MapPin, TrendingUp, Activity,
-  Eye, Trash2, MoreHorizontal, ChevronRight
+  Eye, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown
 } from 'lucide-react';
 import { facilityStatsService } from '../services/facilityStatsService';
 import { format } from 'date-fns';
@@ -176,7 +176,9 @@ export default function ProjectDetail() {
 function OverviewTab({ project, organization, facilities, isEditor, onRefresh }) {
   const navigate = useNavigate();
   const [removingId, setRemovingId] = useState(null);
-  const [actionMenuId, setActionMenuId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   const facilitiesWithStats = facilities.map(f => {
     const status = facilityStatsService.calculateOverallStatus(f);
@@ -190,6 +192,72 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
   const inProgressFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'in_progress').length;
   const blockedFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'blocked').length;
   const notStartedFacilities = facilitiesWithStats.filter(f => f.calculatedStatus === 'not_started').length;
+
+  const filteredAndSorted = React.useMemo(() => {
+    let result = [...facilitiesWithStats];
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(f =>
+        f.name?.toLowerCase().includes(term) ||
+        f.city?.toLowerCase().includes(term) ||
+        f.state?.toLowerCase().includes(term)
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      result = result.filter(f => f.calculatedStatus === statusFilter);
+    }
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aVal, bVal;
+        switch (sortConfig.key) {
+          case 'name':
+            aVal = a.name?.toLowerCase() || '';
+            bVal = b.name?.toLowerCase() || '';
+            break;
+          case 'location':
+            aVal = `${a.city} ${a.state}`.toLowerCase();
+            bVal = `${b.city} ${b.state}`.toLowerCase();
+            break;
+          case 'status':
+            aVal = a.calculatedStatus;
+            bVal = b.calculatedStatus;
+            break;
+          case 'milestones':
+            aVal = a.milestoneProgress;
+            bVal = b.milestoneProgress;
+            break;
+          case 'go_live':
+            aVal = a.projected_go_live_date ? new Date(a.projected_go_live_date).getTime() : 0;
+            bVal = b.projected_go_live_date ? new Date(b.projected_go_live_date).getTime() : 0;
+            break;
+          default:
+            return 0;
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [facilitiesWithStats, searchTerm, statusFilter, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    return sortConfig.direction === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+  };
 
   async function handleRemoveFacility(facilityId) {
     if (!confirm('Remove this facility from the project? The facility will not be deleted, only unlinked from this project.')) return;
@@ -362,6 +430,35 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
           )}
         </div>
 
+        {facilities.length > 0 && (
+          <div className="px-6 py-3 border-b border-slate-700 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search facilities..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500 cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="live">Live</option>
+                <option value="in_progress">In Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="not_started">Not Started</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
+
         {facilities.length === 0 ? (
           <div className="p-12 text-center">
             <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
@@ -381,16 +478,37 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/30">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Facility</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Milestones</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Go-Live</th>
+                  {[
+                    { key: 'name', label: 'Facility' },
+                    { key: 'location', label: 'Location' },
+                    { key: 'status', label: 'Status' },
+                    { key: 'milestones', label: 'Milestones' },
+                    { key: 'go_live', label: 'Go-Live' },
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col.key)}
+                      className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {col.label}
+                        {getSortIcon(col.key)}
+                      </div>
+                    </th>
+                  ))}
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {facilitiesWithStats.map(facility => {
+                {filteredAndSorted.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                      {searchTerm || statusFilter !== 'all'
+                        ? 'No facilities match your filters'
+                        : 'No facilities found'}
+                    </td>
+                  </tr>
+                ) : filteredAndSorted.map(facility => {
                   const statusBadgeColor = facilityStatsService.getStatusBadgeColor(facility.calculatedStatus);
                   const statusLabel = facility.calculatedStatus.replace('_', ' ');
 

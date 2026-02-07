@@ -4,7 +4,8 @@ import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Search, Building2, Users, DollarSign, Filter,
-  MoreVertical, Eye, Pencil, Archive, X, ChevronDown
+  MoreVertical, Eye, Pencil, Archive, X, ChevronDown,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 
 export default function Organizations() {
@@ -18,6 +19,7 @@ export default function Organizations() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   useEffect(() => {
     loadOrganizations();
@@ -25,7 +27,7 @@ export default function Organizations() {
 
   useEffect(() => {
     filterOrganizations();
-  }, [organizations, searchTerm, typeFilter, statusFilter]);
+  }, [organizations, searchTerm, typeFilter, statusFilter, sortConfig]);
 
   async function loadOrganizations() {
     try {
@@ -42,8 +44,10 @@ export default function Organizations() {
     let filtered = [...organizations];
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(org =>
-        org.name.toLowerCase().includes(searchTerm.toLowerCase())
+        org.name.toLowerCase().includes(term) ||
+        org.region?.toLowerCase().includes(term)
       );
     }
 
@@ -55,8 +59,59 @@ export default function Organizations() {
       filtered = filtered.filter(org => org.contract_status === statusFilter);
     }
 
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal, bVal;
+        switch (sortConfig.key) {
+          case 'name':
+            aVal = a.name?.toLowerCase() || '';
+            bVal = b.name?.toLowerCase() || '';
+            break;
+          case 'type':
+            aVal = a.client_type || '';
+            bVal = b.client_type || '';
+            break;
+          case 'sites':
+            aVal = a.totalFacilities || 0;
+            bVal = b.totalFacilities || 0;
+            break;
+          case 'compliance':
+            aVal = a.complianceScore || 0;
+            bVal = b.complianceScore || 0;
+            break;
+          case 'mrr':
+            aVal = a.monthly_recurring_revenue || 0;
+            bVal = b.monthly_recurring_revenue || 0;
+            break;
+          case 'status':
+            aVal = a.contract_status || '';
+            bVal = b.contract_status || '';
+            break;
+          default:
+            return 0;
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
     setFilteredOrgs(filtered);
   }
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    return sortConfig.direction === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+  };
 
   const stats = {
     total: organizations.length,
@@ -234,14 +289,43 @@ export default function Organizations() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Organization</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sites</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Compliance</th>
+                {[
+                  { key: 'name', label: 'Organization' },
+                  { key: 'type', label: 'Type' },
+                  { key: 'sites', label: 'Sites' },
+                  { key: 'compliance', label: 'Compliance' },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {col.label}
+                      {getSortIcon(col.key)}
+                    </div>
+                  </th>
+                ))}
                 {isProximityAdmin && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">MRR</th>
+                  <th
+                    onClick={() => handleSort('mrr')}
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      MRR
+                      {getSortIcon('mrr')}
+                    </div>
+                  </th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    Status
+                    {getSortIcon('status')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>

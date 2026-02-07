@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CheckCircle, XCircle, RefreshCw, Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
@@ -28,6 +28,9 @@ export default function Users() {
   const [userOrgAssignments, setUserOrgAssignments] = useState([]);
   const [savingAssignments, setSavingAssignments] = useState(false);
   const [activeTab, setActiveTab] = useState('users');
+  const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [newInvitation, setNewInvitation] = useState({
     email: '',
     role: 'Customer Viewer',
@@ -286,6 +289,68 @@ export default function Users() {
     );
   }
 
+  const filteredUsers = React.useMemo(() => {
+    let result = [...users];
+
+    if (userSearch) {
+      const term = userSearch.toLowerCase();
+      result = result.filter(u =>
+        u.display_name?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term) ||
+        u.organization?.name?.toLowerCase().includes(term)
+      );
+    }
+
+    if (roleFilter !== 'all') {
+      result = result.filter(u => u.role === roleFilter);
+    }
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aVal, bVal;
+        switch (sortConfig.key) {
+          case 'name':
+            aVal = a.display_name?.toLowerCase() || a.email?.toLowerCase() || '';
+            bVal = b.display_name?.toLowerCase() || b.email?.toLowerCase() || '';
+            break;
+          case 'role':
+            aVal = a.role || '';
+            bVal = b.role || '';
+            break;
+          case 'organization':
+            aVal = a.organization?.name?.toLowerCase() || '';
+            bVal = b.organization?.name?.toLowerCase() || '';
+            break;
+          case 'joined':
+            aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+            bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+            break;
+          default:
+            return 0;
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [users, userSearch, roleFilter, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    return sortConfig.direction === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+  };
+
   const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
   const isInviteCustomerRole = CUSTOMER_ROLES.includes(newInvitation.role);
 
@@ -338,18 +403,62 @@ export default function Users() {
 
       {activeTab === 'users' ? (
         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+          <div className="p-4 border-b border-slate-700 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="appearance-none pl-4 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500 cursor-pointer"
+              >
+                <option value="all">All Roles</option>
+                {ALL_ROLES.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
           <table className="w-full">
             <thead className="bg-slate-900 border-b border-slate-700">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">User</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Role</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Organization(s)</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Joined</th>
+                {[
+                  { key: 'name', label: 'User' },
+                  { key: 'role', label: 'Role' },
+                  { key: 'organization', label: 'Organization(s)' },
+                  { key: 'joined', label: 'Joined' },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className="text-left px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider cursor-pointer hover:text-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {col.label}
+                      {getSortIcon(col.key)}
+                    </div>
+                  </th>
+                ))}
                 <th className="text-right px-6 py-3 text-xs font-semibold text-slate-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {users.map(user => (
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
+                    {userSearch || roleFilter !== 'all' ? 'No users match your filters' : 'No users found'}
+                  </td>
+                </tr>
+              ) : filteredUsers.map(user => (
                 <tr key={user.id} className="hover:bg-slate-750 transition-colors">
                   <td className="px-6 py-4">
                     <div>

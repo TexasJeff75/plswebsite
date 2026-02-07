@@ -4,7 +4,7 @@ import { projectsService } from '../services/projectsService';
 import { organizationsService } from '../services/organizationsService';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Search, FolderOpen, Calendar, User, TrendingUp, X } from 'lucide-react';
+import { Plus, Search, FolderOpen, Calendar, User, TrendingUp, X, ChevronDown } from 'lucide-react';
 import FormField from './FormField';
 import FormError from './FormError';
 
@@ -17,6 +17,7 @@ export default function Projects() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [error, setError] = useState('');
+  const [sortBy, setSortBy] = useState('name');
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -220,6 +221,21 @@ export default function Projects() {
             ))}
           </select>
         )}
+
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="appearance-none pl-4 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+          >
+            <option value="name">Sort: Name</option>
+            <option value="status">Sort: Status</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+            <option value="target_date">Sort: Target Date</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
       </div>
 
       {projects.length === 0 ? (
@@ -234,7 +250,22 @@ export default function Projects() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map(project => (
+          {[...projects].sort((a, b) => {
+            switch (sortBy) {
+              case 'name':
+                return (a.name || '').localeCompare(b.name || '');
+              case 'status':
+                return (a.status || '').localeCompare(b.status || '');
+              case 'newest':
+                return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+              case 'oldest':
+                return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+              case 'target_date':
+                return new Date(a.target_completion_date || '9999') - new Date(b.target_completion_date || '9999');
+              default:
+                return 0;
+            }
+          }).map(project => (
             <div
               key={project.id}
               className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-teal-500/50 transition-all"

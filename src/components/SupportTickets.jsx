@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Search, Ticket, AlertCircle, Clock, CheckCircle2,
-  ChevronDown, X, Filter
+  ChevronDown, X, Filter, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -21,6 +21,8 @@ export default function SupportTickets() {
   const [organizations, setOrganizations] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filters, setFilters] = useState({
     priority: 'all',
     status: 'all',
@@ -35,7 +37,7 @@ export default function SupportTickets() {
 
   useEffect(() => {
     applyFilters();
-  }, [tickets, activeTab, filters, user]);
+  }, [tickets, activeTab, filters, user, searchTerm, sortConfig]);
 
   async function loadData() {
     try {
@@ -101,8 +103,69 @@ export default function SupportTickets() {
       filtered = filtered.filter(t => t.assigned_to === filters.assigned_to);
     }
 
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.subject?.toLowerCase().includes(term) ||
+        t.organization?.name?.toLowerCase().includes(term) ||
+        t.ticket_number?.toLowerCase().includes(term)
+      );
+    }
+
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal, bVal;
+        switch (sortConfig.key) {
+          case 'ticket':
+            aVal = a.subject?.toLowerCase() || '';
+            bVal = b.subject?.toLowerCase() || '';
+            break;
+          case 'client':
+            aVal = a.organization?.name?.toLowerCase() || '';
+            bVal = b.organization?.name?.toLowerCase() || '';
+            break;
+          case 'priority':
+            const pOrder = { critical: 0, high: 1, normal: 2, low: 3 };
+            aVal = pOrder[a.priority] ?? 4;
+            bVal = pOrder[b.priority] ?? 4;
+            break;
+          case 'status':
+            aVal = a.status || '';
+            bVal = b.status || '';
+            break;
+          case 'category':
+            aVal = a.category || '';
+            bVal = b.category || '';
+            break;
+          case 'created':
+            aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+            bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+            break;
+          default:
+            return 0;
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
     setFilteredTickets(filtered);
   }
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    return sortConfig.direction === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+  };
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -241,6 +304,16 @@ export default function SupportTickets() {
 
         <div className="p-4 border-b border-slate-700">
           <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search tickets..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:border-teal-500"
+              />
+            </div>
             <div className="relative">
               <select
                 value={filters.priority}
@@ -325,13 +398,34 @@ export default function SupportTickets() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Ticket</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Category</th>
+                {[
+                  { key: 'ticket', label: 'Ticket' },
+                  { key: 'client', label: 'Client' },
+                  { key: 'priority', label: 'Priority' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'category', label: 'Category' },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {col.label}
+                      {getSortIcon(col.key)}
+                    </div>
+                  </th>
+                ))}
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Created</th>
+                <th
+                  onClick={() => handleSort('created')}
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-200 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    Created
+                    {getSortIcon('created')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">SLA</th>
               </tr>
             </thead>
