@@ -411,158 +411,90 @@ export default function StratusAPIViewer() {
   async function syncAllOrders() {
     setSyncing(true);
     setError(null);
-    const allProcessed = [];
-    const allErrors = [];
-    let batchNumber = 0;
 
     try {
       addDebugLog({
         type: 'request',
         endpoint: 'sync',
-        message: 'Starting full sync -- will fetch, save, and ACK all pending orders automatically',
+        message: 'Starting full sync: orders, confirmations, and results via edge functions',
       });
 
-      while (true) {
-        batchNumber++;
+      const syncSteps = [
+        { name: 'Orders', endpoint: 'sync-stratus-orders', key: 'orders' },
+        { name: 'Confirmations', endpoint: 'sync-stratus-confirmations', key: 'confirmations' },
+        { name: 'Results', endpoint: 'sync-stratus-results', key: 'results' },
+      ];
+
+      const results = {};
+
+      for (const step of syncSteps) {
         addDebugLog({
           type: 'info',
           endpoint: 'sync',
-          message: `Batch ${batchNumber}: Fetching pending orders from Stratus...`,
+          message: `Syncing ${step.name}...`,
         });
 
-        const batch = await callStratusAPI('/orders');
-        const guids = batch?.results || [];
+        try {
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.endpoint}`;
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-        if (guids.length === 0) {
+          if (!response.ok) {
+            const errBody = await response.json().catch(() => ({ details: response.statusText }));
+            throw new Error(errBody.details || `${response.status} ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          results[step.key] = data;
+
+          const summary = data.summary || data;
+          const processed = summary.total_processed ?? summary.processed ?? 0;
+          const errors = summary.errors ?? 0;
+
           addDebugLog({
             type: 'success',
             endpoint: 'sync',
-            message: `Batch ${batchNumber}: No more pending orders. All done.`,
+            message: `${step.name}: ${processed} processed, ${errors} errors`,
+            details: JSON.stringify(summary, null, 2),
           });
-          break;
+        } catch (err) {
+          results[step.key] = { error: err.message };
+          addDebugLog({
+            type: 'error',
+            endpoint: 'sync',
+            message: `${step.name} failed: ${err.message}`,
+          });
         }
+      }
 
-        addDebugLog({
-          type: 'info',
-          endpoint: 'sync',
-          message: `Batch ${batchNumber}: Found ${guids.length} orders (${batch.total_count || '?'} total remaining)`,
-        });
-
-        setOrdersData(batch);
-
-        for (const guid of guids) {
-          try {
-            const { data: existing, error: selectError } = await supabase
-              .from('lab_orders')
-              .select('id, sync_status')
-              .eq('stratus_guid', guid)
-              .maybeSingle();
-
-            if (selectError) {
-              throw new Error(`Failed to check existing order: ${selectError.message}`);
-            }
-
-            if (existing && existing.sync_status === 'acknowledged') {
-              addDebugLog({
-                type: 'info',
-                endpoint: 'sync',
-                message: `Order ${guid} already acknowledged, skipping`,
-              });
-              continue;
-            }
-
-            addDebugLog({
-              type: 'info',
-              endpoint: 'sync',
-              message: `Fetching details for ${guid}...`,
-            });
-
-            const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
-
-            if (existing) {
-              const { error: updateError } = await supabase
-                .from('lab_orders')
-                .update({
-                  order_data: orderData,
-                  sync_status: 'retrieved',
-                  retrieved_at: new Date().toISOString(),
-                })
-                .eq('id', existing.id);
-
-              if (updateError) {
-                throw new Error(`DB update failed: ${updateError.message} (code: ${updateError.code})`);
-              }
-            } else {
-              const { error: insertError } = await supabase
-                .from('lab_orders')
-                .insert({
-                  stratus_guid: guid,
-                  order_data: orderData,
-                  sync_status: 'retrieved',
-                  retrieved_at: new Date().toISOString(),
-                });
-
-              if (insertError) {
-                throw new Error(`DB insert failed: ${insertError.message} (code: ${insertError.code})`);
-              }
-            }
-
-            try {
-              await callStratusAPI(`/order/${guid}/ack`, { method: 'POST', useLimit: false });
-
-              await supabase
-                .from('lab_orders')
-                .update({
-                  sync_status: 'acknowledged',
-                  acknowledged_at: new Date().toISOString(),
-                })
-                .eq('stratus_guid', guid);
-
-              addDebugLog({
-                type: 'success',
-                endpoint: 'sync',
-                message: `Order ${guid} synced and acknowledged`,
-              });
-            } catch (ackErr) {
-              addDebugLog({
-                type: 'error',
-                endpoint: 'sync',
-                message: `Order ${guid} saved but ACK failed: ${ackErr.message}`,
-              });
-            }
-
-            allProcessed.push(guid);
-          } catch (err) {
-            allErrors.push({ guid, error: err.message });
-            addDebugLog({
-              type: 'error',
-              endpoint: 'sync',
-              message: `Failed to sync ${guid}: ${err.message}`,
-            });
-          }
-        }
-
-        addDebugLog({
-          type: 'success',
-          endpoint: 'sync',
-          message: `Batch ${batchNumber} complete: ${allProcessed.length} total synced so far`,
-        });
+      const anyErrors = Object.values(results).some(r => r.error);
+      if (anyErrors) {
+        const failedSteps = Object.entries(results)
+          .filter(([, r]) => r.error)
+          .map(([k]) => k)
+          .join(', ');
+        setError(`Sync completed with failures: ${failedSteps}. Check debug logs.`);
       }
 
       addDebugLog({
         type: 'success',
         endpoint: 'sync',
-        message: `Full sync complete: ${allProcessed.length} orders synced across ${batchNumber} batches, ${allErrors.length} errors`,
+        message: 'Full sync complete (orders + confirmations + results)',
+        details: JSON.stringify(results, null, 2),
       });
-
-      if (allErrors.length > 0) {
-        setError(`Sync done with errors: ${allProcessed.length} succeeded, ${allErrors.length} failed. Check debug logs.`);
-      }
-
-      setOrdersData(null);
 
     } catch (err) {
       setError(`Sync failed: ${err.message}`);
+      addDebugLog({
+        type: 'error',
+        endpoint: 'sync',
+        message: `Sync exception: ${err.message}`,
+      });
     } finally {
       setSyncing(false);
     }
@@ -611,7 +543,7 @@ export default function StratusAPIViewer() {
           className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50"
         >
           <Download className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing All Orders...' : 'Sync All Orders'}
+          {syncing ? 'Syncing All Data...' : 'Sync All Data'}
         </button>
       </div>
 
