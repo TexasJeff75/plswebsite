@@ -122,14 +122,18 @@ export const labOrdersService = {
     return data;
   },
 
-  async syncOrders() {
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stratus-orders`;
-    const headers = {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+  async _getSyncHeaders() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+    return {
+      'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     };
+  },
 
-    const response = await fetch(apiUrl, {
+  async syncOrders() {
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-orders', {
       method: 'POST',
       headers,
     });
@@ -143,13 +147,8 @@ export const labOrdersService = {
   },
 
   async syncConfirmations() {
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stratus-confirmations`;
-    const headers = {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-    };
-
-    const response = await fetch(apiUrl, {
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-confirmations', {
       method: 'POST',
       headers,
     });
@@ -163,13 +162,8 @@ export const labOrdersService = {
   },
 
   async syncResults() {
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-stratus-results`;
-    const headers = {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-    };
-
-    const response = await fetch(apiUrl, {
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-results', {
       method: 'POST',
       headers,
     });

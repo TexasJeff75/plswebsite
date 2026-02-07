@@ -416,8 +416,11 @@ export default function StratusAPIViewer() {
       addDebugLog({
         type: 'request',
         endpoint: 'sync',
-        message: 'Starting full sync: orders, confirmations, and results via edge functions',
+        message: 'Starting full sync: orders, confirmations, and results via Netlify functions',
       });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
       const syncSteps = [
         { name: 'Orders', endpoint: 'sync-stratus-orders', key: 'orders' },
@@ -435,11 +438,10 @@ export default function StratusAPIViewer() {
         });
 
         try {
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${step.endpoint}`;
-          const response = await fetch(apiUrl, {
+          const response = await fetch(`/.netlify/functions/${step.endpoint}`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
           });
