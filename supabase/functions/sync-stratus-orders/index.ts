@@ -214,9 +214,14 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`Batch ${batchNumber} complete. Processed: ${ordersData.results.length}`);
-    }
 
-    console.log(`\n=== Sync Complete ===`);
+    // Check if we should continue processing more batches
+    if (ordersData.results.length < ordersData.total_count) {
+      console.log(`More orders available in queue. Fetching next batch...`);
+    }
+  }
+
+  console.log(`\n=== Sync Complete ===`);
     console.log(`Total batches: ${batchNumber}`);
     console.log(`Total processed: ${totalProcessed}`);
     console.log(`Total errors: ${errors.length}`);
