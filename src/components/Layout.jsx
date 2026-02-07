@@ -56,17 +56,15 @@ export default function Layout() {
     )},
   ];
 
-  if (isInternalUser || accessibleOrganizations.length > 1) {
-    navItems.push({
-      path: '/projects',
-      label: 'Projects',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-        </svg>
-      )
-    });
-  }
+  navItems.push({
+    path: '/projects',
+    label: 'Projects',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+      </svg>
+    )
+  });
 
   if (['Proximity Admin', 'Proximity Staff'].includes(profile?.role)) {
     navItems.push({
@@ -180,7 +178,7 @@ export default function Layout() {
                   <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                   </svg>
-                  <span className="text-sm text-white truncate">{selectedProject?.name || 'Select Project'}</span>
+                  <span className="text-sm text-white truncate">{selectedProject?.name || 'All Projects'}</span>
                 </div>
                 <svg className={`w-4 h-4 text-slate-400 transition-transform ${showProjectMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
@@ -191,6 +189,17 @@ export default function Layout() {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowProjectMenu(false)} />
                   <div className="absolute left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setSelectedProject(null);
+                        setShowProjectMenu(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-700 transition-colors truncate border-b border-slate-700 ${
+                        !selectedProject ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300'
+                      }`}
+                    >
+                      All Projects
+                    </button>
                     {accessibleProjects.map(project => (
                       <button
                         key={project.id}

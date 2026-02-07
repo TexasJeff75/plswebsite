@@ -323,11 +323,19 @@ export default function Facilities() {
                           {facility.name}
                         </Link>
                       </td>
-                      <td className="py-4 px-4 text-slate-400">
-                        {facility.organization?.name || '-'}
+                      <td className="py-4 px-4">
+                        {facility.organization ? (
+                          <Link to={`/organizations/${facility.organization.id}`} className="text-slate-400 hover:text-teal-400 transition-colors">
+                            {facility.organization.name}
+                          </Link>
+                        ) : '-'}
                       </td>
-                      <td className="py-4 px-4 text-slate-400">
-                        {facility.project?.name || '-'}
+                      <td className="py-4 px-4">
+                        {facility.project ? (
+                          <Link to={`/projects/${facility.project.id}`} className="text-slate-400 hover:text-teal-400 transition-colors">
+                            {facility.project.name}
+                          </Link>
+                        ) : '-'}
                       </td>
                       <td className="py-4 px-4 text-slate-400">
                         {facility.city}, {facility.state}

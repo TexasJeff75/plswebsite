@@ -4,7 +4,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp } from 'lucide-react';
+import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder } from 'lucide-react';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
 import PersonnelTrainingTab from './facility-tabs/PersonnelTrainingTab';
@@ -193,6 +193,28 @@ export default function FacilityDetail() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 text-sm">
+        {facility.organization && (
+          <>
+            <Link to={`/organizations/${facility.organization.id}`} className="flex items-center gap-1.5 text-slate-400 hover:text-teal-400 transition-colors">
+              <Building2 className="w-3.5 h-3.5" />
+              {facility.organization.name}
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+          </>
+        )}
+        {facility.project && (
+          <>
+            <Link to={`/projects/${facility.project.id}`} className="flex items-center gap-1.5 text-slate-400 hover:text-teal-400 transition-colors">
+              <Folder className="w-3.5 h-3.5" />
+              {facility.project.name}
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+          </>
+        )}
+        <span className="text-slate-300">{facility.name}</span>
+      </div>
+
       <div className="flex items-center gap-4">
         <Link to="/facilities" className="text-slate-400 hover:text-white">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

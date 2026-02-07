@@ -109,8 +109,6 @@ export function OrganizationProvider({ children }) {
       const savedProjectId = localStorage.getItem(SELECTED_PROJECT_KEY);
       if (savedProjectId && projects?.find(p => p.id === savedProjectId)) {
         setSelectedProjectState(projects.find(p => p.id === savedProjectId));
-      } else if (projects && projects.length > 0) {
-        setSelectedProjectState(projects[0]);
       } else {
         setSelectedProjectState(null);
       }
