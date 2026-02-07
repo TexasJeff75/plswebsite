@@ -415,29 +415,11 @@ export default function StratusAPIViewer() {
         throw new Error('No orders to sync. Fetch orders first.');
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data: orgAssignments } = await supabase
-        .from('user_organization_assignments')
-        .select('organization_id')
-        .eq('user_id', user.id);
-
-      const defaultOrgId = orgAssignments?.[0]?.organization_id || null;
-
       addDebugLog({
         type: 'request',
         endpoint: 'sync',
-        message: `Starting sync of ${ordersData.results.length} orders to database (org: ${defaultOrgId || 'none'})`,
+        message: `Starting sync of ${ordersData.results.length} orders to database`,
       });
-
-      if (!defaultOrgId) {
-        addDebugLog({
-          type: 'info',
-          endpoint: 'sync',
-          message: 'No organization assignment found. Will attempt to match from order data.',
-        });
-      }
 
       const processedOrders = [];
       const errors = [];
@@ -471,18 +453,6 @@ export default function StratusAPIViewer() {
 
           const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
 
-          let orgId = defaultOrgId;
-          if (!orgId && orderData?.facility_name) {
-            const { data: matchedFacility } = await supabase
-              .from('facilities')
-              .select('organization_id')
-              .ilike('name', orderData.facility_name)
-              .maybeSingle();
-            if (matchedFacility?.organization_id) {
-              orgId = matchedFacility.organization_id;
-            }
-          }
-
           if (existing) {
             const { error: updateError } = await supabase
               .from('lab_orders')
@@ -490,7 +460,6 @@ export default function StratusAPIViewer() {
                 order_data: orderData,
                 sync_status: 'retrieved',
                 retrieved_at: new Date().toISOString(),
-                ...(orgId && !existing.organization_id ? { organization_id: orgId } : {}),
               })
               .eq('id', existing.id);
 
@@ -505,7 +474,6 @@ export default function StratusAPIViewer() {
                 order_data: orderData,
                 sync_status: 'retrieved',
                 retrieved_at: new Date().toISOString(),
-                ...(orgId ? { organization_id: orgId } : {}),
               });
 
             if (insertError) {
