@@ -11,10 +11,10 @@ import ImportData from './ImportData';
 const DEFAULT_REGIONS = ['All Regions'];
 
 const STATUS_CONFIG = {
-  'not_started': { color: '#6b7280', label: 'Not Started' },
-  'in_progress': { color: '#fbbf24', label: 'In Progress' },
-  'live': { color: '#10b981', label: 'Live' },
-  'blocked': { color: '#ef4444', label: 'Blocked' }
+  'not_started': { color: '#6b7280', glow: 'rgba(107,114,128,0.3)', label: 'Not Started', bgClass: 'bg-slate-500/5', borderClass: 'border-slate-500/20', textClass: 'text-slate-400' },
+  'in_progress': { color: '#f59e0b', glow: 'rgba(245,158,11,0.3)', label: 'In Progress', bgClass: 'bg-amber-500/5', borderClass: 'border-amber-500/20', textClass: 'text-amber-400' },
+  'live': { color: '#10b981', glow: 'rgba(16,185,129,0.3)', label: 'Live', bgClass: 'bg-emerald-500/5', borderClass: 'border-emerald-500/20', textClass: 'text-emerald-400' },
+  'blocked': { color: '#ef4444', glow: 'rgba(239,68,68,0.3)', label: 'Blocked', bgClass: 'bg-red-500/5', borderClass: 'border-red-500/20', textClass: 'text-red-400' }
 };
 
 const defaultCenter = [38.5, -92.5];
@@ -34,6 +34,8 @@ function calculateFacilityStatus(milestones) {
 
 function createCustomIcon(color, isSelected) {
   const size = isSelected ? 28 : 18;
+  const statusConf = Object.values(STATUS_CONFIG).find(s => s.color === color);
+  const glow = statusConf?.glow || 'rgba(0,0,0,0.3)';
   return L.divIcon({
     className: 'custom-marker',
     html: `
@@ -41,10 +43,11 @@ function createCustomIcon(color, isSelected) {
         width: ${size}px;
         height: ${size}px;
         background-color: ${color};
-        border: 2px solid white;
+        border: 2.5px solid rgba(255,255,255,0.9);
         border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 0 ${isSelected ? '16' : '10'}px ${glow}, 0 2px 6px rgba(0,0,0,0.4);
         ${isSelected ? 'animation: pulse 2s infinite;' : ''}
+        transition: all 0.3s ease;
       "></div>
     `,
     iconSize: [size, size],
@@ -414,7 +417,8 @@ export default function DeploymentTrackerMap() {
         }
       `}</style>
 
-      <div className="flex-none bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-6 py-3">
+      <div className="flex-none bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-6 py-3 relative">
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img
@@ -429,21 +433,21 @@ export default function DeploymentTrackerMap() {
           </div>
 
           <div className="flex gap-2">
-            <div className="text-center bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50">
+            <div className="text-center bg-slate-800/60 px-3 py-1.5 rounded-lg border border-slate-700/50">
               <div className="font-bold text-white text-lg">{statusCounts.total}</div>
               <div className="text-slate-400 text-[10px] uppercase tracking-wider">Total</div>
             </div>
-            <div className="text-center bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30">
+            <div className="text-center bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 shadow-sm shadow-emerald-500/5">
               <div className="font-bold text-emerald-400 text-lg">{statusCounts.live}</div>
-              <div className="text-emerald-300 text-[10px] uppercase tracking-wider">Live</div>
+              <div className="text-emerald-300/70 text-[10px] uppercase tracking-wider">Live</div>
             </div>
-            <div className="text-center bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/30">
+            <div className="text-center bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/30 shadow-sm shadow-amber-500/5">
               <div className="font-bold text-amber-400 text-lg">{statusCounts.inProgress}</div>
-              <div className="text-amber-300 text-[10px] uppercase tracking-wider">Progress</div>
+              <div className="text-amber-300/70 text-[10px] uppercase tracking-wider">Progress</div>
             </div>
-            <div className="text-center bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/30">
+            <div className="text-center bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/30 shadow-sm shadow-red-500/5">
               <div className="font-bold text-red-400 text-lg">{statusCounts.blocked}</div>
-              <div className="text-red-300 text-[10px] uppercase tracking-wider">Blocked</div>
+              <div className="text-red-300/70 text-[10px] uppercase tracking-wider">Blocked</div>
             </div>
             <div className="text-center bg-slate-700/30 px-3 py-1.5 rounded-lg border border-slate-600/30">
               <div className="font-bold text-slate-300 text-lg">{statusCounts.notStarted}</div>
@@ -482,22 +486,30 @@ export default function DeploymentTrackerMap() {
                   status === 'Live' ? statusCounts.live :
                   status === 'In Progress' ? statusCounts.inProgress :
                   status === 'Blocked' ? statusCounts.blocked : statusCounts.notStarted;
-                const color = statusKey ? STATUS_CONFIG[statusKey]?.color : null;
+                const config = statusKey ? STATUS_CONFIG[statusKey] : null;
+                const isActive = statusFilter === status;
+
+                const activeStyles = isActive && config
+                  ? { backgroundColor: `${config.color}20`, borderColor: `${config.color}50`, color: config.color, boxShadow: `0 2px 8px ${config.glow}` }
+                  : isActive ? {} : {};
 
                 return (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                      statusFilter === status
-                        ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                      isActive && !config
+                        ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20 border-teal-500'
+                        : isActive && config
+                        ? 'border'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-transparent'
                     }`}
+                    style={isActive && config ? activeStyles : undefined}
                   >
-                    {color && (
+                    {config && (
                       <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: color }}
+                        className={`w-2 h-2 rounded-full ${isActive ? 'ring-1' : ''}`}
+                        style={{ backgroundColor: config.color, ringColor: isActive ? config.color : undefined }}
                       />
                     )}
                     {status} ({count})
@@ -553,23 +565,25 @@ export default function DeploymentTrackerMap() {
                 {filteredFacilities.map(facility => {
                   const statusConfig = STATUS_CONFIG[facility.status] || STATUS_CONFIG.not_started;
                   const hasCoords = facility.latitude && facility.longitude;
-                  const progress = (facility.completedMilestones / facility.totalMilestones) * 100;
+                  const progress = facility.totalMilestones > 0 ? (facility.completedMilestones / facility.totalMilestones) * 100 : 0;
+                  const isSelected = selectedFacility?.id === facility.id;
 
                   return (
                     <button
                       key={facility.id}
                       onClick={() => handleFacilitySelect(facility)}
-                      className={`w-full text-left p-4 transition-all border-l-2 ${
-                        selectedFacility?.id === facility.id
-                          ? 'bg-teal-500/10 border-teal-500'
-                          : 'hover:bg-slate-800/30 border-transparent'
+                      className={`w-full text-left p-4 transition-all duration-200 border-l-3 ${
+                        isSelected
+                          ? `${statusConfig.bgClass} border-l-[3px]`
+                          : 'hover:bg-slate-800/40 border-l-[3px] border-transparent'
                       }`}
+                      style={isSelected ? { borderLeftColor: statusConfig.color } : undefined}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2 flex-1">
                           <div
-                            className={`w-3 h-3 rounded-full flex-shrink-0 ${facility.status === 'blocked' ? 'animate-pulse' : ''}`}
-                            style={{ backgroundColor: statusConfig.color }}
+                            className={`w-3 h-3 rounded-full flex-shrink-0 ring-2 ${facility.status === 'blocked' ? 'animate-pulse' : ''}`}
+                            style={{ backgroundColor: statusConfig.color, boxShadow: `0 0 6px ${statusConfig.glow}`, ringColor: `${statusConfig.color}33` }}
                           />
                           <h3 className="font-medium text-white text-sm leading-tight">{facility.name}</h3>
                         </div>
@@ -580,7 +594,7 @@ export default function DeploymentTrackerMap() {
                             </span>
                           )}
                           {!hasCoords && (
-                            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
                               No coords
                             </span>
                           )}
@@ -600,12 +614,13 @@ export default function DeploymentTrackerMap() {
                         <span className="text-[11px] text-slate-500">
                           {facility.completedMilestones}/{facility.totalMilestones} milestones
                         </span>
-                        <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="w-24 h-1.5 bg-slate-700/80 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${progress}%`,
-                              backgroundColor: statusConfig.color
+                              backgroundColor: statusConfig.color,
+                              boxShadow: progress > 0 ? `0 0 4px ${statusConfig.glow}` : 'none'
                             }}
                           />
                         </div>
@@ -770,12 +785,12 @@ export default function DeploymentTrackerMap() {
             </h3>
             <div className="space-y-2">
               {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                <div key={key} className="flex items-center gap-2.5">
+                <div key={key} className="flex items-center gap-2.5 group">
                   <div
                     className={`w-3.5 h-3.5 rounded-full ${key === 'blocked' ? 'animate-pulse' : ''}`}
-                    style={{ backgroundColor: config.color }}
+                    style={{ backgroundColor: config.color, boxShadow: `0 0 6px ${config.glow}` }}
                   />
-                  <span className="text-slate-300 text-xs">{config.label}</span>
+                  <span className={`text-xs ${config.textClass}`}>{config.label}</span>
                 </div>
               ))}
             </div>

@@ -134,8 +134,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex">
-      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300 fixed h-full z-30`}>
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-gradient-to-b from-slate-800 to-slate-850 border-r border-slate-700 flex flex-col transition-all duration-300 fixed h-full z-30`}>
+        <div className="p-4 border-b border-slate-700/80 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2">
             <img
               src="/deployment_logo_animated.svg"
@@ -222,35 +222,41 @@ export default function Layout() {
         )}
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(item => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
-                location.pathname.startsWith(item.path)
-                  ? 'bg-teal-500/10 text-teal-400'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-              }`}
-              title={sidebarCollapsed ? item.label : undefined}
-            >
-              <span className="flex-shrink-0">{item.icon}</span>
-              {!sidebarCollapsed && (
-                <>
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {item.badge > 0 && (
-                    <span className="ml-auto px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-              {sidebarCollapsed && item.badge > 0 && (
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[18px] text-center">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+          {navItems.map(item => {
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative group ${
+                  isActive
+                    ? 'bg-teal-500/10 text-teal-400 shadow-sm shadow-teal-500/5'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                }`}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-teal-400 rounded-r" />
+                )}
+                <span className={`flex-shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}>{item.icon}</span>
+                {!sidebarCollapsed && (
+                  <>
+                    <span className="text-sm font-medium">{item.label}</span>
+                    {item.badge > 0 && (
+                      <span className="ml-auto px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center animate-pulse">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+                {sidebarCollapsed && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[18px] text-center animate-pulse">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t border-slate-700">
@@ -307,7 +313,7 @@ export default function Layout() {
       </aside>
 
       <div className={`flex-1 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
-        <header className="bg-slate-800 border-b border-slate-700 h-14 flex items-center justify-between px-6 sticky top-0 z-20">
+        <header className="bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/80 h-14 flex items-center justify-between px-6 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             {sidebarCollapsed && selectedOrganization && (
               <span className="text-sm text-slate-400">
