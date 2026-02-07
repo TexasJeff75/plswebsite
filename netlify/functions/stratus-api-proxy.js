@@ -48,12 +48,13 @@ exports.handler = async (event, context) => {
     let stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
 
     const queryParams = [];
-    if (limit) queryParams.push(`limit=${limit}`);
+    if (limit) queryParams.push(`max=${limit}`);
     if (offset) queryParams.push(`offset=${offset}`);
     if (queryParams.length > 0) {
       stratusUrl += (endpoint.includes('?') ? '&' : '?') + queryParams.join('&');
     }
-    console.log(`[REQUEST] GET ${stratusUrl}`);
+    console.log(`[REQUEST] Fetching with params: limit=${limit}, offset=${offset}`);
+    console.log(`[REQUEST] Final URL: ${stratusUrl}`);
 
     const maxRetries = 3;
     let lastError = null;
@@ -99,6 +100,10 @@ exports.handler = async (event, context) => {
     if (contentType && contentType.includes('application/json')) {
       data = await response.json();
       console.log(`[DATA] JSON Response received`);
+      if (data.total_count !== undefined && data.result_count !== undefined) {
+        console.log(`[PAGINATION] total_count: ${data.total_count}, result_count: ${data.result_count}`);
+        console.log(`[PAGINATION] Requested limit: ${limit || 'default'}`);
+      }
     } else {
       data = await response.text();
       console.log(`[DATA] Text Response (${data.length} chars)`);

@@ -159,15 +159,19 @@ export default function StratusAPIViewer() {
     setLoading(true);
     setError(null);
     try {
-      console.group('%c📦 Fetching Orders', 'color: #14b8a6; font-weight: bold;');
+      console.group('%c Fetching Orders', 'color: #14b8a6; font-weight: bold;');
       console.log('Endpoint: /orders');
+      console.log('Limit: ', limit);
       console.log('Target: https://novagen.stratusdx.net/interface/orders');
       const data = await callStratusAPI('/orders');
-      console.log('✅ Orders response:', data);
+      console.log('Orders response:', data);
+      if (data.total_count && data.result_count) {
+        console.log(`Pagination: ${data.result_count} of ${data.total_count} total records`);
+      }
       console.groupEnd();
       setOrdersData(data);
     } catch (err) {
-      console.group('%c❌ Orders Error', 'color: #ef4444; font-weight: bold;');
+      console.group('%c Orders Error', 'color: #ef4444; font-weight: bold;');
       console.error('Error message:', err.message);
       console.error('Full error:', err);
       console.groupEnd();
@@ -611,7 +615,16 @@ export default function StratusAPIViewer() {
               <p className="text-white font-medium">Orders</p>
               <p className="text-slate-400 text-xs">GET /interface/orders</p>
               {ordersData && (
-                <p className="text-slate-400 text-sm mt-1">{ordersData.result_count} pending</p>
+                <div className="text-xs mt-1">
+                  <p className="text-teal-400 font-medium">
+                    {ordersData.result_count} returned
+                  </p>
+                  {ordersData.total_count && ordersData.total_count > ordersData.result_count && (
+                    <p className="text-amber-400">
+                      {ordersData.total_count} total available
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -629,7 +642,16 @@ export default function StratusAPIViewer() {
               <p className="text-white font-medium">Confirmations</p>
               <p className="text-slate-400 text-xs">GET /interface/order/received</p>
               {confirmationsData && (
-                <p className="text-slate-400 text-sm mt-1">{confirmationsData.result_count} pending</p>
+                <div className="text-xs mt-1">
+                  <p className="text-blue-400 font-medium">
+                    {confirmationsData.result_count} returned
+                  </p>
+                  {confirmationsData.total_count && confirmationsData.total_count > confirmationsData.result_count && (
+                    <p className="text-amber-400">
+                      {confirmationsData.total_count} total available
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -647,7 +669,16 @@ export default function StratusAPIViewer() {
               <p className="text-white font-medium">Results</p>
               <p className="text-slate-400 text-xs">GET /interface/results</p>
               {resultsData && (
-                <p className="text-slate-400 text-sm mt-1">{resultsData.result_count} pending</p>
+                <div className="text-xs mt-1">
+                  <p className="text-green-400 font-medium">
+                    {resultsData.result_count} returned
+                  </p>
+                  {resultsData.total_count && resultsData.total_count > resultsData.result_count && (
+                    <p className="text-amber-400">
+                      {resultsData.total_count} total available
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
