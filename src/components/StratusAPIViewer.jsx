@@ -408,132 +408,158 @@ export default function StratusAPIViewer() {
     setExploring(false);
   }
 
-  async function syncOrdersToDatabase() {
+  async function syncAllOrders() {
     setSyncing(true);
     setError(null);
-    try {
-      if (!ordersData?.results?.length) {
-        throw new Error('No orders to sync. Fetch orders first.');
-      }
+    const allProcessed = [];
+    const allErrors = [];
+    let batchNumber = 0;
 
+    try {
       addDebugLog({
         type: 'request',
         endpoint: 'sync',
-        message: `Starting sync of ${ordersData.results.length} orders to database`,
+        message: 'Starting full sync -- will fetch, save, and ACK all pending orders automatically',
       });
 
-      const processedOrders = [];
-      const errors = [];
+      while (true) {
+        batchNumber++;
+        addDebugLog({
+          type: 'info',
+          endpoint: 'sync',
+          message: `Batch ${batchNumber}: Fetching pending orders from Stratus...`,
+        });
 
-      for (const guid of ordersData.results) {
-        try {
-          const { data: existing, error: selectError } = await supabase
-            .from('lab_orders')
-            .select('id, sync_status')
-            .eq('stratus_guid', guid)
-            .maybeSingle();
+        const batch = await callStratusAPI('/orders');
+        const guids = batch?.results || [];
 
-          if (selectError) {
-            throw new Error(`Failed to check existing order: ${selectError.message}`);
-          }
+        if (guids.length === 0) {
+          addDebugLog({
+            type: 'success',
+            endpoint: 'sync',
+            message: `Batch ${batchNumber}: No more pending orders. All done.`,
+          });
+          break;
+        }
 
-          if (existing && existing.sync_status === 'acknowledged') {
+        addDebugLog({
+          type: 'info',
+          endpoint: 'sync',
+          message: `Batch ${batchNumber}: Found ${guids.length} orders (${batch.total_count || '?'} total remaining)`,
+        });
+
+        setOrdersData(batch);
+
+        for (const guid of guids) {
+          try {
+            const { data: existing, error: selectError } = await supabase
+              .from('lab_orders')
+              .select('id, sync_status')
+              .eq('stratus_guid', guid)
+              .maybeSingle();
+
+            if (selectError) {
+              throw new Error(`Failed to check existing order: ${selectError.message}`);
+            }
+
+            if (existing && existing.sync_status === 'acknowledged') {
+              addDebugLog({
+                type: 'info',
+                endpoint: 'sync',
+                message: `Order ${guid} already acknowledged, skipping`,
+              });
+              continue;
+            }
+
             addDebugLog({
               type: 'info',
               endpoint: 'sync',
-              message: `Order ${guid} already acknowledged, skipping`,
+              message: `Fetching details for ${guid}...`,
             });
-            continue;
-          }
 
-          addDebugLog({
-            type: 'info',
-            endpoint: 'sync',
-            message: `Fetching details for ${guid}...`,
-          });
+            const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
 
-          const orderData = await callStratusAPI(`/order/${guid}`, { useLimit: false });
+            if (existing) {
+              const { error: updateError } = await supabase
+                .from('lab_orders')
+                .update({
+                  order_data: orderData,
+                  sync_status: 'retrieved',
+                  retrieved_at: new Date().toISOString(),
+                })
+                .eq('id', existing.id);
 
-          if (existing) {
-            const { error: updateError } = await supabase
-              .from('lab_orders')
-              .update({
-                order_data: orderData,
-                sync_status: 'retrieved',
-                retrieved_at: new Date().toISOString(),
-              })
-              .eq('id', existing.id);
+              if (updateError) {
+                throw new Error(`DB update failed: ${updateError.message} (code: ${updateError.code})`);
+              }
+            } else {
+              const { error: insertError } = await supabase
+                .from('lab_orders')
+                .insert({
+                  stratus_guid: guid,
+                  order_data: orderData,
+                  sync_status: 'retrieved',
+                  retrieved_at: new Date().toISOString(),
+                });
 
-            if (updateError) {
-              throw new Error(`DB update failed: ${updateError.message} (code: ${updateError.code})`);
+              if (insertError) {
+                throw new Error(`DB insert failed: ${insertError.message} (code: ${insertError.code})`);
+              }
             }
-          } else {
-            const { error: insertError } = await supabase
-              .from('lab_orders')
-              .insert({
-                stratus_guid: guid,
-                order_data: orderData,
-                sync_status: 'retrieved',
-                retrieved_at: new Date().toISOString(),
+
+            try {
+              await callStratusAPI(`/order/${guid}/ack`, { method: 'POST', useLimit: false });
+
+              await supabase
+                .from('lab_orders')
+                .update({
+                  sync_status: 'acknowledged',
+                  acknowledged_at: new Date().toISOString(),
+                })
+                .eq('stratus_guid', guid);
+
+              addDebugLog({
+                type: 'success',
+                endpoint: 'sync',
+                message: `Order ${guid} synced and acknowledged`,
               });
-
-            if (insertError) {
-              throw new Error(`DB insert failed: ${insertError.message} (code: ${insertError.code})`);
+            } catch (ackErr) {
+              addDebugLog({
+                type: 'error',
+                endpoint: 'sync',
+                message: `Order ${guid} saved but ACK failed: ${ackErr.message}`,
+              });
             }
-          }
 
-          addDebugLog({
-            type: 'info',
-            endpoint: 'sync',
-            message: `Acknowledging order ${guid}...`,
-          });
-
-          try {
-            await callStratusAPI(`/order/${guid}/ack`, { method: 'POST', useLimit: false });
-
-            await supabase
-              .from('lab_orders')
-              .update({
-                sync_status: 'acknowledged',
-                acknowledged_at: new Date().toISOString(),
-              })
-              .eq('stratus_guid', guid);
-
-            addDebugLog({
-              type: 'success',
-              endpoint: 'sync',
-              message: `Order ${guid} synced and acknowledged`,
-            });
-          } catch (ackErr) {
+            allProcessed.push(guid);
+          } catch (err) {
+            allErrors.push({ guid, error: err.message });
             addDebugLog({
               type: 'error',
               endpoint: 'sync',
-              message: `Order ${guid} saved but ACK failed: ${ackErr.message}`,
+              message: `Failed to sync ${guid}: ${err.message}`,
             });
           }
-
-          processedOrders.push(guid);
-        } catch (err) {
-          errors.push({ guid, error: err.message });
-          addDebugLog({
-            type: 'error',
-            endpoint: 'sync',
-            message: `Failed to sync ${guid}: ${err.message}`,
-          });
         }
+
+        addDebugLog({
+          type: 'success',
+          endpoint: 'sync',
+          message: `Batch ${batchNumber} complete: ${allProcessed.length} total synced so far`,
+        });
       }
 
       addDebugLog({
         type: 'success',
         endpoint: 'sync',
-        message: `Sync complete: ${processedOrders.length} synced, ${errors.length} errors`,
+        message: `Full sync complete: ${allProcessed.length} orders synced across ${batchNumber} batches, ${allErrors.length} errors`,
       });
 
-      if (errors.length > 0) {
-        setError(`Sync partially failed: ${processedOrders.length} succeeded, ${errors.length} failed. Check debug logs for details.`);
-      } else if (processedOrders.length === 0) {
-        setError('No new orders were synced. All orders may already exist in the database.');
+      if (allErrors.length > 0) {
+        setError(`Sync done with errors: ${allProcessed.length} succeeded, ${allErrors.length} failed. Check debug logs.`);
       }
+
+      setOrdersData(null);
 
     } catch (err) {
       setError(`Sync failed: ${err.message}`);
@@ -579,16 +605,14 @@ export default function StratusAPIViewer() {
           API Explorer
         </button>
 
-        {ordersData?.results?.length > 0 && (
-          <button
-            onClick={syncOrdersToDatabase}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Download className={`w-4 h-4 ${syncing ? 'animate-bounce' : ''}`} />
-            {syncing ? 'Syncing...' : `Sync ${ordersData.results.length} Orders to Database`}
-          </button>
-        )}
+        <button
+          onClick={syncAllOrders}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50"
+        >
+          <Download className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing All Orders...' : 'Sync All Orders'}
+        </button>
       </div>
 
       {showSettings && (
