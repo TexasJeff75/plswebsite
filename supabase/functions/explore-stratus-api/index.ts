@@ -44,15 +44,57 @@ Deno.serve(async (req: Request) => {
 
     const results = [];
 
+    // Helper function to fetch with retries
+    const fetchWithRetry = async (url: string, fetchOptions: RequestInit, maxRetries = 3) => {
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[ATTEMPT ${attempt}/${maxRetries}] Fetching ${url}`);
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+          const response = await fetch(url, {
+            ...fetchOptions,
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          console.log(`[SUCCESS] Connected on attempt ${attempt}`);
+          return response;
+        } catch (error) {
+          lastError = error;
+          console.error(`[ATTEMPT ${attempt} FAILED] ${error.message}`);
+
+          if (attempt < maxRetries) {
+            const delay = attempt * 1000;
+            console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      throw lastError || new Error('Failed to connect after retries');
+    };
+
     // Test 1: Base request (no parameters)
     console.log("\n--- Test 1: Base Request (No Parameters) ---");
     try {
-      const baseResponse = await fetch(`${STRATUS_BASE_URL}${endpoint}`, {
+      const baseResponse = await fetchWithRetry(`${STRATUS_BASE_URL}${endpoint}`, {
         method,
         headers,
       });
 
-      const baseData = await baseResponse.json();
+      const contentType = baseResponse.headers.get('content-type');
+      let baseData;
+
+      if (contentType && contentType.includes('application/json')) {
+        baseData = await baseResponse.json();
+      } else {
+        baseData = { text: await baseResponse.text() };
+      }
+
       results.push({
         test: "Base Request",
         url: `${STRATUS_BASE_URL}${endpoint}`,
@@ -94,12 +136,19 @@ Deno.serve(async (req: Request) => {
 
         const testUrl = `${STRATUS_BASE_URL}${endpoint}?${queryString}`;
 
-        const testResponse = await fetch(testUrl, {
+        const testResponse = await fetchWithRetry(testUrl, {
           method,
           headers,
         });
 
-        const testData = await testResponse.json();
+        const contentType = testResponse.headers.get('content-type');
+        let testData;
+
+        if (contentType && contentType.includes('application/json')) {
+          testData = await testResponse.json();
+        } else {
+          testData = { text: await testResponse.text() };
+        }
 
         results.push({
           test: `Pagination: ${paramName}`,
@@ -131,7 +180,7 @@ Deno.serve(async (req: Request) => {
     // Test 3: OPTIONS request to discover supported methods
     console.log("\n--- Test: OPTIONS Request ---");
     try {
-      const optionsResponse = await fetch(`${STRATUS_BASE_URL}${endpoint}`, {
+      const optionsResponse = await fetchWithRetry(`${STRATUS_BASE_URL}${endpoint}`, {
         method: "OPTIONS",
         headers,
       });
@@ -160,12 +209,19 @@ Deno.serve(async (req: Request) => {
 
         const customUrl = `${STRATUS_BASE_URL}${endpoint}?${queryString}`;
 
-        const customResponse = await fetch(customUrl, {
+        const customResponse = await fetchWithRetry(customUrl, {
           method,
           headers,
         });
 
-        const customData = await customResponse.json();
+        const contentType = customResponse.headers.get('content-type');
+        let customData;
+
+        if (contentType && contentType.includes('application/json')) {
+          customData = await customResponse.json();
+        } else {
+          customData = { text: await customResponse.text() };
+        }
 
         results.push({
           test: "Custom Parameters",
