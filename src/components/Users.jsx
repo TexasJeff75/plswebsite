@@ -290,7 +290,7 @@ export default function Users() {
   }
 
   const filteredUsers = useMemo(() => {
-    let result = [...users];
+    let result = [...(users || [])];
 
     if (userSearch) {
       const term = userSearch.toLowerCase();
@@ -371,7 +371,7 @@ export default function Users() {
           </button>
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <UsersIcon className="w-5 h-5" />
-            <span>{users.length} total users</span>
+            <span>{users?.length || 0} total users</span>
           </div>
         </div>
       </div>
@@ -386,7 +386,7 @@ export default function Users() {
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            Active Users ({users.length})
+            Active Users ({users?.length || 0})
           </button>
           <button
             onClick={() => setActiveTab('invitations')}
@@ -396,7 +396,7 @@ export default function Users() {
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            Pending Invitations ({invitations.filter(i => i.status === 'pending').length})
+            Pending Invitations ({(invitations || []).filter(i => i.status === 'pending').length})
           </button>
         </div>
       </div>
@@ -523,7 +523,13 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {invitations.map(invitation => {
+              {(invitations || []).length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                    No invitations sent yet
+                  </td>
+                </tr>
+              ) : (invitations || []).map(invitation => {
                 const isExpired = new Date(invitation.expires_at) < new Date();
                 const isPending = invitation.status === 'pending' && !isExpired;
 
@@ -593,13 +599,6 @@ export default function Users() {
                   </tr>
                 );
               })}
-              {invitations.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                    No invitations sent yet
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
