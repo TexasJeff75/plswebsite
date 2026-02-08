@@ -15,6 +15,7 @@ export default function Facilities() {
   const { selectedOrganization, selectedProject } = useOrganization();
   const [facilities, setFacilities] = useState([]);
   const [organizations, setOrganizations] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -28,12 +29,21 @@ export default function Facilities() {
     status: '',
     region: '',
     phase: '',
-    organization_id: ''
+    organization_id: '',
+    project_id: ''
   });
 
   useEffect(() => {
     loadOrganizations();
   }, []);
+
+  useEffect(() => {
+    if (filters.organization_id) {
+      loadProjects(filters.organization_id);
+    } else {
+      setProjects([]);
+    }
+  }, [filters.organization_id]);
 
   useEffect(() => {
     loadFacilities();
@@ -49,15 +59,27 @@ export default function Facilities() {
     }
   }
 
+  async function loadProjects(organizationId) {
+    try {
+      const data = await projectsService.getAll({ organization_id: organizationId });
+      setProjects(data);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      setProjects([]);
+    }
+  }
+
   async function loadFacilities() {
     try {
       setLoading(true);
       const appliedFilters = { ...filters };
-      if (selectedProject) {
+
+      if (!appliedFilters.project_id && selectedProject) {
         appliedFilters.project_id = selectedProject.id;
-      } else if (selectedOrganization) {
+      } else if (!appliedFilters.organization_id && !appliedFilters.project_id && selectedOrganization) {
         appliedFilters.organization_id = selectedOrganization.id;
       }
+
       const data = await facilitiesService.getAll(appliedFilters);
       setFacilities(data);
     } catch (error) {
@@ -71,11 +93,17 @@ export default function Facilities() {
     try {
       setStatsLoading(true);
       const appliedFilters = {};
-      if (selectedProject) {
+
+      if (filters.project_id) {
+        appliedFilters.project_id = filters.project_id;
+      } else if (filters.organization_id) {
+        appliedFilters.organization_id = filters.organization_id;
+      } else if (selectedProject) {
         appliedFilters.project_id = selectedProject.id;
       } else if (selectedOrganization) {
         appliedFilters.organization_id = selectedOrganization.id;
       }
+
       const data = await facilityStatsService.getStats(appliedFilters);
       setStats(data);
     } catch (error) {
@@ -348,7 +376,7 @@ export default function Facilities() {
       )}
 
       <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <input
             type="text"
             placeholder="Search facilities..."
@@ -359,12 +387,24 @@ export default function Facilities() {
 
           <select
             value={filters.organization_id}
-            onChange={(e) => setFilters({ ...filters, organization_id: e.target.value })}
+            onChange={(e) => setFilters({ ...filters, organization_id: e.target.value, project_id: '' })}
             className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="">All Clients</option>
             {organizations.map(org => (
               <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.project_id}
+            onChange={(e) => setFilters({ ...filters, project_id: e.target.value })}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!filters.organization_id}
+          >
+            <option value="">All Projects</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>{project.name}</option>
             ))}
           </select>
 
