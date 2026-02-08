@@ -40,11 +40,7 @@ export default function Facilities() {
   }, []);
 
   useEffect(() => {
-    if (filters.organization_id) {
-      loadProjects(filters.organization_id);
-    } else {
-      setProjects([]);
-    }
+    loadProjects(filters.organization_id);
   }, [filters.organization_id]);
 
   useEffect(() => {
@@ -63,7 +59,11 @@ export default function Facilities() {
 
   async function loadProjects(organizationId) {
     try {
-      const data = await projectsService.getAll({ organization_id: organizationId });
+      const filters = {};
+      if (organizationId) {
+        filters.organization_id = organizationId;
+      }
+      const data = await projectsService.getAll(filters);
       setProjects(data);
     } catch (error) {
       console.error('Error loading projects:', error);
@@ -414,8 +414,7 @@ export default function Facilities() {
           <select
             value={filters.project_id}
             onChange={(e) => setFilters({ ...filters, project_id: e.target.value })}
-            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!filters.organization_id}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="">All Projects</option>
             {projects.map(project => (
