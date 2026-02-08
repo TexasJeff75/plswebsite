@@ -39,7 +39,7 @@ const ORG_ROLES = [
 ];
 
 export default function Users() {
-  const { isAdmin, user: currentUser } = useAuth();
+  const { isStaff, user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [invitations, setInvitations] = useState([]);
@@ -381,12 +381,12 @@ export default function Users() {
   const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
   const isInviteCustomerRole = CUSTOMER_ROLES.includes(newInvitation.role);
 
-  if (!isAdmin) {
+  if (!isStaff) {
     return (
       <div className="text-center py-12">
         <Shield className="w-16 h-16 mx-auto text-slate-700 mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
-        <p className="text-slate-400">You need administrator privileges to access this page.</p>
+        <p className="text-slate-400">You need Proximity staff privileges to access this page.</p>
       </div>
     );
   }
