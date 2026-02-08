@@ -197,6 +197,34 @@ export default function FacilityDetail() {
 
   return (
     <div className="space-y-6">
+      {facility.project && (
+        <div className="bg-gradient-to-r from-teal-900/40 to-teal-800/20 border-l-4 border-teal-500 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                <Folder className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-teal-300 font-medium uppercase tracking-wide">Project Context</p>
+                <Link
+                  to={`/projects/${facility.project.id}`}
+                  className="text-white font-semibold hover:text-teal-300 transition-colors"
+                >
+                  {facility.project.name}
+                </Link>
+              </div>
+            </div>
+            <Link
+              to={`/projects/${facility.project.id}`}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600/30 hover:bg-teal-600/50 text-teal-100 rounded-lg transition-colors text-sm font-medium border border-teal-500/30"
+            >
+              <Folder className="w-4 h-4" />
+              Back to Project
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 text-sm">
         {facility.organization && (
           <>
@@ -220,7 +248,10 @@ export default function FacilityDetail() {
       </div>
 
       <div className="flex items-start gap-6">
-        <Link to="/facilities" className="text-slate-400 hover:text-white mt-1">
+        <Link
+          to={facility.project ? `/projects/${facility.project.id}` : "/facilities"}
+          className="text-slate-400 hover:text-white mt-1"
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
