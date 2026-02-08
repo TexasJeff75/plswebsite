@@ -303,11 +303,16 @@ export default function Users() {
 
     if (userSearch) {
       const term = userSearch.toLowerCase();
-      result = result.filter(u =>
-        u.display_name?.toLowerCase().includes(term) ||
-        u.email?.toLowerCase().includes(term) ||
-        u.organization?.name?.toLowerCase().includes(term)
-      );
+      result = result.filter(u => {
+        const orgMatches = u.organization_assignments?.some(assignment =>
+          assignment.organization?.name?.toLowerCase().includes(term)
+        );
+        return (
+          u.display_name?.toLowerCase().includes(term) ||
+          u.email?.toLowerCase().includes(term) ||
+          orgMatches
+        );
+      });
     }
 
     if (roleFilter !== 'all') {
@@ -327,8 +332,8 @@ export default function Users() {
             bVal = b.role || '';
             break;
           case 'organization':
-            aVal = a.organization?.name?.toLowerCase() || '';
-            bVal = b.organization?.name?.toLowerCase() || '';
+            aVal = a.organization_assignments?.[0]?.organization?.name?.toLowerCase() || '';
+            bVal = b.organization_assignments?.[0]?.organization?.name?.toLowerCase() || '';
             break;
           case 'joined':
             aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -530,13 +535,20 @@ export default function Users() {
                   <td className="px-6 py-4">
                     {INTERNAL_ROLES.includes(user.role) ? (
                       <span className="text-slate-500 text-sm">All Organizations</span>
-                    ) : user.organization ? (
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <Building2 className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm">{user.organization.name}</span>
+                    ) : user.organization_assignments && user.organization_assignments.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {user.organization_assignments.map((assignment) => (
+                          <div key={assignment.id} className="flex items-center gap-2 text-slate-300">
+                            <Building2 className="w-4 h-4 text-slate-500" />
+                            <span className="text-sm">{assignment.organization.name}</span>
+                            {assignment.is_primary && (
+                              <span className="text-xs text-teal-400">(Primary)</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <span className="text-slate-500 text-sm">No organization</span>
+                      <span className="text-yellow-500 text-sm">No organization assigned</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-slate-400 text-sm">

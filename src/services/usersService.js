@@ -8,7 +8,13 @@ export const usersService = {
       .from('user_roles')
       .select(`
         *,
-        organization:organizations(id, name)
+        organization_assignments:user_organization_assignments(
+          id,
+          organization_id,
+          role,
+          is_primary,
+          organization:organizations(id, name, type)
+        )
       `)
       .order('created_at', { ascending: false });
 
@@ -21,7 +27,13 @@ export const usersService = {
       .from('user_roles')
       .select(`
         *,
-        organization:organizations(id, name)
+        organization_assignments:user_organization_assignments(
+          id,
+          organization_id,
+          role,
+          is_primary,
+          organization:organizations(id, name, type)
+        )
       `)
       .eq('id', id)
       .maybeSingle();
@@ -31,11 +43,17 @@ export const usersService = {
   },
 
   async getByUserId(userId) {
-    const { data, error } = await supabase
+    const { data, error} = await supabase
       .from('user_roles')
       .select(`
         *,
-        organization:organizations(id, name)
+        organization_assignments:user_organization_assignments(
+          id,
+          organization_id,
+          role,
+          is_primary,
+          organization:organizations(id, name, type)
+        )
       `)
       .eq('user_id', userId)
       .maybeSingle();
