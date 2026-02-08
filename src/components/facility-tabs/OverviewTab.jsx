@@ -49,6 +49,7 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
       projected_go_live_date: facility.projected_go_live_date || '',
       actual_go_live_date: facility.actual_go_live_date || '',
       service_fee_start_date: facility.service_fee_start_date || '',
+      complexity_level: facility.complexity_level || 'CLIA Waived',
     });
     setIsEditing(true);
   };
@@ -155,12 +156,34 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
           <p className="text-white font-medium text-sm">
             {facility.deployment_template?.template_name || 'No template applied'}
           </p>
+        </div>
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Complexity Level</p>
+          {isEditing ? (
+            <select
+              value={editedData.complexity_level}
+              onChange={(e) => setEditedData({ ...editedData, complexity_level: e.target.value })}
+              className="w-full bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+            >
+              <option value="CLIA Waived">CLIA Waived</option>
+              <option value="Moderate Complexity">Moderate Complexity</option>
+              <option value="High Complexity">High Complexity</option>
+            </select>
+          ) : (
+            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+              facility.complexity_level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+              facility.complexity_level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+              'bg-red-500/20 text-red-400 border border-red-500/30'
+            }`}>
+              {facility.complexity_level || 'CLIA Waived'}
+            </span>
+          )}
         </div>
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Status</p>

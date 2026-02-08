@@ -32,6 +32,12 @@ const DOCUMENT_TYPES = [
   { id: 'other', label: 'Other' },
 ];
 
+const COMPLEXITY_LEVELS = [
+  'CLIA Waived',
+  'Moderate Complexity',
+  'High Complexity'
+];
+
 export default function EquipmentCatalogTab() {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +49,8 @@ export default function EquipmentCatalogTab() {
     manufacturer: '',
     model_number: '',
     procurement_method_default: 'purchase',
+    applicable_complexity_levels: ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+    complexity_specific_notes: '',
     notes: ''
   });
   const [saving, setSaving] = useState(false);
@@ -158,6 +166,8 @@ export default function EquipmentCatalogTab() {
       manufacturer: '',
       model_number: '',
       procurement_method_default: 'purchase',
+      applicable_complexity_levels: ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+      complexity_specific_notes: '',
       notes: ''
     });
     setShowModal(true);
@@ -171,6 +181,8 @@ export default function EquipmentCatalogTab() {
       manufacturer: item.manufacturer || '',
       model_number: item.model_number || '',
       procurement_method_default: item.procurement_method_default || 'purchase',
+      applicable_complexity_levels: item.applicable_complexity_levels || ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+      complexity_specific_notes: item.complexity_specific_notes || '',
       notes: item.notes || ''
     });
     setShowModal(true);
@@ -240,6 +252,7 @@ export default function EquipmentCatalogTab() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Manufacturer</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Model</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Complexity Levels</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Default Procurement</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Documents</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
@@ -248,7 +261,7 @@ export default function EquipmentCatalogTab() {
             <tbody className="divide-y divide-slate-700/50">
               {equipment.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan="8" className="px-4 py-12 text-center text-slate-400">
                     No equipment in catalog yet. Add some to get started.
                   </td>
                 </tr>
@@ -268,6 +281,19 @@ export default function EquipmentCatalogTab() {
                     </td>
                     <td className="px-4 py-3 text-slate-400 text-sm">
                       {item.model_number || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(item.applicable_complexity_levels || ['CLIA Waived', 'Moderate Complexity', 'High Complexity']).map(level => (
+                          <span key={level} className={`px-2 py-0.5 text-xs rounded-full ${
+                            level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {level === 'CLIA Waived' ? 'Waived' : level === 'Moderate Complexity' ? 'Moderate' : 'High'}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {PROCUREMENT_METHODS.find(p => p.id === item.procurement_method_default)?.label || item.procurement_method_default}
@@ -393,6 +419,52 @@ export default function EquipmentCatalogTab() {
                     placeholder="e.g. i-STAT 1"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Applicable Complexity Levels</label>
+                <div className="space-y-2 bg-slate-900 border border-slate-700 rounded-lg p-3">
+                  {COMPLEXITY_LEVELS.map(level => (
+                    <label key={level} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.applicable_complexity_levels.includes(level)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              applicable_complexity_levels: [...formData.applicable_complexity_levels, level]
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              applicable_complexity_levels: formData.applicable_complexity_levels.filter(l => l !== level)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                      />
+                      <span className={`text-sm ${
+                        level === 'CLIA Waived' ? 'text-green-400' :
+                        level === 'Moderate Complexity' ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {level}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Complexity Specific Notes</label>
+                <textarea
+                  value={formData.complexity_specific_notes}
+                  onChange={(e) => setFormData({ ...formData, complexity_specific_notes: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500 resize-none"
+                  rows={2}
+                  placeholder="Notes about complexity-specific requirements"
+                />
               </div>
 
               <div>

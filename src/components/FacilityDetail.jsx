@@ -268,6 +268,17 @@ export default function FacilityDetail() {
             </p>
           </div>
           <div className="bg-slate-800 rounded-lg px-4 py-3 border-2 border-teal-500/30 shadow-lg shadow-teal-500/10">
+            <p className="text-slate-400 text-xs font-medium mb-1">Complexity Level</p>
+            <span className={`inline-block px-3 py-1 rounded text-xs font-bold ${
+              facility.complexity_level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+              facility.complexity_level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+              facility.complexity_level === 'High Complexity' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+              'bg-green-500/20 text-green-400 border border-green-500/30'
+            }`}>
+              {facility.complexity_level || 'CLIA Waived'}
+            </span>
+          </div>
+          <div className="bg-slate-800 rounded-lg px-4 py-3 border-2 border-teal-500/30 shadow-lg shadow-teal-500/10">
             <p className="text-slate-400 text-xs font-medium mb-1">Overall Status</p>
             <span className={`inline-block px-3 py-1 rounded text-sm font-bold ${statusColor} ${statusTextColor}`}>
               {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1).replace('_', ' ')}

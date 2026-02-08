@@ -6,10 +6,10 @@ import {
   Plus, Pencil, Trash2, X, ChevronDown, Check, Loader2
 } from 'lucide-react';
 
-const APPLIES_TO = [
-  { id: 'both', label: 'Both (Waived & Moderate)' },
-  { id: 'waived', label: 'Waived Only' },
-  { id: 'moderate', label: 'Moderate Only' },
+const COMPLEXITY_LEVELS = [
+  'CLIA Waived',
+  'Moderate Complexity',
+  'High Complexity'
 ];
 
 export default function MilestoneTemplatesTab() {
@@ -24,7 +24,8 @@ export default function MilestoneTemplatesTab() {
     responsible_party_default: 'Proximity',
     priority: 5,
     dependencies: [],
-    phase: 'both'
+    applicable_complexity_levels: ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+    is_required_for_complexity: true
   });
   const [saving, setSaving] = useState(false);
 
@@ -53,7 +54,8 @@ export default function MilestoneTemplatesTab() {
       responsible_party_default: 'Proximity',
       priority: 5,
       dependencies: [],
-      phase: 'both'
+      applicable_complexity_levels: ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+      is_required_for_complexity: true
     });
     setShowModal(true);
   }
@@ -67,7 +69,8 @@ export default function MilestoneTemplatesTab() {
       responsible_party_default: template.responsible_party_default || 'Proximity',
       priority: template.priority || 5,
       dependencies: template.dependencies || [],
-      phase: template.phase || 'both'
+      applicable_complexity_levels: template.applicable_complexity_levels || ['CLIA Waived', 'Moderate Complexity', 'High Complexity'],
+      is_required_for_complexity: template.is_required_for_complexity !== false
     });
     setShowModal(true);
   }
@@ -85,7 +88,8 @@ export default function MilestoneTemplatesTab() {
           responsible_party_default: formData.responsible_party_default,
           priority: formData.priority,
           dependencies: formData.dependencies,
-          phase: formData.phase
+          applicable_complexity_levels: formData.applicable_complexity_levels,
+          is_required_for_complexity: formData.is_required_for_complexity
         });
       } else {
         await templatesService.createMilestoneTemplate({
@@ -95,7 +99,8 @@ export default function MilestoneTemplatesTab() {
           responsible_party_default: formData.responsible_party_default,
           priority: formData.priority,
           dependencies: formData.dependencies,
-          phase: formData.phase,
+          applicable_complexity_levels: formData.applicable_complexity_levels,
+          is_required_for_complexity: formData.is_required_for_complexity,
           is_system_template: true
         });
       }
@@ -187,9 +192,17 @@ export default function MilestoneTemplatesTab() {
                       <ReferenceText category="responsible_party" code={template.responsible_party_default?.toLowerCase()} />
                     </td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-300">
-                        {APPLIES_TO.find(a => a.id === template.phase)?.label || 'Both'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {(template.applicable_complexity_levels || ['CLIA Waived', 'Moderate Complexity', 'High Complexity']).map(level => (
+                          <span key={level} className={`px-2 py-0.5 text-xs rounded-full ${
+                            level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {level === 'CLIA Waived' ? 'Waived' : level === 'Moderate Complexity' ? 'Moderate' : 'High'}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
@@ -299,19 +312,53 @@ export default function MilestoneTemplatesTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Applies To</label>
-                <div className="relative">
-                  <select
-                    value={formData.phase}
-                    onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
-                    className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
-                  >
-                    {APPLIES_TO.map(opt => (
-                      <option key={opt.id} value={opt.id}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Applicable Complexity Levels</label>
+                <div className="space-y-2 bg-slate-900 border border-slate-700 rounded-lg p-3">
+                  {COMPLEXITY_LEVELS.map(level => (
+                    <label key={level} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.applicable_complexity_levels.includes(level)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              applicable_complexity_levels: [...formData.applicable_complexity_levels, level]
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              applicable_complexity_levels: formData.applicable_complexity_levels.filter(l => l !== level)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                      />
+                      <span className={`text-sm ${
+                        level === 'CLIA Waived' ? 'text-green-400' :
+                        level === 'Moderate Complexity' ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {level}
+                      </span>
+                    </label>
+                  ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_required_for_complexity}
+                    onChange={(e) => setFormData({ ...formData, is_required_for_complexity: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Required Milestone</p>
+                    <p className="text-xs text-slate-400">Must be completed for selected complexity levels</p>
+                  </div>
+                </label>
               </div>
 
               {availableDependencies.length > 0 && (

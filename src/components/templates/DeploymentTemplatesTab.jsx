@@ -12,6 +12,12 @@ const TEMPLATE_TYPES = [
   { id: 'custom', label: 'Custom' },
 ];
 
+const COMPLEXITY_LEVELS = [
+  { id: 'CLIA Waived', label: 'CLIA Waived' },
+  { id: 'Moderate Complexity', label: 'Moderate Complexity' },
+  { id: 'High Complexity', label: 'High Complexity' },
+];
+
 export default function DeploymentTemplatesTab() {
   const [templates, setTemplates] = useState([]);
   const [milestoneTemplates, setMilestoneTemplates] = useState([]);
@@ -23,6 +29,8 @@ export default function DeploymentTemplatesTab() {
     template_name: '',
     template_type: 'mini_lab_waived',
     description: '',
+    target_complexity_level: 'CLIA Waived',
+    is_incremental: false,
     selectedMilestones: [],
     milestonePriorities: {},
     selectedEquipment: []
@@ -57,6 +65,8 @@ export default function DeploymentTemplatesTab() {
       template_name: '',
       template_type: 'mini_lab_waived',
       description: '',
+      target_complexity_level: 'CLIA Waived',
+      is_incremental: false,
       selectedMilestones: [],
       milestonePriorities: {},
       selectedEquipment: []
@@ -76,6 +86,8 @@ export default function DeploymentTemplatesTab() {
       template_name: template.template_name,
       template_type: template.template_type,
       description: template.description || '',
+      target_complexity_level: template.target_complexity_level || 'CLIA Waived',
+      is_incremental: template.is_incremental || false,
       selectedMilestones: template.template_milestones?.map(tm => tm.milestone_template?.id).filter(Boolean) || [],
       milestonePriorities: priorities,
       selectedEquipment: template.template_equipment?.map(te => te.equipment?.id).filter(Boolean) || []
@@ -94,7 +106,9 @@ export default function DeploymentTemplatesTab() {
         await templatesService.updateDeploymentTemplate(editingTemplate.id, {
           template_name: formData.template_name,
           template_type: formData.template_type,
-          description: formData.description
+          description: formData.description,
+          target_complexity_level: formData.target_complexity_level,
+          is_incremental: formData.is_incremental
         });
         templateId = editingTemplate.id;
       } else {
@@ -102,6 +116,8 @@ export default function DeploymentTemplatesTab() {
           template_name: formData.template_name,
           template_type: formData.template_type,
           description: formData.description,
+          target_complexity_level: formData.target_complexity_level,
+          is_incremental: formData.is_incremental,
           is_system_template: true
         });
         templateId = newTemplate.id;
@@ -224,6 +240,7 @@ export default function DeploymentTemplatesTab() {
               <tr className="border-b border-slate-700">
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Configuration Type</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Complexity Level</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Milestones</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Equipment</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Created</th>
@@ -233,7 +250,7 @@ export default function DeploymentTemplatesTab() {
             <tbody className="divide-y divide-slate-700/50">
               {templates.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan="7" className="px-4 py-12 text-center text-slate-400">
                     No templates yet. Create one to get started.
                   </td>
                 </tr>
@@ -245,10 +262,24 @@ export default function DeploymentTemplatesTab() {
                       {template.description && (
                         <p className="text-slate-400 text-sm truncate max-w-xs">{template.description}</p>
                       )}
+                      {template.is_incremental && (
+                        <span className="inline-flex items-center px-2 py-0.5 mt-1 text-xs rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          Incremental
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-300">
                         {TEMPLATE_TYPES.find(t => t.id === template.template_type)?.label || template.template_type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        template.target_complexity_level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                        template.target_complexity_level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                        'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }`}>
+                        {template.target_complexity_level || 'CLIA Waived'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-300">
@@ -342,6 +373,37 @@ export default function DeploymentTemplatesTab() {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Target Complexity Level</label>
+                <div className="relative">
+                  <select
+                    value={formData.target_complexity_level}
+                    onChange={(e) => setFormData({ ...formData, target_complexity_level: e.target.value })}
+                    className="w-full px-4 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:border-teal-500"
+                  >
+                    {COMPLEXITY_LEVELS.map(level => (
+                      <option key={level.id} value={level.id}>{level.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_incremental}
+                    onChange={(e) => setFormData({ ...formData, is_incremental: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Incremental Template (for Upgrades)</p>
+                    <p className="text-xs text-slate-400">Only adds net-new items not already present at the facility</p>
+                  </div>
+                </label>
               </div>
 
               <div>
