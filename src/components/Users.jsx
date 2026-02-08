@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users as UsersIcon,
-  Edit2,
+  Pencil,
   Trash2,
   Shield,
   Building2,
@@ -16,9 +16,8 @@ import {
   RefreshCw,
   Search,
   ChevronDown,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
+  ChevronsUpDown,
+  ChevronUp,
   AlertCircle
 } from 'lucide-react';
 import { usersService } from '../services/usersService';
@@ -388,10 +387,10 @@ export default function Users() {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    if (sortConfig.key !== key) return <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />;
     return sortConfig.direction === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
-      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+      ? <ChevronUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ChevronDown className="w-3.5 h-3.5 text-teal-400" />;
   };
 
   const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
@@ -536,7 +535,7 @@ export default function Users() {
                         className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
                         title="Edit user"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
