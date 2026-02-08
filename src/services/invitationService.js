@@ -116,7 +116,8 @@ export const invitationService = {
   },
 
   async sendInvitationEmail(invitation) {
-    const inviteUrl = `${window.location.origin}/#/login?invitation=${invitation.invitation_token}`;
+    const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+    const inviteUrl = `${siteUrl}/tracker#/login?invitation=${invitation.invitation_token}`;
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
