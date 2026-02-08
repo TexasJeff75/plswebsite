@@ -20,7 +20,7 @@ import FacilityMapEmbed from './maps/FacilityMapEmbed';
 
 export default function FacilityDetail() {
   const { id } = useParams();
-  const { isEditor } = useAuth();
+  const { isEditor, isStaff } = useAuth();
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -285,7 +285,7 @@ export default function FacilityDetail() {
             </span>
           </div>
         </div>
-        {isEditor && (
+        {isStaff && (
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setShowReassignModal(true)}
