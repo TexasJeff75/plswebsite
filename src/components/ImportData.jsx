@@ -413,17 +413,42 @@ export default function ImportData({ onImportComplete, onClose }) {
             continue;
           }
 
-          console.log(`[Import] Creating facility: ${facilityName}`, facilityData);
+          const existingFacilities = await facilitiesService.getAll({
+            organization_id: selectedOrganization
+          });
+
+          const isDuplicateFacility = existingFacilities.some(existing => {
+            const nameMatch = existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim();
+
+            const addressMatch = facilityData.address && facilityData.city && facilityData.state &&
+                               existing.address && existing.city && existing.state &&
+                               existing.address.toLowerCase().trim() === facilityData.address.toLowerCase().trim() &&
+                               existing.city.toLowerCase().trim() === facilityData.city.toLowerCase().trim() &&
+                               existing.state.toLowerCase().trim() === facilityData.state.toLowerCase().trim();
+
+            return nameMatch || addressMatch;
+          });
 
           let facility;
-          try {
-            facility = await facilitiesService.create(facilityData);
-            console.log(`[Import] Facility created successfully: ${facility.id}`);
-            successCount++;
-          } catch (facilityError) {
-            console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
-            importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
-            continue;
+          if (isDuplicateFacility) {
+            console.log(`[Import] Skipping duplicate facility: ${facilityName}`);
+            importErrors.push(`Row ${i + 2} (${facilityName}): Facility already exists, skipped`);
+
+            facility = existingFacilities.find(existing =>
+              existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim()
+            );
+          } else {
+            console.log(`[Import] Creating facility: ${facilityName}`, facilityData);
+
+            try {
+              facility = await facilitiesService.create(facilityData);
+              console.log(`[Import] Facility created successfully: ${facility.id}`);
+              successCount++;
+            } catch (facilityError) {
+              console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
+              importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
+              continue;
+            }
           }
 
           const firstName = getMappedValue(row, 'first_name');
