@@ -417,46 +417,6 @@ export default function DeploymentTrackerMap() {
         }
       `}</style>
 
-      <div className="flex-none bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-6 py-3 relative">
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img
-              src="/deployment_logo_animated.svg"
-              alt="Deployment Tracker"
-              className="w-10 h-10"
-            />
-            <div>
-              <h1 className="text-lg font-bold text-white">Point-of-Care Deployment Tracker</h1>
-              <p className="text-slate-400 text-xs">Real-time facility deployment monitoring</p>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <div className="text-center bg-slate-800/60 px-3 py-1.5 rounded-lg border border-slate-700/50">
-              <div className="font-bold text-white text-lg">{statusCounts.total}</div>
-              <div className="text-slate-400 text-[10px] uppercase tracking-wider">Total</div>
-            </div>
-            <div className="text-center bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 shadow-sm shadow-emerald-500/5">
-              <div className="font-bold text-emerald-400 text-lg">{statusCounts.live}</div>
-              <div className="text-emerald-300/70 text-[10px] uppercase tracking-wider">Live</div>
-            </div>
-            <div className="text-center bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/30 shadow-sm shadow-amber-500/5">
-              <div className="font-bold text-amber-400 text-lg">{statusCounts.inProgress}</div>
-              <div className="text-amber-300/70 text-[10px] uppercase tracking-wider">Progress</div>
-            </div>
-            <div className="text-center bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/30 shadow-sm shadow-red-500/5">
-              <div className="font-bold text-red-400 text-lg">{statusCounts.blocked}</div>
-              <div className="text-red-300/70 text-[10px] uppercase tracking-wider">Blocked</div>
-            </div>
-            <div className="text-center bg-slate-700/30 px-3 py-1.5 rounded-lg border border-slate-600/30">
-              <div className="font-bold text-slate-300 text-lg">{statusCounts.notStarted}</div>
-              <div className="text-slate-400 text-[10px] uppercase tracking-wider">Pending</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="flex-1 flex overflow-hidden">
         <div className="w-96 bg-slate-900 border-r border-slate-800 flex flex-col">
           <div className="flex-none p-4 border-b border-slate-800 space-y-3">
