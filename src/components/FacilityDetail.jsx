@@ -414,57 +414,60 @@ export default function FacilityDetail() {
             </div>
           </div>
 
-          <div className="lg:col-span-4 bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="lg:col-span-4 bg-slate-800 rounded-lg p-6 border border-slate-700 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Flag className="w-5 h-5 text-teal-400" />
-                Status Indicators
+                Milestone Status
               </h2>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
               {(() => {
                 const milestones = facility.milestones || [];
-                const blockedCount = milestones.filter(m => m.status === 'blocked').length;
-                const today = new Date();
-                const warningCount = milestones.filter(m => {
-                  if (m.status === 'complete' || !m.target_date) return false;
-                  const targetDate = new Date(m.target_date);
-                  const daysUntil = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-                  return daysUntil >= 0 && daysUntil <= 7;
-                }).length;
-                const onTrackCount = milestones.filter(m => {
-                  if (m.status === 'complete' || m.status === 'blocked') return false;
-                  if (!m.target_date) return true;
-                  const targetDate = new Date(m.target_date);
-                  const daysUntil = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-                  return daysUntil > 7;
-                }).length;
+                if (milestones.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                      No milestones assigned yet
+                    </div>
+                  );
+                }
 
-                return (
-                  <>
-                    <div className="flex items-center justify-between p-3 bg-red-900/20 border border-red-800 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span className="text-slate-300 text-sm">Critical</span>
-                      </div>
-                      <span className="text-red-400 font-semibold">{blockedCount}</span>
+                const today = new Date();
+                const sortedMilestones = [...milestones]
+                  .sort((a, b) => (a.milestone_order || 0) - (b.milestone_order || 0));
+
+                return sortedMilestones.map((milestone, index) => {
+                  let statusColor = 'bg-slate-500';
+
+                  if (milestone.status === 'complete') {
+                    statusColor = 'bg-green-500';
+                  } else if (milestone.status === 'blocked') {
+                    statusColor = 'bg-red-500';
+                  } else if (milestone.target_date) {
+                    const targetDate = new Date(milestone.target_date);
+                    const daysUntil = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysUntil < 0) {
+                      statusColor = 'bg-red-500';
+                    } else if (daysUntil <= 7) {
+                      statusColor = 'bg-yellow-500';
+                    } else {
+                      statusColor = 'bg-slate-500';
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={milestone.id}
+                      className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      <div className={`w-2.5 h-2.5 ${statusColor} rounded-full flex-shrink-0`}></div>
+                      <span className="text-slate-200 text-sm flex-1 leading-tight">
+                        {index + 1}. {milestone.name}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-900/20 border border-yellow-800 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <span className="text-slate-300 text-sm">Due Soon</span>
-                      </div>
-                      <span className="text-yellow-400 font-semibold">{warningCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-900/20 border border-green-800 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-slate-300 text-sm">On Track</span>
-                      </div>
-                      <span className="text-green-400 font-semibold">{onTrackCount}</span>
-                    </div>
-                  </>
-                );
+                  );
+                });
               })()}
             </div>
           </div>
