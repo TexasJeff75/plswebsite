@@ -284,53 +284,6 @@ export default function Users() {
     }));
   }
 
-  const getRoleBadge = (role) => {
-    const colors = {
-      'Proximity Admin': 'bg-red-500/20 text-red-400 border-red-500/30',
-      'Proximity Staff': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      'Account Manager': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-      'Technical Consultant': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-      'Compliance Specialist': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      'Customer Admin': 'bg-green-500/20 text-green-400 border-green-500/30',
-      'Customer Viewer': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-    };
-    return colors[role] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
-  };
-
-  if (!isAdmin) {
-    return (
-      <div className="text-center py-12">
-        <Shield className="w-16 h-16 mx-auto text-slate-700 mb-4" />
-        <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
-        <p className="text-slate-400">You need administrator privileges to access this page.</p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-white mb-2">Failed to Load Users</h2>
-        <p className="text-slate-400 mb-4">{error}</p>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
   const filteredUsers = useMemo(() => {
     let result = [...(users || [])];
 
@@ -379,6 +332,19 @@ export default function Users() {
     return result;
   }, [users, userSearch, roleFilter, sortConfig]);
 
+  const getRoleBadge = (role) => {
+    const colors = {
+      'Proximity Admin': 'bg-red-500/20 text-red-400 border-red-500/30',
+      'Proximity Staff': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      'Account Manager': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      'Technical Consultant': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      'Compliance Specialist': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      'Customer Admin': 'bg-green-500/20 text-green-400 border-green-500/30',
+      'Customer Viewer': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    };
+    return colors[role] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+  };
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -395,6 +361,40 @@ export default function Users() {
 
   const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
   const isInviteCustomerRole = CUSTOMER_ROLES.includes(newInvitation.role);
+
+  if (!isAdmin) {
+    return (
+      <div className="text-center py-12">
+        <Shield className="w-16 h-16 mx-auto text-slate-700 mb-4" />
+        <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400">You need administrator privileges to access this page.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold text-white mb-2">Failed to Load Users</h2>
+        <p className="text-slate-400 mb-4">{error}</p>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
