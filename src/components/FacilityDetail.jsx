@@ -15,6 +15,7 @@ import MilestonesTab from './facility-tabs/MilestonesTab';
 import DocumentsTab from './facility-tabs/DocumentsTab';
 import ActivityLogTab from './facility-tabs/ActivityLogTab';
 import LabOrdersTab from './facility-tabs/LabOrdersTab';
+import ContactsTab from './facility-tabs/ContactsTab';
 import FacilityMapEmbed from './maps/FacilityMapEmbed';
 
 export default function FacilityDetail() {
@@ -188,6 +189,7 @@ export default function FacilityDetail() {
     { label: 'Equipment & Integration', component: <EquipmentIntegrationTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
     { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
+    { label: 'Contacts', component: <ContactsTab facility={facility} /> },
     { label: 'Lab Orders', component: <LabOrdersTab facility={facility} /> },
     { label: 'Documents', component: <DocumentsTab facility={facility} isEditor={isEditor} /> },
     { label: 'Activity Log', component: <ActivityLogTab facility={facility} /> },
