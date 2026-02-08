@@ -1,4 +1,83 @@
+import { supabase } from '../lib/supabase';
+
 export const facilityStatsService = {
+  async getStats(filters = {}) {
+    try {
+      let query = supabase
+        .from('facilities')
+        .select(`
+          id,
+          status,
+          state,
+          projected_go_live,
+          milestones(id, status),
+          facility_contacts(id)
+        `);
+
+      if (filters.organization_id) {
+        query = query.eq('organization_id', filters.organization_id);
+      }
+
+      if (filters.project_id) {
+        query = query.eq('project_id', filters.project_id);
+      }
+
+      const { data: facilities, error } = await query;
+
+      if (error) throw error;
+
+      const totalFacilities = facilities.length;
+      const liveFacilities = facilities.filter(f => f.status === 'Live').length;
+      const inProgressFacilities = facilities.filter(f => f.status === 'In Progress').length;
+
+      const totalProgress = facilities.reduce((sum, f) => {
+        const milestones = f.milestones || [];
+        if (milestones.length === 0) return sum;
+        const completed = milestones.filter(m => m.status === 'complete').length;
+        return sum + (completed / milestones.length) * 100;
+      }, 0);
+      const averageProgress = totalFacilities > 0 ? Math.round(totalProgress / totalFacilities) : 0;
+
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const upcomingGoLives = facilities.filter(f => {
+        if (!f.projected_go_live) return false;
+        const goLiveDate = new Date(f.projected_go_live);
+        return goLiveDate >= new Date() && goLiveDate <= thirtyDaysFromNow;
+      }).length;
+
+      const statusCounts = facilities.reduce((acc, f) => {
+        const status = f.status || 'Unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+
+      const byStatus = Object.entries(statusCounts)
+        .map(([status, count]) => ({ status, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const facilitiesWithContacts = facilities.filter(f => f.facility_contacts && f.facility_contacts.length > 0).length;
+      const totalContacts = facilities.reduce((sum, f) => sum + (f.facility_contacts?.length || 0), 0);
+
+      const uniqueStates = new Set(facilities.map(f => f.state).filter(Boolean)).size;
+
+      return {
+        totalFacilities,
+        liveFacilities,
+        inProgressFacilities,
+        averageProgress,
+        upcomingGoLives,
+        byStatus,
+        facilitiesWithContacts,
+        totalContacts,
+        uniqueStates
+      };
+    } catch (error) {
+      console.error('Error fetching facility stats:', error);
+      throw error;
+    }
+  },
+
   calculateCompletionPercentage(milestones) {
     if (!milestones || milestones.length === 0) return 0;
 
