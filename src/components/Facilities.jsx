@@ -12,7 +12,7 @@ import ReassignFacilitiesModal from './ReassignFacilitiesModal';
 import MergeFacilitiesModal from './MergeFacilitiesModal';
 
 export default function Facilities() {
-  const { isEditor } = useAuth();
+  const { isEditor, isProximityAdmin } = useAuth();
   const { selectedOrganization, selectedProject } = useOrganization();
   const [facilities, setFacilities] = useState([]);
   const [organizations, setOrganizations] = useState([]);
@@ -463,7 +463,7 @@ export default function Facilities() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {selectedIds.size === 2 && (
+              {selectedIds.size === 2 && isProximityAdmin && (
                 <button
                   onClick={() => setShowMergeModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-slate-900 rounded-lg hover:bg-amber-400 transition-colors font-medium text-sm"
@@ -710,7 +710,7 @@ export default function Facilities() {
         />
       )}
 
-      {showMergeModal && selectedIds.size === 2 && (
+      {showMergeModal && selectedIds.size === 2 && isProximityAdmin && (
         <MergeFacilitiesModal
           facilities={sortedFacilities.filter(f => selectedIds.has(f.id))}
           onClose={() => setShowMergeModal(false)}
