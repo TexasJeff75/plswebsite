@@ -217,18 +217,33 @@ export default function FacilityDetail() {
         <span className="text-slate-300">{facility.name}</span>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Link to="/facilities" className="text-slate-400 hover:text-white">
+      <div className="flex items-start gap-4">
+        <Link to="/facilities" className="text-slate-400 hover:text-white mt-1">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white">{facility.name}</h1>
-          <p className="text-slate-400">{facility.address}, {facility.city}, {facility.state}</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-bold text-white mb-1">{facility.name}</h1>
+          <p className="text-slate-400 mb-3">{facility.address}, {facility.city}, {facility.state}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-xs">Configuration:</span>
+              <span className="text-slate-300 font-medium text-sm">
+                {facility.deployment_template?.template_name || 'No template applied'}
+              </span>
+            </div>
+            <div className="w-px h-4 bg-slate-700"></div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-xs">Overall Status:</span>
+              <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${statusColor} ${statusTextColor}`}>
+                {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1).replace('_', ' ')}
+              </span>
+            </div>
+          </div>
         </div>
         {isEditor && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setShowReassignModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
@@ -245,21 +260,6 @@ export default function FacilityDetail() {
             </button>
           </div>
         )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-slate-400 text-xs mb-1">Configuration</p>
-          <p className="text-white font-semibold text-sm">
-            {facility.deployment_template?.template_name || 'No template applied'}
-          </p>
-        </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-slate-400 text-xs mb-1">Overall Status</p>
-          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${statusColor} ${statusTextColor}`}>
-            {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1).replace('_', ' ')}
-          </span>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
