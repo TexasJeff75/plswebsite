@@ -140,7 +140,7 @@ export default function Layout() {
             <img
               src="/deployment_logo_animated.svg"
               alt="Deployment Tracker"
-              className={`flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-8 h-8' : 'w-12 h-12'}`}
+              className={`flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-8 h-8' : 'w-16 h-16'}`}
             />
           </Link>
           <button
