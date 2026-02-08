@@ -136,15 +136,12 @@ export default function Layout() {
     <div className="min-h-screen bg-slate-900 flex">
       <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-gradient-to-b from-slate-800 to-slate-850 border-r border-slate-700 flex flex-col transition-all duration-300 fixed h-full z-30`}>
         <div className="p-4 border-b border-slate-700/80 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <Link to="/dashboard" className="flex items-center justify-center flex-1">
             <img
               src="/deployment_logo_animated.svg"
               alt="Deployment Tracker"
-              className="w-8 h-8 flex-shrink-0"
+              className={`flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-8 h-8' : 'w-12 h-12'}`}
             />
-            {!sidebarCollapsed && (
-              <span className="text-white font-semibold text-sm">Deployment Tracker</span>
-            )}
           </Link>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -314,8 +311,9 @@ export default function Layout() {
 
       <div className={`flex-1 ${sidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
         <header className="bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/80 h-14 flex items-center justify-between px-6 sticky top-0 z-20">
-          <div className="flex items-center gap-2">
-            {sidebarCollapsed && selectedOrganization && (
+          <div className="flex items-center gap-4">
+            <h1 className="text-white font-semibold text-lg">Deployment Tracker</h1>
+            {selectedOrganization && (
               <span className="text-sm text-slate-400">
                 {selectedOrganization.name}
               </span>
