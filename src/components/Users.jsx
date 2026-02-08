@@ -591,13 +591,13 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {(invitations || []).length === 0 ? (
+              {(invitations || []).filter(i => i.status === 'pending').length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                    No invitations sent yet
+                    No pending invitations
                   </td>
                 </tr>
-              ) : (invitations || []).map(invitation => {
+              ) : (invitations || []).filter(i => i.status === 'pending').map(invitation => {
                 const isExpired = new Date(invitation.expires_at) < new Date();
                 const isPending = invitation.status === 'pending' && !isExpired;
 
