@@ -1,5 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CheckCircle, XCircle, RefreshCw, Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  Users as UsersIcon,
+  Edit2,
+  Trash2,
+  Shield,
+  Building2,
+  Plus,
+  X,
+  Check,
+  Mail,
+  Send,
+  Clock,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Search,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  AlertCircle
+} from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
@@ -22,6 +43,7 @@ export default function Users() {
   const [organizations, setOrganizations] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -44,16 +66,21 @@ export default function Users() {
   async function loadData() {
     try {
       setLoading(true);
+      setError(null);
       const [usersData, orgsData, invitationsData] = await Promise.all([
-        usersService.getAll(),
-        organizationsService.getAll(),
-        invitationService.getAll(),
+        usersService.getAll().catch(e => { console.error('Error loading users:', e); return []; }),
+        organizationsService.getAll().catch(e => { console.error('Error loading orgs:', e); return []; }),
+        invitationService.getAll().catch(e => { console.error('Error loading invitations:', e); return []; }),
       ]);
-      setUsers(usersData);
-      setOrganizations(orgsData);
-      setInvitations(invitationsData);
-    } catch (error) {
-      console.error('Error loading data:', error);
+      setUsers(usersData || []);
+      setOrganizations(orgsData || []);
+      setInvitations(invitationsData || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err.message || 'Failed to load data');
+      setUsers([]);
+      setOrganizations([]);
+      setInvitations([]);
     } finally {
       setLoading(false);
     }
@@ -285,6 +312,22 @@ export default function Users() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold text-white mb-2">Failed to Load Users</h2>
+        <p className="text-slate-400 mb-4">{error}</p>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
@@ -618,7 +661,7 @@ export default function Users() {
                     <label className="block text-slate-300 text-sm font-medium mb-2">Display Name</label>
                     <input
                       type="text"
-                      value={editingUser.display_name}
+                      value={editingUser.display_name || ''}
                       onChange={(e) => setEditingUser({ ...editingUser, display_name: e.target.value })}
                       className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
@@ -628,7 +671,7 @@ export default function Users() {
                     <label className="block text-slate-300 text-sm font-medium mb-2">Email (read-only)</label>
                     <input
                       type="text"
-                      value={editingUser.email}
+                      value={editingUser.email || ''}
                       disabled
                       className="w-full bg-slate-900 text-slate-500 px-4 py-2 rounded border border-slate-600 cursor-not-allowed"
                     />
@@ -638,7 +681,7 @@ export default function Users() {
                 <div>
                   <label className="block text-slate-300 text-sm font-medium mb-2">Role</label>
                   <select
-                    value={editingUser.role}
+                    value={editingUser.role || 'Customer Viewer'}
                     onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                     className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
@@ -654,7 +697,7 @@ export default function Users() {
                     </optgroup>
                   </select>
                   <p className="text-slate-500 text-xs mt-1">
-                    {INTERNAL_ROLES.includes(editingUser.role)
+                    {INTERNAL_ROLES.includes(editingUser.role || '')
                       ? 'Internal users have access to all organizations'
                       : 'Customer users only see their assigned organizations'}
                   </p>
