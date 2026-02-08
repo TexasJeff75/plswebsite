@@ -138,7 +138,7 @@ export default function Layout() {
         <div className="p-4 border-b border-slate-700/80 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center justify-center flex-1">
             <img
-              src="/deployment_logo_animated.svg"
+              src="/deployment_logo_animated_v2.svg"
               alt="Deployment Tracker"
               className={`flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-8 h-8' : 'w-16 h-16'}`}
             />
