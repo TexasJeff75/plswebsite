@@ -7,11 +7,11 @@ export const facilityContactsService = {
       .select(`
         *,
         created_by_user:user_roles!facility_contacts_created_by_fkey(
-          full_name,
+          display_name,
           email
         ),
         updated_by_user:user_roles!facility_contacts_updated_by_fkey(
-          full_name,
+          display_name,
           email
         )
       `)
@@ -30,11 +30,11 @@ export const facilityContactsService = {
         *,
         facility:facilities(id, name),
         created_by_user:user_roles!facility_contacts_created_by_fkey(
-          full_name,
+          display_name,
           email
         ),
         updated_by_user:user_roles!facility_contacts_updated_by_fkey(
-          full_name,
+          display_name,
           email
         )
       `)
