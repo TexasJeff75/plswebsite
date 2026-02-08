@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,17 +22,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-
     const { email, role, inviteUrl, expiresAt }: InvitationEmailRequest = await req.json();
 
     if (!email || !role || !inviteUrl) {
@@ -41,6 +29,25 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "Missing required fields" }),
         {
           status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not configured');
+      return new Response(
+        JSON.stringify({
+          error: "Email service not configured",
+          details: "RESEND_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.",
+        }),
+        {
+          status: 500,
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json",
@@ -122,26 +129,36 @@ Deno.serve(async (req: Request) => {
     console.log(`Invite URL: ${inviteUrl}`);
     console.log(`Expires: ${expiryDate}`);
 
-    const { data: emailData, error: emailError } = await supabaseClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        role: role,
-        invite_url: inviteUrl,
-        expires_at: expiresAt,
+    const fromEmail = Deno.env.get('EMAIL_FROM') || 'Proximity Lab Services <noreply@proximitylabservices.com>';
+
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
-      redirectTo: inviteUrl,
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [email],
+        subject: "You're invited to Proximity Lab Services",
+        html: emailHtml,
+      }),
     });
 
-    if (emailError) {
-      console.error('Supabase email error:', emailError);
-      throw emailError;
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json();
+      console.error('Resend API error:', errorData);
+      throw new Error(errorData.message || 'Failed to send email via Resend');
     }
 
-    console.log('Email sent successfully via Supabase');
+    const result = await resendResponse.json();
+    console.log('Email sent successfully via Resend:', result.id);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Invitation email sent successfully",
+        emailId: result.id,
         details: {
           email,
           role,

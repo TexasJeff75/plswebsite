@@ -117,11 +117,14 @@ export const invitationService = {
 
   async sendInvitationEmail(invitation) {
     const inviteUrl = `${window.location.origin}/#/login?invitation=${invitation.invitation_token}`;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    const response = await fetch('/.netlify/functions/send-invitation-email', {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-invitation-email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
       },
       body: JSON.stringify({
         email: invitation.email,
@@ -133,7 +136,7 @@ export const invitationService = {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send invitation email');
+      throw new Error(errorData.error || errorData.details || 'Failed to send invitation email');
     }
 
     const data = await response.json();
