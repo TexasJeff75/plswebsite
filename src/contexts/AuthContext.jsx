@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { auditService } from '../services/auditService';
 
 const AuthContext = createContext({});
 
@@ -15,6 +16,9 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [impersonatedUser, setImpersonatedUser] = useState(null);
+  const [impersonatedProfile, setImpersonatedProfile] = useState(null);
+  const [originalAdmin, setOriginalAdmin] = useState(null);
 
   useEffect(() => {
     console.log('AuthProvider: Initializing...');
@@ -159,33 +163,107 @@ export const AuthProvider = ({ children }) => {
 
       setUser(null);
       setProfile(null);
+      setImpersonatedUser(null);
+      setImpersonatedProfile(null);
+      setOriginalAdmin(null);
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
     }
   };
 
-  const isProximityAdmin = profile?.role === 'Proximity Admin';
-  const isProximityStaff = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(profile?.role);
-  const isCustomerAdmin = profile?.role === 'Customer Admin';
-  const isCustomerViewer = profile?.role === 'Customer Viewer';
+  const startImpersonation = async (targetUserId) => {
+    try {
+      if (!profile || profile.role !== 'Proximity Admin') {
+        throw new Error('Only Proximity Admins can impersonate users');
+      }
+
+      const { data: targetUserProfile, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('id', targetUserId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!targetUserProfile) throw new Error('User not found');
+
+      if (targetUserProfile.role === 'Proximity Admin') {
+        throw new Error('Cannot impersonate other admins');
+      }
+
+      setOriginalAdmin({
+        user: user,
+        profile: profile
+      });
+      setImpersonatedProfile(targetUserProfile);
+      setImpersonatedUser({
+        id: targetUserProfile.user_id,
+        email: targetUserProfile.email
+      });
+
+      await auditService.logImpersonationStart(
+        user.id,
+        targetUserProfile.user_id,
+        targetUserProfile.email
+      );
+
+      console.log('Started impersonation:', targetUserProfile.email);
+    } catch (error) {
+      console.error('Error starting impersonation:', error);
+      throw error;
+    }
+  };
+
+  const stopImpersonation = async () => {
+    try {
+      if (impersonatedUser && originalAdmin) {
+        await auditService.logImpersonationStop(
+          originalAdmin.user.id,
+          impersonatedUser.id
+        );
+      }
+    } catch (error) {
+      console.error('Error logging impersonation stop:', error);
+    }
+
+    setImpersonatedUser(null);
+    setImpersonatedProfile(null);
+    setOriginalAdmin(null);
+    console.log('Stopped impersonation');
+  };
+
+  const activeUser = impersonatedUser || user;
+  const activeProfile = impersonatedProfile || profile;
+  const isImpersonating = !!impersonatedUser;
+
+  const isProximityAdmin = activeProfile?.role === 'Proximity Admin';
+  const isProximityStaff = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(activeProfile?.role);
+  const isCustomerAdmin = activeProfile?.role === 'Customer Admin';
+  const isCustomerViewer = activeProfile?.role === 'Customer Viewer';
   const canEdit = isProximityStaff || isCustomerAdmin;
-  const canView = !!profile;
+  const canView = !!activeProfile;
 
   const value = {
-    user,
-    profile,
+    user: activeUser,
+    profile: activeProfile,
+    realUser: user,
+    realProfile: profile,
+    isImpersonating,
+    impersonatedUser: impersonatedProfile,
+    originalAdmin,
     loading,
     signInWithMicrosoft,
     signInWithPassword,
     signOut,
+    startImpersonation,
+    stopImpersonation,
     isAdmin: isProximityStaff || isCustomerAdmin,
     isProximityAdmin,
     isEditor: canEdit,
     isViewer: canView,
     isStaff: isProximityStaff,
     isCustomer: isCustomerAdmin || isCustomerViewer,
-    organizationId: profile?.organization_id
+    organizationId: activeProfile?.organization_id
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

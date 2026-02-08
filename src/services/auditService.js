@@ -109,4 +109,29 @@ export const auditService = {
       displayText: `${userName} ${entry.action} ${entry.field_name}`,
     };
   },
+
+  async logImpersonationStart(adminUserId, targetUserId, targetUserEmail) {
+    try {
+      console.log('Logging impersonation start:', {
+        admin_user_id: adminUserId,
+        target_user_id: targetUserId,
+        target_user_email: targetUserEmail,
+        action: 'impersonation_start'
+      });
+    } catch (error) {
+      console.error('Error logging impersonation start:', error);
+    }
+  },
+
+  async logImpersonationStop(adminUserId, targetUserId) {
+    try {
+      console.log('Logging impersonation stop:', {
+        admin_user_id: adminUserId,
+        target_user_id: targetUserId,
+        action: 'impersonation_stop'
+      });
+    } catch (error) {
+      console.error('Error logging impersonation stop:', error);
+    }
+  },
 };

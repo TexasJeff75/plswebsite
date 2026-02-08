@@ -20,7 +20,8 @@ import {
   ChevronUp,
   AlertCircle,
   Copy,
-  Link2
+  Link2,
+  Eye
 } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
@@ -39,7 +40,7 @@ const ORG_ROLES = [
 ];
 
 export default function Users() {
-  const { isStaff, user: currentUser } = useAuth();
+  const { isStaff, user: currentUser, realProfile, startImpersonation } = useAuth();
   const [users, setUsers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [invitations, setInvitations] = useState([]);
@@ -143,6 +144,19 @@ export default function Users() {
     } catch (error) {
       console.error('Error deleting user:', error);
       alert('Failed to delete user');
+    }
+  }
+
+  async function handleImpersonate(user) {
+    try {
+      if (user.role === 'Proximity Admin') {
+        alert('Cannot impersonate other admins');
+        return;
+      }
+      await startImpersonation(user.id);
+    } catch (error) {
+      console.error('Error starting impersonation:', error);
+      alert(error.message || 'Failed to start impersonation');
     }
   }
 
@@ -556,6 +570,15 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      {realProfile?.role === 'Proximity Admin' && user.role !== 'Proximity Admin' && (
+                        <button
+                          onClick={() => handleImpersonate(user)}
+                          className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-700 rounded transition-colors"
+                          title="Impersonate this user"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEditModal(user)}
                         className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
