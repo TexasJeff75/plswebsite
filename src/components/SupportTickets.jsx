@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Search, Ticket, AlertCircle, Clock, CheckCircle2,
-  ChevronDown, X, Filter, ArrowUpDown, ArrowUp, ArrowDown
+  ChevronDown, X, Filter, ChevronsUpDown, ChevronUp
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -161,10 +161,10 @@ export default function SupportTickets() {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    if (sortConfig.key !== key) return <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />;
     return sortConfig.direction === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
-      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+      ? <ChevronUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ChevronDown className="w-3.5 h-3.5 text-teal-400" />;
   };
 
   const handleFilterChange = (key, value) => {

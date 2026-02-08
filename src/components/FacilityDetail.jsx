@@ -4,7 +4,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search, Flag } from 'lucide-react';
+import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Pencil, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search, Flag } from 'lucide-react';
 import { projectsService } from '../services/projectsService';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
@@ -274,7 +274,7 @@ export default function FacilityDetail() {
                   onClick={startEditingDates}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -485,7 +485,7 @@ export default function FacilityDetail() {
                   onClick={startEditingLocation}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" />
                 </button>
               )}
             </div>

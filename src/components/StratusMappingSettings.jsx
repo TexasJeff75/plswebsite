@@ -3,7 +3,7 @@ import { stratusMappingService } from '../services/stratusMappingService';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import {
-  Link, Plus, X, Edit2, Trash2, Save, Power, TestTube2,
+  Link, Plus, X, Pencil, Trash2, Save, Power, TestTube2,
   Building2, MapPin, CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -329,7 +329,7 @@ export default function StratusMappingSettings() {
                           className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(mapping.id)}

@@ -3,7 +3,7 @@ import { templatesService } from '../../services/templatesService';
 import ReferenceSelect from '../ui/ReferenceSelect';
 import ReferenceBadge, { ReferenceText } from '../ui/ReferenceBadge';
 import {
-  Plus, Edit2, Trash2, X, ChevronDown, Check, Loader2
+  Plus, Pencil, Trash2, X, ChevronDown, Check, Loader2
 } from 'lucide-react';
 
 const APPLIES_TO = [
@@ -198,7 +198,7 @@ export default function MilestoneTemplatesTab() {
                           className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(template)}

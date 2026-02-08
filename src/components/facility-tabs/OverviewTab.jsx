@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, AlertTriangle, Activity, Edit2, Save, X, CheckCircle2 } from 'lucide-react';
+import { Calendar, AlertTriangle, Activity, Pencil, Save, X, CheckCircle2 } from 'lucide-react';
 import FormError from '../FormError';
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
@@ -120,7 +120,7 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
               onClick={startEditing}
               className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-sm font-medium transition-colors"
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Pencil className="w-3.5 h-3.5" />
               Edit
             </button>
           ) : (

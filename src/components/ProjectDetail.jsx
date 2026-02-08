@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Building2, Folder, Calendar, User, AlertCircle, Clock,
   CheckCircle2, Plus, Pencil, MapPin, TrendingUp, Activity,
-  Eye, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown,
+  Eye, Trash2, Search, ChevronsUpDown, ChevronUp, ChevronDown,
   Layers, X, Check, Loader2, ArrowRightLeft
 } from 'lucide-react';
 import { facilityStatsService } from '../services/facilityStatsService';
@@ -261,10 +261,10 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    if (sortConfig.key !== key) return <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />;
     return sortConfig.direction === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
-      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+      ? <ChevronUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ChevronDown className="w-3.5 h-3.5 text-teal-400" />;
   };
 
   const toggleSelect = (id) => {

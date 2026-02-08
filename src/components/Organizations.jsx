@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Search, Building2, Users, DollarSign, Filter,
   MoreVertical, Eye, Pencil, Archive, X, ChevronDown,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ChevronsUpDown, ChevronUp
 } from 'lucide-react';
 
 export default function Organizations() {
@@ -107,10 +107,10 @@ export default function Organizations() {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    if (sortConfig.key !== key) return <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />;
     return sortConfig.direction === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 text-teal-400" />
-      : <ArrowDown className="w-3.5 h-3.5 text-teal-400" />;
+      ? <ChevronUp className="w-3.5 h-3.5 text-teal-400" />
+      : <ChevronDown className="w-3.5 h-3.5 text-teal-400" />;
   };
 
   const stats = {

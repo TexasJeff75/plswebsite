@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Edit2, Save, X, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { MapPin, Navigation, Pencil, Save, X, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import FacilityMapEmbed from '../maps/FacilityMapEmbed';
 import FormField from '../FormField';
 import FormError from '../FormError';
@@ -179,7 +179,7 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
               onClick={startEditing}
               className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-sm font-medium transition-colors"
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Pencil className="w-3.5 h-3.5" />
               Edit Location
             </button>
           ) : (

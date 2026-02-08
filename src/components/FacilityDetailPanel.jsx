@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Edit2 } from 'lucide-react';
+import { X, Pencil } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 
 export default function FacilityDetailPanel({ facility, onClose, onSave }) {
@@ -205,7 +205,7 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
             to={`/facilities/${facility.id}`}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium transition-colors"
           >
-            <Edit2 className="w-4 h-4" />
+            <Pencil className="w-4 h-4" />
             Edit
           </Link>
           <button

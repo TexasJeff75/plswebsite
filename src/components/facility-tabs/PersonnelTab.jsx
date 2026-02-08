@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Users, Plus, Trash2, Pencil } from 'lucide-react';
 import { personnelService } from '../../services/personnelService';
 
 export default function PersonnelTab({ facility, isEditor }) {

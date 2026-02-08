@@ -5,7 +5,7 @@ import { organizationsService } from '../services/organizationsService';
 import { projectsService } from '../services/projectsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
-import { X, Plus, Upload, ArrowUpDown, ArrowUp, ArrowDown, ArrowRightLeft } from 'lucide-react';
+import { X, Plus, Upload, ChevronsUpDown, ChevronUp, ChevronDown, ArrowRightLeft } from 'lucide-react';
 import ImportData from './ImportData';
 import ReassignFacilitiesModal from './ReassignFacilitiesModal';
 
@@ -81,11 +81,11 @@ export default function Facilities() {
 
   const getSortIcon = (columnKey) => {
     if (sortConfig.key !== columnKey) {
-      return <ArrowUpDown className="w-4 h-4 opacity-40" />;
+      return <ChevronsUpDown className="w-4 h-4 opacity-40" />;
     }
     return sortConfig.direction === 'asc' ?
-      <ArrowUp className="w-4 h-4 text-teal-400" /> :
-      <ArrowDown className="w-4 h-4 text-teal-400" />;
+      <ChevronUp className="w-4 h-4 text-teal-400" /> :
+      <ChevronDown className="w-4 h-4 text-teal-400" />;
   };
 
   const sortedFacilities = React.useMemo(() => {

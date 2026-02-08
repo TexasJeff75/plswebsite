@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { referenceDataService, CATEGORY_GROUPS, CATEGORY_LABELS } from '../services/referenceDataService';
 import { invalidateReferenceCache } from '../hooks/useReferenceData';
 import {
-  Plus, Edit2, Trash2, X, Check, Loader2, Lock, ToggleLeft, ToggleRight,
+  Plus, Pencil, Trash2, X, Check, Loader2, Lock, ToggleLeft, ToggleRight,
   GripVertical, AlertTriangle, RefreshCw
 } from 'lucide-react';
 
@@ -310,7 +310,7 @@ export default function ReferenceData() {
                             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                             title="Edit"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                           {!item.is_active && (
                             <button

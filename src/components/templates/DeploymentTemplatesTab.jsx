@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { templatesService } from '../../services/templatesService';
 import { format } from 'date-fns';
 import {
-  Plus, Edit2, Trash2, Copy, X, ChevronDown, Check, Loader2, RefreshCw
+  Plus, Pencil, Trash2, Copy, X, ChevronDown, Check, Loader2, RefreshCw
 } from 'lucide-react';
 
 const TEMPLATE_TYPES = [
@@ -267,7 +267,7 @@ export default function DeploymentTemplatesTab() {
                           className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleSyncToFacilities(template)}

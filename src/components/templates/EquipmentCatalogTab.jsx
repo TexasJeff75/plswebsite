@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { templatesService } from '../../services/templatesService';
 import { equipmentCatalogDocumentService } from '../../services/equipmentCatalogDocumentService';
 import {
-  Plus, Edit2, Trash2, X, ChevronDown, Check, Loader2, FileText, Upload, Download, Eye, ChevronRight
+  Plus, Pencil, Trash2, X, ChevronDown, Check, Loader2, FileText, Upload, Download, Eye, ChevronRight
 } from 'lucide-react';
 
 const EQUIPMENT_TYPES = [
@@ -291,7 +291,7 @@ export default function EquipmentCatalogTab() {
                           className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
