@@ -4,7 +4,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search } from 'lucide-react';
+import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Edit2, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search, Flag } from 'lucide-react';
 import { projectsService } from '../services/projectsService';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
@@ -262,8 +262,8 @@ export default function FacilityDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-3 bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-teal-400" />
@@ -380,7 +380,7 @@ export default function FacilityDetail() {
             )}
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="lg:col-span-5 bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-teal-400" />
@@ -411,6 +411,61 @@ export default function FacilityDetail() {
                   No milestones assigned yet
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Flag className="w-5 h-5 text-teal-400" />
+                Status Indicators
+              </h2>
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const milestones = facility.milestones || [];
+                const blockedCount = milestones.filter(m => m.status === 'blocked').length;
+                const today = new Date();
+                const warningCount = milestones.filter(m => {
+                  if (m.status === 'complete' || !m.target_date) return false;
+                  const targetDate = new Date(m.target_date);
+                  const daysUntil = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+                  return daysUntil >= 0 && daysUntil <= 7;
+                }).length;
+                const onTrackCount = milestones.filter(m => {
+                  if (m.status === 'complete' || m.status === 'blocked') return false;
+                  if (!m.target_date) return true;
+                  const targetDate = new Date(m.target_date);
+                  const daysUntil = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+                  return daysUntil > 7;
+                }).length;
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-red-900/20 border border-red-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span className="text-slate-300 text-sm">Critical</span>
+                      </div>
+                      <span className="text-red-400 font-semibold">{blockedCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-yellow-900/20 border border-yellow-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <span className="text-slate-300 text-sm">Due Soon</span>
+                      </div>
+                      <span className="text-yellow-400 font-semibold">{warningCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-green-900/20 border border-green-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-slate-300 text-sm">On Track</span>
+                      </div>
+                      <span className="text-green-400 font-semibold">{onTrackCount}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
