@@ -4,62 +4,90 @@ const INTERNAL_ROLES = ['Proximity Admin', 'Proximity Staff', 'Account Manager',
 
 export const usersService = {
   async getAll() {
-    const { data, error } = await supabase
+    const { data: users, error: usersError } = await supabase
       .from('user_roles')
-      .select(`
-        *,
-        organization_assignments:user_organization_assignments!user_id(
-          id,
-          organization_id,
-          role,
-          is_primary,
-          organization:organizations(id, name, type)
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (usersError) throw usersError;
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('user_organization_assignments')
+      .select(`
+        id,
+        user_id,
+        organization_id,
+        role,
+        is_primary,
+        organization:organizations(id, name, type)
+      `);
+
+    if (assignmentsError) throw assignmentsError;
+
+    const usersWithAssignments = users.map(user => ({
+      ...user,
+      organization_assignments: assignments?.filter(a => a.user_id === user.user_id) || []
+    }));
+
+    return usersWithAssignments;
   },
 
   async getById(id) {
-    const { data, error } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('user_roles')
-      .select(`
-        *,
-        organization_assignments:user_organization_assignments!user_id(
-          id,
-          organization_id,
-          role,
-          is_primary,
-          organization:organizations(id, name, type)
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw error;
-    return data;
+    if (userError) throw userError;
+    if (!user) return null;
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('user_organization_assignments')
+      .select(`
+        id,
+        organization_id,
+        role,
+        is_primary,
+        organization:organizations(id, name, type)
+      `)
+      .eq('user_id', user.user_id);
+
+    if (assignmentsError) throw assignmentsError;
+
+    return {
+      ...user,
+      organization_assignments: assignments || []
+    };
   },
 
   async getByUserId(userId) {
-    const { data, error} = await supabase
+    const { data: user, error: userError } = await supabase
       .from('user_roles')
-      .select(`
-        *,
-        organization_assignments:user_organization_assignments!user_id(
-          id,
-          organization_id,
-          role,
-          is_primary,
-          organization:organizations(id, name, type)
-        )
-      `)
+      .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) throw error;
-    return data;
+    if (userError) throw userError;
+    if (!user) return null;
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('user_organization_assignments')
+      .select(`
+        id,
+        organization_id,
+        role,
+        is_primary,
+        organization:organizations(id, name, type)
+      `)
+      .eq('user_id', userId);
+
+    if (assignmentsError) throw assignmentsError;
+
+    return {
+      ...user,
+      organization_assignments: assignments || []
+    };
   },
 
   async update(id, updates) {
