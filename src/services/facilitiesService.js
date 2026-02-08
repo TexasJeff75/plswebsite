@@ -263,5 +263,19 @@ export const facilitiesService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async merge(sourceFacilityId, targetFacilityId) {
+    const { data, error } = await supabase.rpc('merge_facilities', {
+      source_facility_id: sourceFacilityId,
+      target_facility_id: targetFacilityId
+    });
+
+    if (error) {
+      console.error('Error merging facilities:', error);
+      throw error;
+    }
+
+    return data;
   }
 };

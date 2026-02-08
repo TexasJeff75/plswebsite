@@ -6,9 +6,10 @@ import { organizationsService } from '../services/organizationsService';
 import { projectsService } from '../services/projectsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
-import { X, Plus, Upload, ChevronsUpDown, ChevronUp, ChevronDown, ArrowRightLeft, Building2, TrendingUp, Calendar, Users, MapPin, Activity } from 'lucide-react';
+import { X, Plus, Upload, ChevronsUpDown, ChevronUp, ChevronDown, ArrowRightLeft, Building2, TrendingUp, Calendar, Users, MapPin, Activity, Merge } from 'lucide-react';
 import ImportData from './ImportData';
 import ReassignFacilitiesModal from './ReassignFacilitiesModal';
+import MergeFacilitiesModal from './MergeFacilitiesModal';
 
 export default function Facilities() {
   const { isEditor } = useAuth();
@@ -22,6 +23,7 @@ export default function Facilities() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showReassignModal, setShowReassignModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filters, setFilters] = useState({
@@ -110,6 +112,19 @@ export default function Facilities() {
       console.error('Error loading stats:', error);
     } finally {
       setStatsLoading(false);
+    }
+  }
+
+  async function handleMerge(sourceFacilityId, targetFacilityId) {
+    try {
+      await facilitiesService.merge(sourceFacilityId, targetFacilityId);
+      setSelectedIds(new Set());
+      setShowMergeModal(false);
+      await loadFacilities();
+      await loadStats();
+    } catch (error) {
+      console.error('Error merging facilities:', error);
+      throw error;
     }
   }
 
@@ -449,6 +464,15 @@ export default function Facilities() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {selectedIds.size === 2 && (
+                <button
+                  onClick={() => setShowMergeModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-slate-900 rounded-lg hover:bg-amber-400 transition-colors font-medium text-sm"
+                >
+                  <Merge className="w-4 h-4" />
+                  Merge Facilities
+                </button>
+              )}
               <button
                 onClick={() => setShowReassignModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
@@ -684,6 +708,14 @@ export default function Facilities() {
             setSelectedIds(new Set());
             loadFacilities();
           }}
+        />
+      )}
+
+      {showMergeModal && selectedIds.size === 2 && (
+        <MergeFacilitiesModal
+          facilities={sortedFacilities.filter(f => selectedIds.has(f.id))}
+          onClose={() => setShowMergeModal(false)}
+          onMerge={handleMerge}
         />
       )}
     </div>
