@@ -60,6 +60,7 @@ export default function ContactsTab({ facility }) {
 
   function handleCancelEdit() {
     setEditingContact(null);
+    setShowAddForm(false);
     setFormData({
       name: '',
       role: '',
