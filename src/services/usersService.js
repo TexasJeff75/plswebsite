@@ -8,7 +8,7 @@ export const usersService = {
       .from('user_roles')
       .select(`
         *,
-        organization_assignments:user_organization_assignments(
+        organization_assignments:user_organization_assignments!user_id(
           id,
           organization_id,
           role,
@@ -27,7 +27,7 @@ export const usersService = {
       .from('user_roles')
       .select(`
         *,
-        organization_assignments:user_organization_assignments(
+        organization_assignments:user_organization_assignments!user_id(
           id,
           organization_id,
           role,
@@ -47,7 +47,7 @@ export const usersService = {
       .from('user_roles')
       .select(`
         *,
-        organization_assignments:user_organization_assignments(
+        organization_assignments:user_organization_assignments!user_id(
           id,
           organization_id,
           role,
