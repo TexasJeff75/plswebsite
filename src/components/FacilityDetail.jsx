@@ -262,7 +262,7 @@ export default function FacilityDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -280,43 +280,41 @@ export default function FacilityDetail() {
             </div>
             {editingDates ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-slate-400 text-xs mb-1">Projected Deployment</label>
-                    <input
-                      type="date"
-                      value={dateForm.projected_deployment_date}
-                      onChange={(e) => setDateForm({ ...dateForm, projected_deployment_date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 text-xs mb-1">Actual Deployment</label>
-                    <input
-                      type="date"
-                      value={dateForm.actual_deployment_date}
-                      onChange={(e) => setDateForm({ ...dateForm, actual_deployment_date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 text-xs mb-1">Projected Go-Live</label>
-                    <input
-                      type="date"
-                      value={dateForm.projected_go_live_date}
-                      onChange={(e) => setDateForm({ ...dateForm, projected_go_live_date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 text-xs mb-1">Actual Go-Live</label>
-                    <input
-                      type="date"
-                      value={dateForm.actual_go_live_date}
-                      onChange={(e) => setDateForm({ ...dateForm, actual_go_live_date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">Projected Deployment</label>
+                  <input
+                    type="date"
+                    value={dateForm.projected_deployment_date}
+                    onChange={(e) => setDateForm({ ...dateForm, projected_deployment_date: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">Actual Deployment</label>
+                  <input
+                    type="date"
+                    value={dateForm.actual_deployment_date}
+                    onChange={(e) => setDateForm({ ...dateForm, actual_deployment_date: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">Projected Go-Live</label>
+                  <input
+                    type="date"
+                    value={dateForm.projected_go_live_date}
+                    onChange={(e) => setDateForm({ ...dateForm, projected_go_live_date: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs mb-1">Actual Go-Live</label>
+                  <input
+                    type="date"
+                    value={dateForm.actual_go_live_date}
+                    onChange={(e) => setDateForm({ ...dateForm, actual_go_live_date: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                  />
                 </div>
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button
@@ -345,7 +343,7 @@ export default function FacilityDetail() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
                   <p className="text-white text-sm">
