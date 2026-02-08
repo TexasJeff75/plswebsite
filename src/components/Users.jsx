@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users as UsersIcon, Edit2, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CheckCircle, XCircle, RefreshCw, Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
@@ -289,7 +289,7 @@ export default function Users() {
     );
   }
 
-  const filteredUsers = React.useMemo(() => {
+  const filteredUsers = useMemo(() => {
     let result = [...users];
 
     if (userSearch) {
