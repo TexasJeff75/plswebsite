@@ -18,7 +18,9 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  Link2
 } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
@@ -248,6 +250,18 @@ export default function Users() {
       console.error('Error canceling invitation:', error);
       alert('Failed to cancel invitation');
     }
+  }
+
+  function handleCopyInvitationLink(invitation) {
+    const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+    const inviteUrl = `${siteUrl}/tracker#/login?invitation=${invitation.invitation_token}`;
+
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      alert('Invitation link copied to clipboard! You can now share it manually.');
+    }).catch(err => {
+      console.error('Failed to copy link:', err);
+      alert(`Failed to copy. Here's the link:\n\n${inviteUrl}`);
+    });
   }
 
   function addInviteOrgAssignment() {
@@ -620,9 +634,18 @@ export default function Users() {
                       <div className="flex items-center justify-end gap-2">
                         {isPending && (
                           <button
+                            onClick={() => handleCopyInvitationLink(invitation)}
+                            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded transition-colors"
+                            title="Copy invitation link"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        )}
+                        {isPending && (
+                          <button
                             onClick={() => handleResendInvitation(invitation.id)}
                             className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
-                            title="Resend invitation"
+                            title="Resend invitation email"
                           >
                             <RefreshCw className="w-4 h-4" />
                           </button>
