@@ -3,9 +3,29 @@ import { Upload, AlertCircle, CheckCircle2, X, FileSpreadsheet, Download, MapPin
 import { facilitiesService } from '../services/facilitiesService';
 import { geocodingService } from '../services/geocodingService';
 import { organizationsService } from '../services/organizationsService';
+import { facilityContactsService } from '../services/facilityContactsService';
 
 const REQUIRED_COLUMNS = ['name', 'address', 'city', 'state'];
-const OPTIONAL_COLUMNS = ['latitude', 'longitude', 'region', 'status', 'projected_go_live', 'general_notes', 'county'];
+const OPTIONAL_COLUMNS = [
+  'latitude',
+  'longitude',
+  'region',
+  'status',
+  'projected_go_live',
+  'general_notes',
+  'county',
+  'zip_code',
+  'facility_phone',
+  'census',
+  'capacity',
+  'contact_type',
+  'first_name',
+  'last_name',
+  'role',
+  'phone',
+  'email',
+  'contact_notes'
+];
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(line => line.trim());
@@ -58,19 +78,48 @@ function parseCSVLine(line) {
 }
 
 function generateTemplateCSV() {
-  const headers = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
+  const headers = [
+    'ID',
+    'Facility Name',
+    'Facility Phone',
+    'Street Address',
+    'City',
+    'State',
+    'Zip Code',
+    'Region',
+    'Census',
+    'Capacity',
+    'Contact Type',
+    'First Name',
+    'Last Name',
+    'Role',
+    'Phone',
+    'Email',
+    'Notes',
+    'Latitude',
+    'Longitude'
+  ];
+
   const sampleRow = [
+    '1',
     'Sample Facility Name',
+    '816-555-1234',
     '123 Main Street',
     'Kansas City',
     'MO',
-    '39.0997',
-    '-94.5786',
+    '64108',
     'Kansas City Area',
-    'Planning',
-    '2026-06-15',
-    'Sample notes here',
-    'Jackson'
+    '50',
+    '100',
+    'Medical Director',
+    'John',
+    'Smith',
+    'Medical Director',
+    '816-555-5678',
+    'jsmith@example.com',
+    'Primary contact',
+    '39.0997',
+    '-94.5786'
   ];
 
   return [headers.join(','), sampleRow.join(',')].join('\n');
@@ -131,7 +180,8 @@ export default function ImportData({ onImportComplete, onClose }) {
         c === reqCol ||
         c.includes(reqCol) ||
         reqCol.includes(c) ||
-        (reqCol === 'name' && (c.includes('facility') || c === 'site'))
+        (reqCol === 'name' && (c.includes('facility') || c === 'site')) ||
+        (reqCol === 'address' && c.includes('street'))
       );
       if (match) {
         mapping[reqCol] = match;
@@ -146,8 +196,12 @@ export default function ImportData({ onImportComplete, onClose }) {
         c.includes(optCol) ||
         optCol.includes(c) ||
         (optCol === 'projected_go_live' && (c.includes('go_live') || c.includes('golive') || c.includes('launch'))) ||
-        (optCol === 'contact_name' && c.includes('contact')) ||
-        (optCol === 'general_notes' && c.includes('notes'))
+        (optCol === 'general_notes' && c.includes('notes') && !c.includes('contact')) ||
+        (optCol === 'contact_notes' && c.includes('notes') && c.includes('contact')) ||
+        (optCol === 'contact_type' && c.includes('contact') && c.includes('type')) ||
+        (optCol === 'first_name' && (c.includes('first') || c === 'fname')) ||
+        (optCol === 'last_name' && (c.includes('last') || c === 'lname')) ||
+        (optCol === 'zip_code' && (c.includes('zip') || c === 'postal'))
       );
       if (match) {
         mapping[optCol] = match;
@@ -336,12 +390,14 @@ export default function ImportData({ onImportComplete, onClose }) {
         try {
           const lat = getMappedValue(row, 'latitude');
           const lng = getMappedValue(row, 'longitude');
+          const zipCode = getMappedValue(row, 'zip_code');
 
           const facilityData = {
             name: getMappedValue(row, 'name'),
             address: getMappedValue(row, 'address'),
             city: getMappedValue(row, 'city'),
             state: getMappedValue(row, 'state'),
+            zip: zipCode,
             latitude: lat ? parseFloat(lat) : null,
             longitude: lng ? parseFloat(lng) : null,
             region: getMappedValue(row, 'region'),
@@ -368,6 +424,51 @@ export default function ImportData({ onImportComplete, onClose }) {
             console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
             importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
             continue;
+          }
+
+          const firstName = getMappedValue(row, 'first_name');
+          const lastName = getMappedValue(row, 'last_name');
+          const contactRole = getMappedValue(row, 'contact_type') || getMappedValue(row, 'role');
+          const contactPhone = getMappedValue(row, 'phone');
+          const contactEmail = getMappedValue(row, 'email');
+          const contactNotes = getMappedValue(row, 'contact_notes');
+
+          if ((firstName || lastName) && contactRole) {
+            try {
+              const contactName = [firstName, lastName].filter(Boolean).join(' ');
+
+              const existingContacts = await facilityContactsService.getContactsByFacility(facility.id);
+
+              const isDuplicate = existingContacts.some(existing => {
+                const nameMatch = existing.name.toLowerCase() === contactName.toLowerCase();
+                const emailMatch = contactEmail && existing.email &&
+                                 existing.email.toLowerCase() === contactEmail.toLowerCase();
+                const phoneMatch = contactPhone && existing.phone &&
+                                 existing.phone.replace(/\D/g, '') === contactPhone.replace(/\D/g, '');
+
+                return nameMatch || emailMatch || phoneMatch;
+              });
+
+              if (!isDuplicate) {
+                const contactData = {
+                  facility_id: facility.id,
+                  name: contactName,
+                  role: contactRole,
+                  phone: contactPhone,
+                  email: contactEmail,
+                  notes: contactNotes,
+                  is_primary: existingContacts.length === 0
+                };
+
+                await facilityContactsService.createContact(contactData);
+                console.log(`[Import] Contact created for facility: ${contactName}`);
+              } else {
+                console.log(`[Import] Skipping duplicate contact: ${contactName}`);
+              }
+            } catch (contactError) {
+              console.error(`[Import] Failed to create contact for facility "${facilityName}":`, contactError);
+              importErrors.push(`Row ${i + 2} (${facilityName}): Contact creation failed - ${contactError.message}`);
+            }
           }
         } catch (rowError) {
           console.error(`[Import] Unexpected error for row ${i + 2}:`, rowError);
@@ -620,18 +721,30 @@ export default function ImportData({ onImportComplete, onClose }) {
 
               <div>
                 <h3 className="text-sm font-semibold text-white mb-3">Preview (first 5 rows)</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {data.slice(0, 5).map((row, idx) => (
-                    <div key={idx} className="bg-slate-800/50 rounded p-3 text-xs">
-                      <p className="font-medium text-white mb-1">{getMappedValue(row, 'name') || 'No name'}</p>
-                      <p className="text-slate-400">
-                        {getMappedValue(row, 'address')}, {getMappedValue(row, 'city')}, {getMappedValue(row, 'state')} {getMappedValue(row, 'zip')}
-                      </p>
-                      {getMappedValue(row, 'region') && (
-                        <p className="text-slate-500 mt-1">Region: {getMappedValue(row, 'region')}</p>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {data.slice(0, 5).map((row, idx) => {
+                    const firstName = getMappedValue(row, 'first_name');
+                    const lastName = getMappedValue(row, 'last_name');
+                    const contactName = [firstName, lastName].filter(Boolean).join(' ');
+                    const contactRole = getMappedValue(row, 'contact_type') || getMappedValue(row, 'role');
+
+                    return (
+                      <div key={idx} className="bg-slate-800/50 rounded p-3 text-xs">
+                        <p className="font-medium text-white mb-1">{getMappedValue(row, 'name') || 'No name'}</p>
+                        <p className="text-slate-400">
+                          {getMappedValue(row, 'address')}, {getMappedValue(row, 'city')}, {getMappedValue(row, 'state')} {getMappedValue(row, 'zip_code')}
+                        </p>
+                        {getMappedValue(row, 'region') && (
+                          <p className="text-slate-500 mt-1">Region: {getMappedValue(row, 'region')}</p>
+                        )}
+                        {contactName && contactRole && (
+                          <p className="text-teal-400 mt-1">
+                            Contact: {contactName} ({contactRole})
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                   {data.length > 5 && (
                     <p className="text-xs text-slate-500 text-center py-2">
                       ... and {data.length - 5} more facilities
