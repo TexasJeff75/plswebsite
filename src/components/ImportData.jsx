@@ -395,6 +395,7 @@ export default function ImportData({ onImportComplete, onClose }) {
       }
 
       let successCount = 0;
+      let facilitiesUpdated = 0;
       let contactsAdded = 0;
       const importErrors = [];
 
@@ -453,9 +454,9 @@ export default function ImportData({ onImportComplete, onClose }) {
           });
 
           let facility;
+          let facilityUpdated = false;
           if (isDuplicateFacility) {
-            console.log(`[Import] Row ${i + 2}: Found existing facility "${facilityName}", checking for contacts to add`);
-            importErrors.push(`Row ${i + 2}: Facility "${facilityName}" already exists - checking contacts`);
+            console.log(`[Import] Row ${i + 2}: Found existing facility "${facilityName}", checking for updates`);
 
             facility = existingFacilities.find(existing => {
               const nameMatch = existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim();
@@ -470,6 +471,45 @@ export default function ImportData({ onImportComplete, onClose }) {
             if (!facility) {
               importErrors.push(`Row ${i + 2} (${facilityName}): Could not find existing facility, skipped`);
               continue;
+            }
+
+            const updates = {};
+            const updateMessages = [];
+
+            if (facilityData.phone && facilityData.phone !== facility.phone) {
+              updates.phone = facilityData.phone;
+              updateMessages.push(`phone: "${facility.phone || 'none'}" → "${facilityData.phone}"`);
+            }
+
+            if (facilityData.zip && !facility.zip) {
+              updates.zip = facilityData.zip;
+              updateMessages.push(`added zip: "${facilityData.zip}"`);
+            }
+
+            if (facilityData.region && !facility.region) {
+              updates.region = facilityData.region;
+              updateMessages.push(`added region: "${facilityData.region}"`);
+            }
+
+            if (facilityData.county && !facility.county) {
+              updates.county = facilityData.county;
+              updateMessages.push(`added county: "${facilityData.county}"`);
+            }
+
+            if (Object.keys(updates).length > 0) {
+              try {
+                await facilitiesService.update(facility.id, updates);
+                console.log(`[Import] Row ${i + 2}: ✓ Updated facility "${facilityName}": ${updateMessages.join(', ')}`);
+                importErrors.push(`Row ${i + 2}: ✓ Updated facility "${facilityName}": ${updateMessages.join(', ')}`);
+                facility = { ...facility, ...updates };
+                facilityUpdated = true;
+                facilitiesUpdated++;
+              } catch (updateError) {
+                console.error(`[Import] Row ${i + 2}: Failed to update facility:`, updateError);
+                importErrors.push(`Row ${i + 2}: Failed to update facility - ${updateError.message}`);
+              }
+            } else {
+              importErrors.push(`Row ${i + 2}: Facility "${facilityName}" already exists - no updates needed`);
             }
           } else {
             console.log(`[Import] Row ${i + 2}: Creating new facility: ${facilityName}`, facilityData);
@@ -502,25 +542,17 @@ export default function ImportData({ onImportComplete, onClose }) {
 
               const existingContacts = await facilityContactsService.getContactsByFacility(facility.id);
 
-              const isDuplicate = existingContacts.some(existing => {
+              const existingContact = existingContacts.find(existing => {
                 const nameMatch = existing.name.toLowerCase() === contactName.toLowerCase();
                 const emailMatch = contactEmail && existing.email &&
                                  existing.email.toLowerCase() === contactEmail.toLowerCase();
                 const phoneMatch = contactPhone && existing.phone &&
                                  existing.phone.replace(/\D/g, '') === contactPhone.replace(/\D/g, '');
 
-                if (nameMatch || emailMatch || phoneMatch) {
-                  const matchReasons = [];
-                  if (nameMatch) matchReasons.push(`name="${contactName}"`);
-                  if (emailMatch) matchReasons.push(`email="${contactEmail}"`);
-                  if (phoneMatch) matchReasons.push(`phone="${contactPhone}"`);
-                  console.log(`[Import] Row ${i + 2}: Duplicate contact detected - ${matchReasons.join(', ')}`);
-                }
-
                 return nameMatch || emailMatch || phoneMatch;
               });
 
-              if (!isDuplicate) {
+              if (!existingContact) {
                 const contactData = {
                   facility_id: facility.id,
                   name: contactName,
@@ -536,8 +568,38 @@ export default function ImportData({ onImportComplete, onClose }) {
                 importErrors.push(`Row ${i + 2}: ✓ Added contact "${contactName}" to facility "${facilityName}"`);
                 contactsAdded++;
               } else {
-                console.log(`[Import] Row ${i + 2}: Skipping duplicate contact: ${contactName}`);
-                importErrors.push(`Row ${i + 2}: Contact "${contactName}" already exists for "${facilityName}"`);
+                const contactUpdates = {};
+                const contactUpdateMessages = [];
+
+                if (contactPhone && contactPhone.replace(/\D/g, '') !== (existingContact.phone || '').replace(/\D/g, '')) {
+                  contactUpdates.phone = contactPhone;
+                  contactUpdateMessages.push(`phone: "${existingContact.phone || 'none'}" → "${contactPhone}"`);
+                }
+
+                if (contactEmail && contactEmail.toLowerCase() !== (existingContact.email || '').toLowerCase()) {
+                  contactUpdates.email = contactEmail;
+                  contactUpdateMessages.push(`email: "${existingContact.email || 'none'}" → "${contactEmail}"`);
+                }
+
+                if (contactRole && contactRole !== existingContact.role) {
+                  contactUpdates.role = contactRole;
+                  contactUpdateMessages.push(`role: "${existingContact.role || 'none'}" → "${contactRole}"`);
+                }
+
+                if (Object.keys(contactUpdates).length > 0) {
+                  try {
+                    await facilityContactsService.updateContact(existingContact.id, contactUpdates);
+                    console.log(`[Import] Row ${i + 2}: ✓ Updated contact "${contactName}": ${contactUpdateMessages.join(', ')}`);
+                    importErrors.push(`Row ${i + 2}: ✓ Updated contact "${contactName}": ${contactUpdateMessages.join(', ')}`);
+                    contactsAdded++;
+                  } catch (updateError) {
+                    console.error(`[Import] Row ${i + 2}: Failed to update contact:`, updateError);
+                    importErrors.push(`Row ${i + 2}: Failed to update contact "${contactName}" - ${updateError.message}`);
+                  }
+                } else {
+                  console.log(`[Import] Row ${i + 2}: Contact "${contactName}" already exists - no updates needed`);
+                  importErrors.push(`Row ${i + 2}: Contact "${contactName}" already exists - no updates needed`);
+                }
               }
             } catch (contactError) {
               console.error(`[Import] Failed to create contact for facility "${facilityName}":`, contactError);
@@ -555,34 +617,37 @@ export default function ImportData({ onImportComplete, onClose }) {
         setImportProgress({ current: i + 1, total: data.length, contactsAdded });
       }
 
-      console.log(`[Import] Complete: ${successCount} facilities created, ${contactsAdded} contacts added, ${data.length - successCount} skipped`);
+      console.log(`[Import] Complete: ${successCount} created, ${facilitiesUpdated} facilities updated, ${contactsAdded} contacts added/updated, ${data.length - successCount - facilitiesUpdated} skipped`);
 
       const summaryMessages = [];
-      const facilitiesSkipped = data.length - successCount;
+      const facilitiesSkipped = data.length - successCount - facilitiesUpdated;
 
       if (successCount > 0) {
         summaryMessages.push(`✓ ${successCount} new facilities created`);
       }
+      if (facilitiesUpdated > 0) {
+        summaryMessages.push(`✓ ${facilitiesUpdated} facilities updated`);
+      }
       if (contactsAdded > 0) {
-        summaryMessages.push(`✓ ${contactsAdded} contacts added`);
+        summaryMessages.push(`✓ ${contactsAdded} contacts added/updated`);
       }
       if (facilitiesSkipped > 0) {
-        summaryMessages.push(`⊘ ${facilitiesSkipped} facilities skipped (already exist)`);
+        summaryMessages.push(`⊘ ${facilitiesSkipped} facilities skipped (no changes needed)`);
       }
 
-      if (successCount === 0 && contactsAdded === 0) {
+      if (successCount === 0 && contactsAdded === 0 && facilitiesUpdated === 0) {
         summaryMessages.push('');
-        summaryMessages.push('No new data was imported.');
-        summaryMessages.push(`• All ${data.length} facilities already exist in the database`);
-        summaryMessages.push('• All contacts were detected as duplicates');
+        summaryMessages.push('No changes were made.');
+        summaryMessages.push(`• All ${data.length} facilities already exist with current data`);
+        summaryMessages.push('• All contacts are up-to-date');
         summaryMessages.push('');
         summaryMessages.push('⚠ Check the browser console (F12) for detailed processing logs.');
       }
 
       if (importErrors.length > 0) {
         console.log(`[Import] All processing details:`, importErrors);
-        if (summaryMessages.length > 0 && successCount === 0 && contactsAdded === 0) {
-          // Don't add separator if we just showed "no data imported" message
+        if (summaryMessages.length > 0 && successCount === 0 && contactsAdded === 0 && facilitiesUpdated === 0) {
+          // Don't add separator if we just showed "no changes made" message
         } else if (summaryMessages.length > 0) {
           summaryMessages.push(''); // Add blank line separator
         }
