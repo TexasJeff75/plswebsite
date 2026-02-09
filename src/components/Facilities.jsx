@@ -561,24 +561,6 @@ export default function Facilities() {
                     </div>
                   </th>
                   <th
-                    className="text-center py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
-                    onClick={() => handleSort('template')}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Template
-                      {getSortIcon('template')}
-                    </div>
-                  </th>
-                  <th
-                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
-                    onClick={() => handleSort('configuration')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Config
-                      {getSortIcon('configuration')}
-                    </div>
-                  </th>
-                  <th
                     className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
                     onClick={() => handleSort('complexity')}
                   >
@@ -674,26 +656,6 @@ export default function Facilities() {
                             {facility.trained_personnel?.length || 0}
                           </span>
                         </div>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        {facility.template_applied ? (
-                          <div className="inline-flex items-center justify-center w-7 h-7 bg-teal-500/20 rounded-full">
-                            <Check className="w-4 h-4 text-teal-400" />
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center justify-center w-7 h-7 bg-slate-700/50 rounded-full">
-                            <span className="text-xs text-slate-500">-</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-4 px-4">
-                        {facility.site_configuration ? (
-                          <span className="text-sm text-slate-300 capitalize">
-                            {facility.site_configuration}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
                       </td>
                       <td className="py-4 px-4">
                         {facility.complexity_level ? (
