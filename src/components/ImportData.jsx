@@ -140,7 +140,7 @@ export default function ImportData({ onImportComplete, onClose }) {
   const [validationWarnings, setValidationWarnings] = useState([]);
   const [importMode, setImportMode] = useState('merge');
   const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, contactsAdded: 0 });
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeProgress, setGeocodeProgress] = useState({ current: 0, total: 0 });
   const [facilitiesNeedingGeocode, setFacilitiesNeedingGeocode] = useState(0);
@@ -384,7 +384,7 @@ export default function ImportData({ onImportComplete, onClose }) {
     if (!data) return;
 
     setImporting(true);
-    setImportProgress({ current: 0, total: data.length });
+    setImportProgress({ current: 0, total: data.length, contactsAdded: 0 });
 
     try {
       if (importMode === 'replace') {
@@ -395,6 +395,7 @@ export default function ImportData({ onImportComplete, onClose }) {
       }
 
       let successCount = 0;
+      let contactsAdded = 0;
       const importErrors = [];
 
       for (let i = 0; i < data.length; i++) {
@@ -446,12 +447,22 @@ export default function ImportData({ onImportComplete, onClose }) {
 
           let facility;
           if (isDuplicateFacility) {
-            console.log(`[Import] Skipping duplicate facility: ${facilityName}`);
-            importErrors.push(`Row ${i + 2} (${facilityName}): Facility already exists, skipped`);
+            console.log(`[Import] Found existing facility: ${facilityName}, will update contacts if provided`);
 
-            facility = existingFacilities.find(existing =>
-              existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim()
-            );
+            facility = existingFacilities.find(existing => {
+              const nameMatch = existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim();
+              const addressMatch = facilityData.address && facilityData.city && facilityData.state &&
+                                 existing.address && existing.city && existing.state &&
+                                 existing.address.toLowerCase().trim() === facilityData.address.toLowerCase().trim() &&
+                                 existing.city.toLowerCase().trim() === facilityData.city.toLowerCase().trim() &&
+                                 existing.state.toLowerCase().trim() === facilityData.state.toLowerCase().trim();
+              return nameMatch || addressMatch;
+            });
+
+            if (!facility) {
+              importErrors.push(`Row ${i + 2} (${facilityName}): Could not find existing facility, skipped`);
+              continue;
+            }
           } else {
             console.log(`[Import] Creating facility: ${facilityName}`, facilityData);
 
@@ -502,6 +513,7 @@ export default function ImportData({ onImportComplete, onClose }) {
 
                 await facilityContactsService.createContact(contactData);
                 console.log(`[Import] Contact created for facility: ${contactName}`);
+                contactsAdded++;
               } else {
                 console.log(`[Import] Skipping duplicate contact: ${contactName}`);
               }
@@ -515,20 +527,32 @@ export default function ImportData({ onImportComplete, onClose }) {
           importErrors.push(`Row ${i + 2} (${facilityName}): ${rowError.message}`);
         }
 
-        setImportProgress({ current: i + 1, total: data.length });
+        setImportProgress({ current: i + 1, total: data.length, contactsAdded });
       }
 
-      console.log(`[Import] Complete: ${successCount}/${data.length} successful`);
+      console.log(`[Import] Complete: ${successCount} facilities created, ${contactsAdded} contacts added`);
+
+      const summaryMessages = [];
+      if (successCount > 0) {
+        summaryMessages.push(`${successCount} new facilities created`);
+      }
+      if (contactsAdded > 0) {
+        summaryMessages.push(`${contactsAdded} contacts added`);
+      }
       if (importErrors.length > 0) {
         console.log(`[Import] Errors:`, importErrors);
-        setValidationWarnings(importErrors);
+        summaryMessages.push(...importErrors.slice(0, 10));
+        if (importErrors.length > 10) {
+          summaryMessages.push(`... and ${importErrors.length - 10} more`);
+        }
       }
 
-      setImportProgress({ current: successCount, total: data.length });
+      setValidationWarnings(summaryMessages);
+      setImportProgress({ current: successCount, total: data.length, contactsAdded });
       setStep('complete');
       setImporting(false);
 
-      if (successCount > 0) {
+      if (successCount > 0 || contactsAdded > 0) {
         setTimeout(() => {
           onImportComplete?.();
           onClose?.();
@@ -797,21 +821,29 @@ export default function ImportData({ onImportComplete, onClose }) {
 
           {step === 'complete' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              {importProgress.current > 0 ? (
+              {(importProgress.current > 0 || importProgress.contactsAdded > 0) ? (
                 <CheckCircle2 className="w-16 h-16 text-teal-400 mb-4" />
               ) : (
                 <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
               )}
               <h3 className="text-lg font-bold text-white mb-2">
-                {importProgress.current > 0 ? 'Import Complete' : 'Import Failed'}
+                {(importProgress.current > 0 || importProgress.contactsAdded > 0) ? 'Import Complete' : 'Import Failed'}
               </h3>
-              <p className="text-slate-400">
-                {importProgress.current} of {importProgress.total} facilities imported successfully
-              </p>
+              <div className="text-slate-400 space-y-1">
+                {importProgress.current > 0 && (
+                  <p>{importProgress.current} new {importProgress.current === 1 ? 'facility' : 'facilities'} created</p>
+                )}
+                {importProgress.contactsAdded > 0 && (
+                  <p>{importProgress.contactsAdded} {importProgress.contactsAdded === 1 ? 'contact' : 'contacts'} added</p>
+                )}
+                {importProgress.current === 0 && importProgress.contactsAdded === 0 && (
+                  <p>0 of {importProgress.total} facilities imported successfully</p>
+                )}
+              </div>
               {validationWarnings.length > 0 && (
                 <div className="mt-4 text-left bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 max-h-64 overflow-y-auto w-full">
                   <p className="text-xs text-amber-400 font-medium mb-2">
-                    {validationWarnings.length} Error(s) - Check browser console for full details:
+                    Import Details:
                   </p>
                   {validationWarnings.map((warning, idx) => (
                     <p key={idx} className="text-xs text-amber-300 mb-1">{warning}</p>
