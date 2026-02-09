@@ -138,6 +138,10 @@ export default function Layout() {
               src="/deployment_logo_animated_v2.svg"
               alt="Deployment Tracker"
               className={`flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-12 h-12' : 'w-24 h-24'}`}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                console.error('Failed to load Deployment Tracker logo');
+              }}
             />
           </Link>
           <button
