@@ -442,12 +442,20 @@ export default function ImportData({ onImportComplete, onClose }) {
                                existing.city.toLowerCase().trim() === facilityData.city.toLowerCase().trim() &&
                                existing.state.toLowerCase().trim() === facilityData.state.toLowerCase().trim();
 
+            if (nameMatch) {
+              console.log(`[Import] Row ${i + 2}: Duplicate facility detected by name - "${facilityData.name}" matches existing "${existing.name}"`);
+            }
+            if (addressMatch) {
+              console.log(`[Import] Row ${i + 2}: Duplicate facility detected by address - "${facilityData.address}, ${facilityData.city}, ${facilityData.state}"`);
+            }
+
             return nameMatch || addressMatch;
           });
 
           let facility;
           if (isDuplicateFacility) {
-            console.log(`[Import] Found existing facility: ${facilityName}, will update contacts if provided`);
+            console.log(`[Import] Row ${i + 2}: Found existing facility "${facilityName}", checking for contacts to add`);
+            importErrors.push(`Row ${i + 2}: Facility "${facilityName}" already exists - checking contacts`);
 
             facility = existingFacilities.find(existing => {
               const nameMatch = existing.name.toLowerCase().trim() === facilityData.name.toLowerCase().trim();
@@ -464,15 +472,16 @@ export default function ImportData({ onImportComplete, onClose }) {
               continue;
             }
           } else {
-            console.log(`[Import] Creating facility: ${facilityName}`, facilityData);
+            console.log(`[Import] Row ${i + 2}: Creating new facility: ${facilityName}`, facilityData);
 
             try {
               facility = await facilitiesService.create(facilityData);
-              console.log(`[Import] Facility created successfully: ${facility.id}`);
+              console.log(`[Import] Row ${i + 2}: ✓ Facility created successfully - ${facility.id}`);
+              importErrors.push(`Row ${i + 2}: ✓ Created new facility "${facilityName}"`);
               successCount++;
             } catch (facilityError) {
-              console.error(`[Import] FAILED to create facility "${facilityName}":`, facilityError);
-              importErrors.push(`Row ${i + 2} (${facilityName}): Failed to create - ${facilityError.message}`);
+              console.error(`[Import] Row ${i + 2}: FAILED to create facility "${facilityName}":`, facilityError);
+              importErrors.push(`Row ${i + 2} (${facilityName}): ✗ Failed to create - ${facilityError.message}`);
               continue;
             }
           }
@@ -501,7 +510,11 @@ export default function ImportData({ onImportComplete, onClose }) {
                                  existing.phone.replace(/\D/g, '') === contactPhone.replace(/\D/g, '');
 
                 if (nameMatch || emailMatch || phoneMatch) {
-                  console.log(`[Import] Duplicate contact detected - Name: ${nameMatch}, Email: ${emailMatch}, Phone: ${phoneMatch}`);
+                  const matchReasons = [];
+                  if (nameMatch) matchReasons.push(`name="${contactName}"`);
+                  if (emailMatch) matchReasons.push(`email="${contactEmail}"`);
+                  if (phoneMatch) matchReasons.push(`phone="${contactPhone}"`);
+                  console.log(`[Import] Row ${i + 2}: Duplicate contact detected - ${matchReasons.join(', ')}`);
                 }
 
                 return nameMatch || emailMatch || phoneMatch;
@@ -519,17 +532,20 @@ export default function ImportData({ onImportComplete, onClose }) {
                 };
 
                 await facilityContactsService.createContact(contactData);
-                console.log(`[Import] Contact created for facility: ${contactName}`);
+                console.log(`[Import] Row ${i + 2}: ✓ Contact created - ${contactName} (${contactRole})`);
+                importErrors.push(`Row ${i + 2}: ✓ Added contact "${contactName}" to facility "${facilityName}"`);
                 contactsAdded++;
               } else {
-                console.log(`[Import] Skipping duplicate contact: ${contactName}`);
+                console.log(`[Import] Row ${i + 2}: Skipping duplicate contact: ${contactName}`);
+                importErrors.push(`Row ${i + 2}: Contact "${contactName}" already exists for "${facilityName}"`);
               }
             } catch (contactError) {
               console.error(`[Import] Failed to create contact for facility "${facilityName}":`, contactError);
               importErrors.push(`Row ${i + 2} (${facilityName}): Contact creation failed - ${contactError.message}`);
             }
           } else {
-            console.log(`[Import] Row ${i + 2}: Skipping contact - missing name or role`);
+            console.log(`[Import] Row ${i + 2}: No contact data to import (missing name or role)`);
+            importErrors.push(`Row ${i + 2}: No contact data in this row (facility "${facilityName}" only)`);
           }
         } catch (rowError) {
           console.error(`[Import] Unexpected error for row ${i + 2}:`, rowError);
@@ -539,29 +555,41 @@ export default function ImportData({ onImportComplete, onClose }) {
         setImportProgress({ current: i + 1, total: data.length, contactsAdded });
       }
 
-      console.log(`[Import] Complete: ${successCount} facilities created, ${contactsAdded} contacts added`);
+      console.log(`[Import] Complete: ${successCount} facilities created, ${contactsAdded} contacts added, ${data.length - successCount} skipped`);
 
       const summaryMessages = [];
+      const facilitiesSkipped = data.length - successCount;
+
       if (successCount > 0) {
         summaryMessages.push(`✓ ${successCount} new facilities created`);
       }
       if (contactsAdded > 0) {
         summaryMessages.push(`✓ ${contactsAdded} contacts added`);
       }
+      if (facilitiesSkipped > 0) {
+        summaryMessages.push(`⊘ ${facilitiesSkipped} facilities skipped (already exist)`);
+      }
 
       if (successCount === 0 && contactsAdded === 0) {
-        summaryMessages.push('No new data was imported. All facilities already exist and all contacts appear to be duplicates.');
+        summaryMessages.push('');
+        summaryMessages.push('No new data was imported.');
+        summaryMessages.push(`• All ${data.length} facilities already exist in the database`);
+        summaryMessages.push('• All contacts were detected as duplicates');
+        summaryMessages.push('');
+        summaryMessages.push('⚠ Check the browser console (F12) for detailed processing logs.');
       }
 
       if (importErrors.length > 0) {
-        console.log(`[Import] Errors:`, importErrors);
-        if (summaryMessages.length > 0) {
+        console.log(`[Import] All processing details:`, importErrors);
+        if (summaryMessages.length > 0 && successCount === 0 && contactsAdded === 0) {
+          // Don't add separator if we just showed "no data imported" message
+        } else if (summaryMessages.length > 0) {
           summaryMessages.push(''); // Add blank line separator
         }
-        summaryMessages.push(`Details (${importErrors.length} items processed):`);
-        summaryMessages.push(...importErrors.slice(0, 20));
-        if (importErrors.length > 20) {
-          summaryMessages.push(`... and ${importErrors.length - 20} more (check console for full list)`);
+        summaryMessages.push(`Processing details (${data.length} rows):`);
+        summaryMessages.push(...importErrors.slice(0, 25));
+        if (importErrors.length > 25) {
+          summaryMessages.push(`... and ${importErrors.length - 25} more (check console for full list)`);
         }
       }
 
