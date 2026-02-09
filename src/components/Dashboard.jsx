@@ -182,32 +182,32 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-500/10 to-slate-800/50 border border-blue-500/20 rounded-xl p-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-xl" />
-          <div className="flex items-center justify-between mb-3">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-gradient-to-br from-blue-500/10 to-slate-800/50 border border-blue-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-blue-300/80 text-xs font-medium uppercase tracking-wider">Total Clients</h3>
-            <div className="w-10 h-10 bg-blue-500/15 rounded-lg flex items-center justify-center ring-1 ring-blue-500/20">
-              <Users className="w-5 h-5 text-blue-400" />
+            <div className="w-8 h-8 bg-blue-500/15 rounded flex items-center justify-center ring-1 ring-blue-500/20">
+              <Users className="w-4 h-4 text-blue-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-white mb-1">{globalStats?.totalClients || 0}</p>
+          <p className="text-2xl font-bold text-white mb-1">{globalStats?.totalClients || 0}</p>
           <div className="flex items-center gap-1 text-xs text-blue-400">
             <TrendingUp className="w-3 h-3" />
             <span>+2 this quarter</span>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-teal-500/10 to-slate-800/50 border border-teal-500/20 rounded-xl p-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-teal-500 rounded-l-xl" />
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-gradient-to-br from-teal-500/10 to-slate-800/50 border border-teal-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-teal-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-teal-300/80 text-xs font-medium uppercase tracking-wider">Active Sites</h3>
-            <div className="w-10 h-10 bg-teal-500/15 rounded-lg flex items-center justify-center ring-1 ring-teal-500/20">
-              <Building2 className="w-5 h-5 text-teal-400" />
+            <div className="w-8 h-8 bg-teal-500/15 rounded flex items-center justify-center ring-1 ring-teal-500/20">
+              <Building2 className="w-4 h-4 text-teal-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-white mb-1">{globalStats?.activeSites || 0}</p>
+          <p className="text-2xl font-bold text-white mb-1">{globalStats?.activeSites || 0}</p>
           <div className="flex items-center gap-1 text-xs text-teal-400">
             <TrendingUp className="w-3 h-3" />
             <span>+18 this month</span>
@@ -215,15 +215,15 @@ export default function Dashboard() {
         </div>
 
         {isProximityAdmin && (
-          <div className="bg-gradient-to-br from-emerald-500/10 to-slate-800/50 border border-emerald-500/20 rounded-xl p-5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l-xl" />
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-gradient-to-br from-emerald-500/10 to-slate-800/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l-lg" />
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-emerald-300/80 text-xs font-medium uppercase tracking-wider">Monthly Revenue</h3>
-              <div className="w-10 h-10 bg-emerald-500/15 rounded-lg flex items-center justify-center ring-1 ring-emerald-500/20">
-                <DollarSign className="w-5 h-5 text-emerald-400" />
+              <div className="w-8 h-8 bg-emerald-500/15 rounded flex items-center justify-center ring-1 ring-emerald-500/20">
+                <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">{formatCurrency(globalStats?.monthlyRevenue || 0)}</p>
+            <p className="text-2xl font-bold text-white mb-1">{formatCurrency(globalStats?.monthlyRevenue || 0)}</p>
             <div className="flex items-center gap-1 text-xs text-emerald-400">
               <TrendingUp className="w-3 h-3" />
               <span>+12% MoM</span>
@@ -231,30 +231,30 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="bg-gradient-to-br from-green-500/10 to-slate-800/50 border border-green-500/20 rounded-xl p-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-l-xl" />
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-gradient-to-br from-green-500/10 to-slate-800/50 border border-green-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-green-300/80 text-xs font-medium uppercase tracking-wider">Compliance Score</h3>
-            <div className="w-10 h-10 bg-green-500/15 rounded-lg flex items-center justify-center ring-1 ring-green-500/20">
-              <CheckCircle2 className="w-5 h-5 text-green-400" />
+            <div className="w-8 h-8 bg-green-500/15 rounded flex items-center justify-center ring-1 ring-green-500/20">
+              <CheckCircle2 className="w-4 h-4 text-green-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-white mb-1">{globalStats?.complianceScore || 0}%</p>
+          <p className="text-2xl font-bold text-white mb-1">{globalStats?.complianceScore || 0}%</p>
           <div className="flex items-center gap-1 text-xs text-green-400">
             <TrendingUp className="w-3 h-3" />
             <span>+3 pts</span>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-amber-500/10 to-slate-800/50 border border-amber-500/20 rounded-xl p-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 rounded-l-xl" />
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-gradient-to-br from-amber-500/10 to-slate-800/50 border border-amber-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-amber-300/80 text-xs font-medium uppercase tracking-wider">Open Tickets</h3>
-            <div className="w-10 h-10 bg-amber-500/15 rounded-lg flex items-center justify-center ring-1 ring-amber-500/20">
-              <Ticket className="w-5 h-5 text-amber-400" />
+            <div className="w-8 h-8 bg-amber-500/15 rounded flex items-center justify-center ring-1 ring-amber-500/20">
+              <Ticket className="w-4 h-4 text-amber-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-white mb-1">{globalStats?.openTickets || 0}</p>
+          <p className="text-2xl font-bold text-white mb-1">{globalStats?.openTickets || 0}</p>
           <div className="flex items-center gap-1 text-xs text-red-400">
             <AlertCircle className="w-3 h-3" />
             <span>{globalStats?.criticalTickets || 0} critical</span>
@@ -262,12 +262,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-6 ${isProximityAdmin ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+      <div className={`grid grid-cols-1 gap-4 ${isProximityAdmin ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
         {isProximityAdmin && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 relative overflow-hidden">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
-            <h3 className="text-lg font-semibold text-white mb-4">Revenue Trend (MRR)</h3>
-            <div className="h-64">
+            <h3 className="text-base font-semibold text-white mb-3">Revenue Trend (MRR)</h3>
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={revenueData}>
                   <defs>
@@ -298,10 +298,10 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 relative overflow-hidden">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500" />
-          <h3 className="text-lg font-semibold text-white mb-4">Deployment Velocity</h3>
-          <div className="h-64">
+          <h3 className="text-base font-semibold text-white mb-3">Deployment Velocity</h3>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={deploymentData}>
                 <defs>
@@ -320,10 +320,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 relative overflow-hidden">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
-          <h3 className="text-lg font-semibold text-white mb-4">Compliance Trend</h3>
-          <div className="h-64">
+          <h3 className="text-base font-semibold text-white mb-3">Compliance Trend</h3>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={complianceData}>
                 <defs>
@@ -354,10 +354,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 relative overflow-hidden">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500" />
-          <h3 className="text-lg font-semibold text-white mb-4">Sites by Status</h3>
-          <div className="h-64 flex items-center justify-center">
+          <h3 className="text-base font-semibold text-white mb-3">Sites by Status</h3>
+          <div className="h-56 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -391,10 +391,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DashboardMapWidget />
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 relative overflow-hidden">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500" />
-          <h3 className="text-lg font-semibold text-white mb-4">Sites by Client</h3>
-          <div className="h-64">
+          <h3 className="text-base font-semibold text-white mb-3">Sites by Client</h3>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={clientSitesData} layout="vertical" margin={{ left: 10, right: 10 }}>
                 <defs>

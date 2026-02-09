@@ -268,137 +268,120 @@ export default function Facilities() {
       </div>
 
       {statsLoading ? (
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="animate-pulse">
-                <div className="h-4 bg-slate-700 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-slate-700 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-slate-700 rounded w-1/3"></div>
+                <div className="h-3 bg-slate-700 rounded w-1/2 mb-2"></div>
+                <div className="h-6 bg-slate-700 rounded w-2/3"></div>
               </div>
             ))}
           </div>
         </div>
       ) : stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-teal-500/10 to-teal-600/5 border border-teal-500/20 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-teal-500/20 rounded-lg">
-                <Building2 className="w-6 h-6 text-teal-400" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-gradient-to-br from-teal-500/10 to-teal-600/5 border border-teal-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-teal-500/20 rounded">
+                <Building2 className="w-4 h-4 text-teal-400" />
               </div>
-              <span className="text-xs font-medium text-teal-400 bg-teal-500/20 px-2 py-1 rounded-full">
-                Total
-              </span>
+              <span className="text-xs font-medium text-teal-400">Total</span>
             </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">{stats.totalFacilities}</p>
-              <p className="text-sm text-slate-400">Facilities</p>
-            </div>
+            <p className="text-2xl font-bold text-white">{stats.totalFacilities}</p>
+            <p className="text-xs text-slate-400">Facilities</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-green-500/20 rounded-lg">
-                <Activity className="w-6 h-6 text-green-400" />
+          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-green-500/20 rounded">
+                <Activity className="w-4 h-4 text-green-400" />
               </div>
-              <span className="text-xs font-medium text-green-400 bg-green-500/20 px-2 py-1 rounded-full">
-                Active
-              </span>
+              <span className="text-xs font-medium text-green-400">Active</span>
             </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">{stats.liveFacilities}</p>
-              <p className="text-sm text-slate-400">Live Facilities</p>
-            </div>
+            <p className="text-2xl font-bold text-white">{stats.liveFacilities}</p>
+            <p className="text-xs text-slate-400">Live Facilities</p>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-500/20 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-blue-400" />
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-blue-500/20 rounded">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
               </div>
-              <span className="text-xs font-medium text-blue-400 bg-blue-500/20 px-2 py-1 rounded-full">
-                Progress
-              </span>
+              <span className="text-xs font-medium text-blue-400">Progress</span>
             </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">{stats.averageProgress}%</p>
-              <p className="text-sm text-slate-400">Avg Completion</p>
-            </div>
+            <p className="text-2xl font-bold text-white">{stats.averageProgress}%</p>
+            <p className="text-xs text-slate-400">Avg Completion</p>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-amber-500/20 rounded-lg">
-                <Calendar className="w-6 h-6 text-amber-400" />
+          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-amber-500/20 rounded">
+                <Calendar className="w-4 h-4 text-amber-400" />
               </div>
-              <span className="text-xs font-medium text-amber-400 bg-amber-500/20 px-2 py-1 rounded-full">
-                30 Days
-              </span>
+              <span className="text-xs font-medium text-amber-400">30 Days</span>
             </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">{stats.upcomingGoLives}</p>
-              <p className="text-sm text-slate-400">Upcoming Go-Lives</p>
-            </div>
+            <p className="text-2xl font-bold text-white">{stats.upcomingGoLives}</p>
+            <p className="text-xs text-slate-400">Upcoming Go-Lives</p>
           </div>
         </div>
       )}
 
       {stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-teal-400" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-teal-400" />
               By Status
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {stats.byStatus.map(stat => (
                 <div key={stat.status} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[stat.status] || 'bg-slate-700 text-slate-300'}`}>
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[stat.status] || 'bg-slate-700 text-slate-300'}`}>
                       {stat.status || 'Unknown'}
                     </span>
-                    <div className="flex-1 bg-slate-700 rounded-full h-2">
+                    <div className="flex-1 bg-slate-700 rounded-full h-1.5">
                       <div
-                        className="bg-teal-500 h-2 rounded-full transition-all"
+                        className="bg-teal-500 h-1.5 rounded-full transition-all"
                         style={{ width: `${(stat.count / stats.totalFacilities) * 100}%` }}
                       />
                     </div>
                   </div>
-                  <span className="text-white font-medium ml-3">{stat.count}</span>
+                  <span className="text-white font-medium ml-2 text-sm">{stat.count}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-teal-400" />
+          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4 text-teal-400" />
               Contacts & States
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 rounded-lg p-4">
-                <p className="text-sm text-slate-400 mb-1">With Contacts</p>
-                <p className="text-2xl font-bold text-white">{stats.facilitiesWithContacts}</p>
-                <p className="text-xs text-slate-500 mt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-900 rounded-lg p-2.5">
+                <p className="text-xs text-slate-400 mb-0.5">With Contacts</p>
+                <p className="text-xl font-bold text-white">{stats.facilitiesWithContacts}</p>
+                <p className="text-xs text-slate-500">
                   {Math.round((stats.facilitiesWithContacts / stats.totalFacilities) * 100)}% coverage
                 </p>
               </div>
-              <div className="bg-slate-900 rounded-lg p-4">
-                <p className="text-sm text-slate-400 mb-1">Total Contacts</p>
-                <p className="text-2xl font-bold text-white">{stats.totalContacts}</p>
-                <p className="text-xs text-slate-500 mt-1">
+              <div className="bg-slate-900 rounded-lg p-2.5">
+                <p className="text-xs text-slate-400 mb-0.5">Total Contacts</p>
+                <p className="text-xl font-bold text-white">{stats.totalContacts}</p>
+                <p className="text-xs text-slate-500">
                   {(stats.totalContacts / (stats.facilitiesWithContacts || 1)).toFixed(1)} avg per facility
                 </p>
               </div>
-              <div className="bg-slate-900 rounded-lg p-4">
-                <p className="text-sm text-slate-400 mb-1">Unique States</p>
-                <p className="text-2xl font-bold text-white">{stats.uniqueStates}</p>
-                <p className="text-xs text-slate-500 mt-1">Geographic coverage</p>
+              <div className="bg-slate-900 rounded-lg p-2.5">
+                <p className="text-xs text-slate-400 mb-0.5">Unique States</p>
+                <p className="text-xl font-bold text-white">{stats.uniqueStates}</p>
+                <p className="text-xs text-slate-500">Geographic coverage</p>
               </div>
-              <div className="bg-slate-900 rounded-lg p-4">
-                <p className="text-sm text-slate-400 mb-1">In Progress</p>
-                <p className="text-2xl font-bold text-white">{stats.inProgressFacilities}</p>
-                <p className="text-xs text-slate-500 mt-1">Active deployments</p>
+              <div className="bg-slate-900 rounded-lg p-2.5">
+                <p className="text-xs text-slate-400 mb-0.5">In Progress</p>
+                <p className="text-xl font-bold text-white">{stats.inProgressFacilities}</p>
+                <p className="text-xs text-slate-500">Active deployments</p>
               </div>
             </div>
           </div>
