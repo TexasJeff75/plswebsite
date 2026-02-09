@@ -196,18 +196,27 @@ export default function ImportData({ onImportComplete, onClose }) {
     });
 
     OPTIONAL_COLUMNS.forEach(optCol => {
-      const match = columns.find(c =>
-        c === optCol ||
-        c.includes(optCol) ||
-        optCol.includes(c) ||
-        (optCol === 'projected_go_live' && (c.includes('go_live') || c.includes('golive') || c.includes('launch'))) ||
-        (optCol === 'general_notes' && c.includes('notes') && !c.includes('contact')) ||
-        (optCol === 'contact_notes' && c.includes('notes') && c.includes('contact')) ||
-        (optCol === 'contact_type' && c.includes('contact') && c.includes('type')) ||
-        (optCol === 'first_name' && (c.includes('first') || c === 'fname')) ||
-        (optCol === 'last_name' && (c.includes('last') || c === 'lname')) ||
-        (optCol === 'zip_code' && (c.includes('zip') || c === 'postal'))
-      );
+      let match;
+
+      if (optCol === 'phone') {
+        match = columns.find(c => c === 'phone' && !c.includes('facility'));
+      } else if (optCol === 'facility_phone') {
+        match = columns.find(c => c === 'facility_phone' || (c.includes('facility') && c.includes('phone')));
+      } else {
+        match = columns.find(c =>
+          c === optCol ||
+          c.includes(optCol) ||
+          optCol.includes(c) ||
+          (optCol === 'projected_go_live' && (c.includes('go_live') || c.includes('golive') || c.includes('launch'))) ||
+          (optCol === 'general_notes' && c.includes('notes') && !c.includes('contact')) ||
+          (optCol === 'contact_notes' && c.includes('notes') && c.includes('contact')) ||
+          (optCol === 'contact_type' && c.includes('contact') && c.includes('type')) ||
+          (optCol === 'first_name' && (c.includes('first') || c === 'fname')) ||
+          (optCol === 'last_name' && (c.includes('last') || c === 'lname')) ||
+          (optCol === 'zip_code' && (c.includes('zip') || c === 'postal'))
+        );
+      }
+
       if (match) {
         mapping[optCol] = match;
       }
