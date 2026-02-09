@@ -27,6 +27,11 @@ const OPTIONAL_COLUMNS = [
   'contact_notes'
 ];
 
+const COLUMN_DESCRIPTIONS = {
+  'facility_phone': 'Main facility phone number (shown in location card)',
+  'phone': 'Individual contact phone number (specific to this contact person)'
+};
+
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(line => line.trim());
   if (lines.length < 2) return [];
@@ -398,6 +403,7 @@ export default function ImportData({ onImportComplete, onClose }) {
             city: getMappedValue(row, 'city'),
             state: getMappedValue(row, 'state'),
             zip: zipCode,
+            phone: getMappedValue(row, 'facility_phone'),
             latitude: lat ? parseFloat(lat) : null,
             longitude: lng ? parseFloat(lng) : null,
             region: getMappedValue(row, 'region'),

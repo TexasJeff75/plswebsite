@@ -64,6 +64,7 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
       state: facility.state || '',
       county: facility.county || '',
       region: facility.region || '',
+      phone: facility.phone || '',
       latitude: facility.latitude || '',
       longitude: facility.longitude || ''
     });
@@ -144,17 +145,24 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
       const coords = await geocodingService.geocodeAddress(fullAddress);
 
       if (coords) {
+        const reverseData = await geocodingService.reverseGeocode(coords.lat, coords.lng);
+
         if (isEditing) {
           setEditedData(prev => ({
             ...prev,
             latitude: coords.lat.toFixed(8),
-            longitude: coords.lon.toFixed(8)
+            longitude: coords.lng.toFixed(8),
+            county: reverseData?.county || prev.county
           }));
         } else {
-          await facilitiesService.update(facility.id, {
+          const updateData = {
             latitude: coords.lat,
-            longitude: coords.lon
-          });
+            longitude: coords.lng
+          };
+          if (reverseData?.county && !facility.county) {
+            updateData.county = reverseData.county;
+          }
+          await facilitiesService.update(facility.id, updateData);
           if (onUpdate) onUpdate();
         }
       } else {
@@ -271,6 +279,19 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
                 </FormField>
               </div>
 
+              <FormField
+                label="Phone"
+                help="Main facility contact number"
+              >
+                <input
+                  type="tel"
+                  value={editedData.phone}
+                  onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
+                  className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm"
+                  placeholder="(555) 123-4567"
+                />
+              </FormField>
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   label="County"
@@ -303,6 +324,14 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
               <p className="text-slate-300">
                 {[facility.city, facility.state].filter(Boolean).join(', ')}
               </p>
+              {facility.phone && (
+                <p className="text-slate-300 text-sm flex items-center gap-2">
+                  <span className="text-slate-400">Phone:</span>
+                  <a href={`tel:${facility.phone}`} className="text-teal-400 hover:text-teal-300">
+                    {facility.phone}
+                  </a>
+                </p>
+              )}
               {facility.county && (
                 <p className="text-slate-400 text-sm">{facility.county} County</p>
               )}

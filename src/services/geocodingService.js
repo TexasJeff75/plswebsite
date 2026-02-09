@@ -140,7 +140,46 @@ export async function geocodeFacilities(facilities, onProgress) {
   return results;
 }
 
+async function reverseGeocode(lat, lng) {
+  console.log('Reverse geocoding coordinates:', lat, lng);
+  await new Promise(resolve => setTimeout(resolve, 1100));
+
+  try {
+    const response = await fetch(
+      `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`,
+      {
+        headers: {
+          'User-Agent': 'ProximityDeploymentTracker/1.0'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`Reverse geocoding failed with status ${response.status}`);
+      throw new Error(`Reverse geocoding failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Reverse geocoding response:', data);
+
+    if (data && data.address) {
+      return {
+        county: data.address.county || null,
+        city: data.address.city || data.address.town || data.address.village || null,
+        state: data.address.state || null,
+        country: data.address.country || null
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return null;
+  }
+}
+
 export const geocodingService = {
   geocodeAddress,
-  geocodeFacilities
+  geocodeFacilities,
+  reverseGeocode
 };
