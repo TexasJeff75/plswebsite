@@ -484,7 +484,10 @@ export default function ImportData({ onImportComplete, onClose }) {
           const contactEmail = getMappedValue(row, 'email');
           const contactNotes = getMappedValue(row, 'contact_notes');
 
+          console.log(`[Import] Row ${i + 2}: Contact data - First: ${firstName}, Last: ${lastName}, Role: ${contactRole}, Phone: ${contactPhone}, Email: ${contactEmail}`);
+
           if ((firstName || lastName) && contactRole) {
+            console.log(`[Import] Row ${i + 2}: Processing contact for facility ${facilityName}`);
             try {
               const contactName = [firstName, lastName].filter(Boolean).join(' ');
 
@@ -496,6 +499,10 @@ export default function ImportData({ onImportComplete, onClose }) {
                                  existing.email.toLowerCase() === contactEmail.toLowerCase();
                 const phoneMatch = contactPhone && existing.phone &&
                                  existing.phone.replace(/\D/g, '') === contactPhone.replace(/\D/g, '');
+
+                if (nameMatch || emailMatch || phoneMatch) {
+                  console.log(`[Import] Duplicate contact detected - Name: ${nameMatch}, Email: ${emailMatch}, Phone: ${phoneMatch}`);
+                }
 
                 return nameMatch || emailMatch || phoneMatch;
               });
@@ -521,6 +528,8 @@ export default function ImportData({ onImportComplete, onClose }) {
               console.error(`[Import] Failed to create contact for facility "${facilityName}":`, contactError);
               importErrors.push(`Row ${i + 2} (${facilityName}): Contact creation failed - ${contactError.message}`);
             }
+          } else {
+            console.log(`[Import] Row ${i + 2}: Skipping contact - missing name or role`);
           }
         } catch (rowError) {
           console.error(`[Import] Unexpected error for row ${i + 2}:`, rowError);
@@ -534,16 +543,25 @@ export default function ImportData({ onImportComplete, onClose }) {
 
       const summaryMessages = [];
       if (successCount > 0) {
-        summaryMessages.push(`${successCount} new facilities created`);
+        summaryMessages.push(`✓ ${successCount} new facilities created`);
       }
       if (contactsAdded > 0) {
-        summaryMessages.push(`${contactsAdded} contacts added`);
+        summaryMessages.push(`✓ ${contactsAdded} contacts added`);
       }
+
+      if (successCount === 0 && contactsAdded === 0) {
+        summaryMessages.push('No new data was imported. All facilities already exist and all contacts appear to be duplicates.');
+      }
+
       if (importErrors.length > 0) {
         console.log(`[Import] Errors:`, importErrors);
-        summaryMessages.push(...importErrors.slice(0, 10));
-        if (importErrors.length > 10) {
-          summaryMessages.push(`... and ${importErrors.length - 10} more`);
+        if (summaryMessages.length > 0) {
+          summaryMessages.push(''); // Add blank line separator
+        }
+        summaryMessages.push(`Details (${importErrors.length} items processed):`);
+        summaryMessages.push(...importErrors.slice(0, 20));
+        if (importErrors.length > 20) {
+          summaryMessages.push(`... and ${importErrors.length - 20} more (check console for full list)`);
         }
       }
 
@@ -560,7 +578,14 @@ export default function ImportData({ onImportComplete, onClose }) {
       }
     } catch (error) {
       console.error('[Import] Fatal error:', error);
-      setValidationErrors([`Import failed: ${error.message}`]);
+      setValidationWarnings([
+        'Fatal import error occurred:',
+        error.message,
+        '',
+        'Check the browser console for more details.'
+      ]);
+      setImportProgress({ current: 0, total: data.length, contactsAdded: 0 });
+      setStep('complete');
       setImporting(false);
     }
   };
