@@ -596,7 +596,6 @@ export default function Facilities() {
                       {getSortIcon('go-live')}
                     </div>
                   </th>
-                  <th className="text-right py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -690,14 +689,6 @@ export default function Facilities() {
                         {facility.projected_go_live
                           ? new Date(facility.projected_go_live).toLocaleDateString()
                           : '-'}
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <Link
-                          to={`/facilities/${facility.id}`}
-                          className="text-teal-400 hover:text-teal-300 text-sm font-medium"
-                        >
-                          View Details →
-                        </Link>
                       </td>
                     </tr>
                   );
