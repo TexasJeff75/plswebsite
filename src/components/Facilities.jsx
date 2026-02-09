@@ -6,7 +6,7 @@ import { organizationsService } from '../services/organizationsService';
 import { projectsService } from '../services/projectsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
-import { X, Plus, Upload, ChevronsUpDown, ChevronUp, ChevronDown, ArrowRightLeft, Building2, TrendingUp, Calendar, Users, MapPin, Activity, Merge } from 'lucide-react';
+import { X, Plus, Upload, ChevronsUpDown, ChevronUp, ChevronDown, ArrowRightLeft, Building2, TrendingUp, Calendar, Users, MapPin, Activity, Merge, Check, Layers, Settings } from 'lucide-react';
 import ImportData from './ImportData';
 import ReassignFacilitiesModal from './ReassignFacilitiesModal';
 import MergeFacilitiesModal from './MergeFacilitiesModal';
@@ -30,7 +30,6 @@ export default function Facilities() {
     search: '',
     status: '',
     region: '',
-    phase: '',
     organization_id: '',
     project_id: ''
   });
@@ -176,9 +175,25 @@ export default function Facilities() {
           aValue = `${a.city}, ${a.state}`.toLowerCase();
           bValue = `${b.city}, ${b.state}`.toLowerCase();
           break;
-        case 'phase':
-          aValue = a.phase?.toLowerCase() || '';
-          bValue = b.phase?.toLowerCase() || '';
+        case 'contacts':
+          aValue = a.facility_contacts?.length || 0;
+          bValue = b.facility_contacts?.length || 0;
+          break;
+        case 'trained':
+          aValue = a.trained_personnel?.length || 0;
+          bValue = b.trained_personnel?.length || 0;
+          break;
+        case 'template':
+          aValue = a.template_applied ? 1 : 0;
+          bValue = b.template_applied ? 1 : 0;
+          break;
+        case 'configuration':
+          aValue = a.site_configuration?.toLowerCase() || '';
+          bValue = b.site_configuration?.toLowerCase() || '';
+          break;
+        case 'complexity':
+          aValue = a.complexity_level?.toLowerCase() || '';
+          bValue = b.complexity_level?.toLowerCase() || '';
           break;
         case 'status':
           aValue = a.status?.toLowerCase() || '';
@@ -442,14 +457,6 @@ export default function Facilities() {
             onChange={(e) => setFilters({ ...filters, region: e.target.value })}
             className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
-
-          <input
-            type="text"
-            placeholder="Filter by phase..."
-            value={filters.phase}
-            onChange={(e) => setFilters({ ...filters, phase: e.target.value })}
-            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
         </div>
 
         {selectedIds.size > 0 && isEditor && (
@@ -553,12 +560,48 @@ export default function Facilities() {
                     </div>
                   </th>
                   <th
+                    className="text-center py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('contacts')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Contacts
+                      {getSortIcon('contacts')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-center py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('trained')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Trained
+                      {getSortIcon('trained')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-center py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('template')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Template
+                      {getSortIcon('template')}
+                    </div>
+                  </th>
+                  <th
                     className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
-                    onClick={() => handleSort('phase')}
+                    onClick={() => handleSort('configuration')}
                   >
                     <div className="flex items-center gap-2">
-                      Phase
-                      {getSortIcon('phase')}
+                      Config
+                      {getSortIcon('configuration')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-4 text-slate-400 font-medium text-sm cursor-pointer hover:text-slate-200 transition-colors"
+                    onClick={() => handleSort('complexity')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Complexity
+                      {getSortIcon('complexity')}
                     </div>
                   </th>
                   <th
@@ -633,8 +676,54 @@ export default function Facilities() {
                       <td className="py-4 px-4 text-slate-400">
                         {facility.city}, {facility.state}
                       </td>
-                      <td className="py-4 px-4 text-slate-400">
-                        {facility.phase}
+                      <td className="py-4 px-4 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 bg-slate-700/50 rounded-full">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-sm font-medium text-white">
+                            {facility.facility_contacts?.length || 0}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 bg-slate-700/50 rounded-full">
+                          <Activity className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-sm font-medium text-white">
+                            {facility.trained_personnel?.length || 0}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        {facility.template_applied ? (
+                          <div className="inline-flex items-center justify-center w-7 h-7 bg-teal-500/20 rounded-full">
+                            <Check className="w-4 h-4 text-teal-400" />
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center justify-center w-7 h-7 bg-slate-700/50 rounded-full">
+                            <span className="text-xs text-slate-500">-</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        {facility.site_configuration ? (
+                          <span className="text-sm text-slate-300 capitalize">
+                            {facility.site_configuration}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        {facility.complexity_level ? (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                            facility.complexity_level === 'high' ? 'bg-red-500/20 text-red-400' :
+                            facility.complexity_level === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-green-500/20 text-green-400'
+                          }`}>
+                            {facility.complexity_level}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </td>
                       <td className="py-4 px-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[facility.status] || 'bg-slate-700 text-slate-300'}`}>

@@ -9,7 +9,9 @@ export const facilitiesService = {
         organization:organizations(id, name),
         project:projects(id, name),
         milestones(id, status, milestone_order),
-        equipment(id, status)
+        equipment(id, status),
+        facility_contacts(id),
+        trained_personnel(id)
       `)
       .order('created_at', { ascending: false });
 
@@ -19,10 +21,6 @@ export const facilitiesService = {
 
     if (filters.region) {
       query = query.eq('region', filters.region);
-    }
-
-    if (filters.phase) {
-      query = query.eq('phase', filters.phase);
     }
 
     if (filters.search) {
