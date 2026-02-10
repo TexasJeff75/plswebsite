@@ -7,6 +7,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { weatherService } from '../services/weatherService';
 import FacilityDetailPanel from './FacilityDetailPanel';
 import ImportData from './ImportData';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 const DEFAULT_REGIONS = ['All Regions'];
 
@@ -222,6 +223,7 @@ function MapControlHandler({ onZoomIn, onZoomOut, onFitBounds, onReset }) {
 }
 
 export default function DeploymentTrackerMap() {
+  const { accessibleOrganizations, isInternalUser, isLoading: orgLoading } = useOrganization();
   const [facilities, setFacilities] = useState([]);
   const [filteredFacilities, setFilteredFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,7 +252,15 @@ export default function DeploymentTrackerMap() {
       setLoading(true);
       const data = await facilitiesService.getAll({});
 
-      const enrichedData = data.map(facility => {
+      let accessibleFacilities = data;
+      if (!isInternalUser && accessibleOrganizations.length > 0) {
+        const orgIds = accessibleOrganizations.map(org => org.id);
+        accessibleFacilities = data.filter(facility =>
+          facility.organization_id && orgIds.includes(facility.organization_id)
+        );
+      }
+
+      const enrichedData = accessibleFacilities.map(facility => {
         const status = calculateFacilityStatus(facility.milestones);
         const completedMilestones = facility.milestones?.filter(m => m.status === 'complete').length || 0;
         const totalMilestones = facility.milestones?.length || 0;
@@ -262,7 +272,7 @@ export default function DeploymentTrackerMap() {
         };
       });
 
-      const uniqueRegions = [...new Set(data.filter(f => f.region).map(f => f.region))].sort();
+      const uniqueRegions = [...new Set(accessibleFacilities.filter(f => f.region).map(f => f.region))].sort();
       setRegions(['All Regions', ...uniqueRegions]);
 
       setFacilities(enrichedData);
@@ -274,8 +284,10 @@ export default function DeploymentTrackerMap() {
   };
 
   useEffect(() => {
-    loadFacilities();
-  }, []);
+    if (!orgLoading) {
+      loadFacilities();
+    }
+  }, [orgLoading, accessibleOrganizations, isInternalUser]);
 
   useEffect(() => {
     if (weatherEnabled && filteredFacilities.length > 0) {
