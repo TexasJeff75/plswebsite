@@ -137,48 +137,28 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (existing) {
-          const { error: updateError } = await supabaseClient
-            .from('lab_results')
-            .update({
-              lab_order_id: labOrderId,
-              organization_id: organizationId,
-              facility_id: facilityId,
-              accession_number: accessionNumber,
-              result_data: resultData,
-              hl7_result: typeof resultData === 'string' ? resultData : null,
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-              result_date: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
+        const { error: upsertError } = await supabaseClient
+          .from('lab_results')
+          .upsert({
+            stratus_guid: guid,
+            lab_order_id: labOrderId,
+            organization_id: organizationId,
+            facility_id: facilityId,
+            accession_number: accessionNumber,
+            result_data: resultData,
+            hl7_result: typeof resultData === 'string' ? resultData : null,
+            sync_status: 'retrieved',
+            retrieved_at: new Date().toISOString(),
+            result_date: new Date().toISOString(),
+          }, {
+            onConflict: 'stratus_guid',
+            ignoreDuplicates: false
+          });
 
-          if (updateError) {
-            console.error(`Error updating result ${guid}:`, updateError);
-            errors.push({ guid, error: updateError.message });
-            continue;
-          }
-        } else {
-          const { error: insertError } = await supabaseClient
-            .from('lab_results')
-            .insert({
-              stratus_guid: guid,
-              lab_order_id: labOrderId,
-              organization_id: organizationId,
-              facility_id: facilityId,
-              accession_number: accessionNumber,
-              result_data: resultData,
-              hl7_result: typeof resultData === 'string' ? resultData : null,
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-              result_date: new Date().toISOString(),
-            });
-
-          if (insertError) {
-            console.error(`Error inserting result ${guid}:`, insertError);
-            errors.push({ guid, error: insertError.message });
-            continue;
-          }
+        if (upsertError) {
+          console.error(`Error upserting result ${guid}:`, upsertError);
+          errors.push({ guid, error: upsertError.message });
+          continue;
         }
 
         console.log(`Acknowledging result ${guid}...`);

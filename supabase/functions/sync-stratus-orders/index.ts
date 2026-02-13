@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
       try {
         const { data: existing } = await supabaseClient
           .from('lab_orders')
-          .select('id, sync_status')
+          .select('id, sync_status, organization_id, facility_id')
           .eq('stratus_guid', guid)
           .maybeSingle();
 
@@ -155,40 +155,24 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (existing) {
-          const { error: updateError } = await supabaseClient
-            .from('lab_orders')
-            .update({
-              order_data: orderData,
-              organization_id: organizationId || existing.organization_id,
-              facility_id: facilityId || existing.facility_id,
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
+        const { error: upsertError } = await supabaseClient
+          .from('lab_orders')
+          .upsert({
+            stratus_guid: guid,
+            organization_id: organizationId,
+            facility_id: facilityId,
+            order_data: orderData,
+            sync_status: 'retrieved',
+            retrieved_at: new Date().toISOString(),
+          }, {
+            onConflict: 'stratus_guid',
+            ignoreDuplicates: false
+          });
 
-          if (updateError) {
-            console.error(`Error updating order ${guid}:`, updateError);
-            errors.push({ guid, error: updateError.message });
-            continue;
-          }
-        } else {
-          const { error: insertError } = await supabaseClient
-            .from('lab_orders')
-            .insert({
-              stratus_guid: guid,
-              organization_id: organizationId,
-              facility_id: facilityId,
-              order_data: orderData,
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-            });
-
-          if (insertError) {
-            console.error(`Error inserting order ${guid}:`, insertError);
-            errors.push({ guid, error: insertError.message });
-            continue;
-          }
+        if (upsertError) {
+          console.error(`Error upserting order ${guid}:`, upsertError);
+          errors.push({ guid, error: upsertError.message });
+          continue;
         }
 
         console.log(`Acknowledging order ${guid}...`);

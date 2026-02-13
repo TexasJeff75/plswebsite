@@ -135,48 +135,28 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (existing) {
-          const { error: updateError } = await supabaseClient
-            .from('lab_order_confirmations')
-            .update({
-              lab_order_id: labOrderId,
-              organization_id: organizationId,
-              facility_id: facilityId,
-              accession_number: accessionNumber,
-              received_time: receivedTime,
-              hl7_message: hl7Message,
-              confirmation_data: { raw: confirmationText },
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
+        const { error: upsertError } = await supabaseClient
+          .from('lab_order_confirmations')
+          .upsert({
+            stratus_guid: guid,
+            lab_order_id: labOrderId,
+            organization_id: organizationId,
+            facility_id: facilityId,
+            accession_number: accessionNumber,
+            received_time: receivedTime,
+            hl7_message: hl7Message,
+            confirmation_data: { raw: confirmationText },
+            sync_status: 'retrieved',
+            retrieved_at: new Date().toISOString(),
+          }, {
+            onConflict: 'stratus_guid',
+            ignoreDuplicates: false
+          });
 
-          if (updateError) {
-            console.error(`Error updating confirmation ${guid}:`, updateError);
-            errors.push({ guid, error: updateError.message });
-            continue;
-          }
-        } else {
-          const { error: insertError } = await supabaseClient
-            .from('lab_order_confirmations')
-            .insert({
-              stratus_guid: guid,
-              lab_order_id: labOrderId,
-              organization_id: organizationId,
-              facility_id: facilityId,
-              accession_number: accessionNumber,
-              received_time: receivedTime,
-              hl7_message: hl7Message,
-              confirmation_data: { raw: confirmationText },
-              sync_status: 'retrieved',
-              retrieved_at: new Date().toISOString(),
-            });
-
-          if (insertError) {
-            console.error(`Error inserting confirmation ${guid}:`, insertError);
-            errors.push({ guid, error: insertError.message });
-            continue;
-          }
+        if (upsertError) {
+          console.error(`Error upserting confirmation ${guid}:`, upsertError);
+          errors.push({ guid, error: upsertError.message });
+          continue;
         }
 
         console.log(`Acknowledging confirmation ${guid}...`);
