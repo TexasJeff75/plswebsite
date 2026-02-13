@@ -124,8 +124,7 @@ export const AuthProvider = ({ children }) => {
           scopes: 'email profile openid',
           redirectTo: redirectUrl,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
+            access_type: 'offline'
           }
         }
       });
