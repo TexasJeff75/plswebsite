@@ -240,8 +240,8 @@ Deno.serve(async (req: Request) => {
       const resultsData: StratusResultsResponse = await listResponse.json();
       console.log(`Queue status: ${resultsData.result_count} retrieved | ${resultsData.total_count} total in queue`);
 
-      if (!resultsData.results || resultsData.results.length === 0) {
-        console.log("Queue empty, stopping");
+      if (!resultsData.results || resultsData.results.length === 0 || resultsData.total_count === 0) {
+        console.log("✓ Queue empty - no more records to process");
         continueProcessing = false;
         break;
       }
@@ -258,11 +258,6 @@ Deno.serve(async (req: Request) => {
       const successCount = batchResults.filter(r => r.status === 'success' || r.status === 're-acknowledged').length;
       const errorCount = batchResults.filter(r => r.status === 'error').length;
       console.log(`Batch ${batchNumber} complete: ${successCount} success, ${errorCount} errors`);
-
-      if (resultsData.result_count >= resultsData.total_count) {
-        console.log("All results processed");
-        continueProcessing = false;
-      }
 
       await sleep(1000);
     }
