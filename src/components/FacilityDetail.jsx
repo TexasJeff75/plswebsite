@@ -477,8 +477,16 @@ export default function FacilityDetail() {
                 }
 
                 const today = new Date();
+                const PHASE_ORDER = { 'Construction': 1, 'Installation': 2, 'Implementation': 3, 'Go-Live': 4 };
                 const sortedMilestones = [...milestones]
-                  .sort((a, b) => (a.milestone_order || 0) - (b.milestone_order || 0));
+                  .sort((a, b) => {
+                    const phaseA = PHASE_ORDER[a.phase] || 999;
+                    const phaseB = PHASE_ORDER[b.phase] || 999;
+                    if (phaseA !== phaseB) return phaseA - phaseB;
+                    const priorityA = a.priority || 5;
+                    const priorityB = b.priority || 5;
+                    return priorityA - priorityB;
+                  });
 
                 return sortedMilestones.map((milestone, index) => {
                   let statusColor = 'bg-slate-500';

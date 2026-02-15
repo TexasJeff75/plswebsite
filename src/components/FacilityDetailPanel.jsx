@@ -18,10 +18,14 @@ export default function FacilityDetailPanel({ facility, onClose, onSave }) {
 
       let sortedMilestones = fullFacility.milestones || [];
       if (Array.isArray(sortedMilestones)) {
+        const PHASE_ORDER = { 'Construction': 1, 'Installation': 2, 'Implementation': 3, 'Go-Live': 4 };
         sortedMilestones = sortedMilestones.sort((a, b) => {
-          const aNum = a.milestone_order || 0;
-          const bNum = b.milestone_order || 0;
-          return aNum - bNum;
+          const phaseA = PHASE_ORDER[a.phase] || 999;
+          const phaseB = PHASE_ORDER[b.phase] || 999;
+          if (phaseA !== phaseB) return phaseA - phaseB;
+          const priorityA = a.priority || 5;
+          const priorityB = b.priority || 5;
+          return priorityA - priorityB;
         });
       }
       setMilestones(sortedMilestones);
