@@ -40,7 +40,7 @@ export const templatesService = {
         template_milestones(
           id,
           milestone_template_id,
-          milestone_template:milestone_templates(id, title, category, description, responsible_party_default, priority, applicable_complexity_levels, is_required_for_complexity),
+          milestone_template:milestone_templates(id, title, category, phase, description, responsible_party_default, priority, applicable_complexity_levels, is_required_for_complexity),
           is_required,
           priority,
           sort_order
@@ -395,6 +395,7 @@ export const templatesService = {
           name: tm.milestone_template?.title || 'Milestone',
           description: tm.milestone_template?.description || '',
           category: tm.milestone_template?.category || 'custom',
+          phase: tm.milestone_template?.phase || null,
           responsible_party: tm.milestone_template?.responsible_party_default || 'Proximity',
           priority: tm.priority || tm.milestone_template?.priority || 5,
           milestone_order: index + 1,
