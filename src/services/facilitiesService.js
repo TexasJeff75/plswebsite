@@ -8,7 +8,7 @@ export const facilitiesService = {
         *,
         organization:organizations(id, name),
         project:projects(id, name),
-        milestones(id, status, milestone_order),
+        milestones(id, name, status, phase, milestone_order, priority),
         equipment(id, status),
         facility_contacts(id),
         trained_personnel(id)
