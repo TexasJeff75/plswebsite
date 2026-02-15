@@ -62,7 +62,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
     name: '',
     description: '',
     category: 'regulatory',
-    phase: facility?.has_construction_phase ? 'Construction' : 'Installation',
+    phase: 'Construction',
     status: 'not_started',
     responsible_party: '',
     target_date: '',
@@ -102,7 +102,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         name: '',
         description: '',
         category: 'regulatory',
-        phase: facility?.has_construction_phase ? 'Construction' : 'Installation',
+        phase: 'Construction',
         status: 'not_started',
         responsible_party: '',
         target_date: '',
@@ -285,8 +285,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                 onChange={(e) => setNewMilestone({ ...newMilestone, phase: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
               >
-                {!facility?.has_construction_phase && <option value="">No Phase</option>}
-                {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                <option value="Construction">Construction</option>
                 <option value="Installation">Installation</option>
                 <option value="Implementation">Implementation</option>
                 <option value="Go-Live">Go-Live</option>
@@ -380,8 +379,6 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
       )}
 
       {PHASE_ORDER.map(phase => {
-        if (!facility?.has_construction_phase && phase === 'Construction') return null;
-
         const phaseMilestones = groupedByPhase[phase] || [];
         if (phaseMilestones.length === 0) return null;
 
@@ -449,7 +446,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                             className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
                           >
                             <option value="">No Phase</option>
-                            {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                            <option value="Construction">Construction</option>
                             <option value="Installation">Installation</option>
                             <option value="Implementation">Implementation</option>
                             <option value="Go-Live">Go-Live</option>
@@ -732,7 +729,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                           className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
                         >
                           <option value="">No Phase</option>
-                          {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                          <option value="Construction">Construction</option>
                           <option value="Installation">Installation</option>
                           <option value="Implementation">Implementation</option>
                           <option value="Go-Live">Go-Live</option>
