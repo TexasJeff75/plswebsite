@@ -122,40 +122,79 @@ export const labOrdersService = {
     return data;
   },
 
+  async _getSyncHeaders() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+    return {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    };
+  },
+
   async syncOrders() {
-    const { data, error } = await supabase.functions.invoke('sync-stratus-orders', {
-      method: 'POST'
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-orders', {
+      method: 'POST',
+      headers,
     });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to sync orders');
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorDetails;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = errorJson.details || errorJson.error || errorText;
+      } catch {
+        errorDetails = errorText;
+      }
+      throw new Error(errorDetails || 'Failed to sync orders');
     }
 
-    return data;
+    return await response.json();
   },
 
   async syncConfirmations() {
-    const { data, error } = await supabase.functions.invoke('sync-stratus-confirmations', {
-      method: 'POST'
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-confirmations', {
+      method: 'POST',
+      headers,
     });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to sync confirmations');
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorDetails;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = errorJson.details || errorJson.error || errorText;
+      } catch {
+        errorDetails = errorText;
+      }
+      throw new Error(errorDetails || 'Failed to sync confirmations');
     }
 
-    return data;
+    return await response.json();
   },
 
   async syncResults() {
-    const { data, error } = await supabase.functions.invoke('sync-stratus-results', {
-      method: 'POST'
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus-results', {
+      method: 'POST',
+      headers,
     });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to sync results');
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorDetails;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = errorJson.details || errorJson.error || errorText;
+      } catch {
+        errorDetails = errorText;
+      }
+      throw new Error(errorDetails || 'Failed to sync results');
     }
 
-    return data;
+    return await response.json();
   },
 
   async syncAll() {
