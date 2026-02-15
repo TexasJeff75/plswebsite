@@ -5,11 +5,10 @@ import 'leaflet/dist/leaflet.css';
 import { Search, X, Upload, Maximize2, Minimize2, MapPin, Activity, Target, ZoomIn, ZoomOut, RotateCcw, Cloud, CloudRain } from 'lucide-react';
 import { facilitiesService } from '../services/facilitiesService';
 import { weatherService } from '../services/weatherService';
+import { projectsService } from '../services/projectsService';
 import FacilityDetailPanel from './FacilityDetailPanel';
 import ImportData from './ImportData';
 import { useOrganization } from '../contexts/OrganizationContext';
-
-const DEFAULT_REGIONS = ['All Regions'];
 
 const STATUS_CONFIG = {
   'not_started': { color: '#6b7280', glow: 'rgba(107,114,128,0.3)', label: 'Not Started', bgClass: 'bg-slate-500/5', borderClass: 'border-slate-500/20', textClass: 'text-slate-400' },
@@ -234,8 +233,8 @@ export default function DeploymentTrackerMap() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [regionFilter, setRegionFilter] = useState('All Regions');
-  const [regions, setRegions] = useState(DEFAULT_REGIONS);
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [projects, setProjects] = useState([]);
 
   const [mapKey, setMapKey] = useState(0);
   const [fitBounds, setFitBounds] = useState(null);
@@ -250,12 +249,15 @@ export default function DeploymentTrackerMap() {
   const loadFacilities = async () => {
     try {
       setLoading(true);
-      const data = await facilitiesService.getAll({});
+      const [facilitiesData, projectsData] = await Promise.all([
+        facilitiesService.getAll({}),
+        projectsService.getAll({})
+      ]);
 
-      let accessibleFacilities = data;
+      let accessibleFacilities = facilitiesData;
       if (!isInternalUser && accessibleOrganizations.length > 0) {
         const orgIds = accessibleOrganizations.map(org => org.id);
-        accessibleFacilities = data.filter(facility =>
+        accessibleFacilities = facilitiesData.filter(facility =>
           facility.organization_id && orgIds.includes(facility.organization_id)
         );
       }
@@ -272,9 +274,7 @@ export default function DeploymentTrackerMap() {
         };
       });
 
-      const uniqueRegions = [...new Set(accessibleFacilities.filter(f => f.region).map(f => f.region))].sort();
-      setRegions(['All Regions', ...uniqueRegions]);
-
+      setProjects(projectsData || []);
       setFacilities(enrichedData);
       setLoading(false);
     } catch (error) {
@@ -335,12 +335,16 @@ export default function DeploymentTrackerMap() {
       filtered = filtered.filter(f => f.status === statusMap[statusFilter]);
     }
 
-    if (regionFilter !== 'All Regions') {
-      filtered = filtered.filter(f => f.region === regionFilter);
+    if (projectFilter !== 'all') {
+      if (projectFilter === 'unassigned') {
+        filtered = filtered.filter(f => !f.project_id);
+      } else {
+        filtered = filtered.filter(f => f.project_id === projectFilter);
+      }
     }
 
     setFilteredFacilities(filtered);
-  }, [facilities, searchQuery, statusFilter, regionFilter]);
+  }, [facilities, searchQuery, statusFilter, projectFilter]);
 
   const handleFacilitySelect = async (facility) => {
     setSelectedFacility(facility);
@@ -491,12 +495,16 @@ export default function DeploymentTrackerMap() {
             </div>
 
             <select
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value)}
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
             >
-              {regions.map(region => (
-                <option key={region} value={region}>{region}</option>
+              <option value="all">All Projects</option>
+              <option value="unassigned">Unassigned</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
               ))}
             </select>
 
