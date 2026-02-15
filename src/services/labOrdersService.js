@@ -122,58 +122,40 @@ export const labOrdersService = {
     return data;
   },
 
-  async _getSyncHeaders() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
-    return {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    };
-  },
-
   async syncOrders() {
-    const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-orders', {
-      method: 'POST',
-      headers,
+    const { data, error } = await supabase.functions.invoke('sync-stratus-orders', {
+      method: 'POST'
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.details || 'Failed to sync orders');
+    if (error) {
+      throw new Error(error.message || 'Failed to sync orders');
     }
 
-    return await response.json();
+    return data;
   },
 
   async syncConfirmations() {
-    const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-confirmations', {
-      method: 'POST',
-      headers,
+    const { data, error } = await supabase.functions.invoke('sync-stratus-confirmations', {
+      method: 'POST'
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.details || 'Failed to sync confirmations');
+    if (error) {
+      throw new Error(error.message || 'Failed to sync confirmations');
     }
 
-    return await response.json();
+    return data;
   },
 
   async syncResults() {
-    const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-results', {
-      method: 'POST',
-      headers,
+    const { data, error } = await supabase.functions.invoke('sync-stratus-results', {
+      method: 'POST'
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.details || 'Failed to sync results');
+    if (error) {
+      throw new Error(error.message || 'Failed to sync results');
     }
 
-    return await response.json();
+    return data;
   },
 
   async syncAll() {
