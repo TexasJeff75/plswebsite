@@ -21,6 +21,7 @@ export default function MilestoneTemplatesTab() {
     title: '',
     description: '',
     category: 'regulatory',
+    phase: 'Installation',
     responsible_party_default: 'Proximity',
     priority: 5,
     dependencies: [],
@@ -51,6 +52,7 @@ export default function MilestoneTemplatesTab() {
       title: '',
       description: '',
       category: 'regulatory',
+      phase: 'Installation',
       responsible_party_default: 'Proximity',
       priority: 5,
       dependencies: [],
@@ -66,6 +68,7 @@ export default function MilestoneTemplatesTab() {
       title: template.title,
       description: template.description || '',
       category: template.category,
+      phase: template.phase || 'Installation',
       responsible_party_default: template.responsible_party_default || 'Proximity',
       priority: template.priority || 5,
       dependencies: template.dependencies || [],
@@ -85,6 +88,7 @@ export default function MilestoneTemplatesTab() {
           title: formData.title,
           description: formData.description,
           category: formData.category,
+          phase: formData.phase,
           responsible_party_default: formData.responsible_party_default,
           priority: formData.priority,
           dependencies: formData.dependencies,
@@ -96,6 +100,7 @@ export default function MilestoneTemplatesTab() {
           title: formData.title,
           description: formData.description,
           category: formData.category,
+          phase: formData.phase,
           responsible_party_default: formData.responsible_party_default,
           priority: formData.priority,
           dependencies: formData.dependencies,
@@ -163,6 +168,7 @@ export default function MilestoneTemplatesTab() {
             <thead>
               <tr className="border-b border-slate-700">
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Phase</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Category</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Responsible Party</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Applies To</th>
@@ -172,7 +178,7 @@ export default function MilestoneTemplatesTab() {
             <tbody className="divide-y divide-slate-700/50">
               {templates.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan="6" className="px-4 py-12 text-center text-slate-400">
                     No milestone templates yet. Create one to get started.
                   </td>
                 </tr>
@@ -184,6 +190,9 @@ export default function MilestoneTemplatesTab() {
                       {template.description && (
                         <p className="text-slate-400 text-sm truncate max-w-xs">{template.description}</p>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ReferenceBadge category="milestone_phase" code={template.phase?.toLowerCase()} />
                     </td>
                     <td className="px-4 py-3">
                       <ReferenceBadge category="milestone_category" code={template.category} />
@@ -280,13 +289,23 @@ export default function MilestoneTemplatesTab() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Responsible Party</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Phase</label>
                   <ReferenceSelect
-                    category="responsible_party"
-                    value={formData.responsible_party_default?.toLowerCase()}
-                    onChange={(value) => setFormData({ ...formData, responsible_party_default: value })}
+                    category="milestone_phase"
+                    value={formData.phase?.toLowerCase()}
+                    onChange={(value) => setFormData({ ...formData, phase: value })}
+                    showColors
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Responsible Party</label>
+                <ReferenceSelect
+                  category="responsible_party"
+                  value={formData.responsible_party_default?.toLowerCase()}
+                  onChange={(value) => setFormData({ ...formData, responsible_party_default: value })}
+                />
               </div>
 
               <div>
