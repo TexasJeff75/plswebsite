@@ -50,6 +50,7 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
       actual_go_live_date: facility.actual_go_live_date || '',
       service_fee_start_date: facility.service_fee_start_date || '',
       complexity_level: facility.complexity_level || 'CLIA Waived',
+      has_construction_phase: facility.has_construction_phase || false,
     });
     setIsEditing(true);
   };
@@ -156,12 +157,27 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Configuration</p>
           <p className="text-white font-medium text-sm">
             {facility.deployment_template?.template_name || 'No template applied'}
           </p>
+        </div>
+        <div className="bg-slate-800 p-3 rounded">
+          <p className="text-slate-400 text-xs mb-1">Current Phase</p>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+            facility.calculated_phase === 'Planning' ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' :
+            facility.calculated_phase === 'Construction' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+            facility.calculated_phase === 'Installation' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+            facility.calculated_phase === 'Implementation' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+            facility.calculated_phase === 'Go-Live' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+            facility.calculated_phase === 'Completed' ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' :
+            facility.calculated_phase === 'Live' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+            'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+          }`}>
+            {facility.calculated_phase || 'Planning'}
+          </span>
         </div>
         <div className="bg-slate-800 p-3 rounded">
           <p className="text-slate-400 text-xs mb-1">Complexity Level</p>
@@ -192,6 +208,23 @@ export default function OverviewTab({ facility, isEditor, onUpdate }) {
           </span>
         </div>
       </div>
+
+      {isEditing && (
+        <div className="bg-slate-800 p-4 rounded">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editedData.has_construction_phase}
+              onChange={(e) => setEditedData({ ...editedData, has_construction_phase: e.target.checked })}
+              className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-teal-600 focus:ring-teal-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-white text-sm">This facility requires a Construction phase</span>
+          </label>
+          <p className="text-slate-400 text-xs mt-1 ml-6">
+            Check this if room renovation is needed (painting, flooring, cabinets, plumbing, lighting, etc.)
+          </p>
+        </div>
+      )}
 
       {isEditing && (
         <div>

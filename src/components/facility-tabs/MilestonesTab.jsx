@@ -13,6 +13,21 @@ const CATEGORY_LABELS = {
   uncategorized: 'Other Milestones',
 };
 
+const PHASE_ORDER = ['Construction', 'Installation', 'Implementation', 'Go-Live'];
+const PHASE_LABELS = {
+  Construction: 'Construction',
+  Installation: 'Installation',
+  Implementation: 'Implementation',
+  'Go-Live': 'Go-Live',
+};
+
+const PHASE_COLORS = {
+  Construction: 'border-orange-500/30 bg-orange-500/5',
+  Installation: 'border-blue-500/30 bg-blue-500/5',
+  Implementation: 'border-purple-500/30 bg-purple-500/5',
+  'Go-Live': 'border-yellow-500/30 bg-yellow-500/5',
+};
+
 const STATUS_OPTIONS = [
   { value: 'not_started', label: 'Not Started', icon: Clock, color: 'bg-slate-600 text-slate-200' },
   { value: 'in_progress', label: 'In Progress', icon: Loader2, color: 'bg-blue-600 text-white' },
@@ -47,6 +62,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
     name: '',
     description: '',
     category: 'regulatory',
+    phase: facility?.has_construction_phase ? 'Construction' : 'Installation',
     status: 'not_started',
     responsible_party: '',
     target_date: '',
@@ -69,6 +85,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         name: newMilestone.name,
         description: newMilestone.description || null,
         category: newMilestone.category,
+        phase: newMilestone.phase || null,
         status: newMilestone.status,
         responsible_party: newMilestone.responsible_party || null,
         target_date: newMilestone.target_date || null,
@@ -85,6 +102,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         name: '',
         description: '',
         category: 'regulatory',
+        phase: facility?.has_construction_phase ? 'Construction' : 'Installation',
         status: 'not_started',
         responsible_party: '',
         target_date: '',
@@ -128,6 +146,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         name: editingMilestone.name,
         description: editingMilestone.description,
         category: editingMilestone.category,
+        phase: editingMilestone.phase || null,
         responsible_party: editingMilestone.responsible_party,
         target_date: editingMilestone.target_date || null,
         priority: editingMilestone.priority ? parseInt(editingMilestone.priority) : 5,
@@ -155,14 +174,23 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
     }
   }
 
-  const baseMilestonesByCategory = facilityStatsService.getMilestonesByCategory(milestones);
-  const uncategorizedMilestones = milestones.filter(m =>
-    !m.category || !['regulatory', 'equipment', 'integration', 'training', 'go_live'].includes(m.category)
-  );
-  const milestonesByCategory = {
-    ...baseMilestonesByCategory,
-    uncategorized: uncategorizedMilestones,
-  };
+  const groupedByPhase = {};
+  PHASE_ORDER.forEach(phase => {
+    groupedByPhase[phase] = milestones.filter(m => m.phase === phase)
+      .sort((a, b) => {
+        const priorityA = a.priority || 5;
+        const priorityB = b.priority || 5;
+        return priorityA - priorityB;
+      });
+  });
+
+  const milestonesWithoutPhase = milestones.filter(m => !m.phase || !PHASE_ORDER.includes(m.phase))
+    .sort((a, b) => {
+      const priorityA = a.priority || 5;
+      const priorityB = b.priority || 5;
+      return priorityA - priorityB;
+    });
+
   const hasAnyMilestones = milestones && milestones.length > 0;
 
   if (!hasAnyMilestones && !showAddForm) {
@@ -251,6 +279,20 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
               />
             </div>
             <div>
+              <label className="block text-slate-400 text-xs mb-1">Phase</label>
+              <select
+                value={newMilestone.phase}
+                onChange={(e) => setNewMilestone({ ...newMilestone, phase: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+              >
+                {!facility?.has_construction_phase && <option value="">No Phase</option>}
+                {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                <option value="Installation">Installation</option>
+                <option value="Implementation">Implementation</option>
+                <option value="Go-Live">Go-Live</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-slate-400 text-xs mb-1">Category</label>
               <select
                 value={newMilestone.category}
@@ -337,25 +379,32 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
         </div>
       )}
 
-      {MILESTONE_CATEGORIES.map(category => {
-        const categoryMilestones = (milestonesByCategory[category] || [])
-          .sort((a, b) => {
-            // Sort by priority (lower number = higher priority)
-            const priorityA = a.priority || 5;
-            const priorityB = b.priority || 5;
-            return priorityA - priorityB;
-          });
-        const progress = category === 'uncategorized'
-          ? (categoryMilestones.length > 0 ? Math.round((categoryMilestones.filter(m => m.status === 'complete').length / categoryMilestones.length) * 100) : 0)
-          : facilityStatsService.getCategoryProgress(milestones, category);
+      {PHASE_ORDER.map(phase => {
+        if (!facility?.has_construction_phase && phase === 'Construction') return null;
 
-        if (categoryMilestones.length === 0) return null;
+        const phaseMilestones = groupedByPhase[phase] || [];
+        if (phaseMilestones.length === 0) return null;
+
+        const progress = phaseMilestones.length > 0
+          ? Math.round((phaseMilestones.filter(m => m.status === 'complete').length / phaseMilestones.length) * 100)
+          : 0;
 
         return (
-          <div key={category} className="bg-slate-800 rounded-lg p-6 space-y-4">
+          <div key={phase} className={`bg-slate-800 border-l-4 rounded-lg p-6 space-y-4 ${PHASE_COLORS[phase]}`}>
             <div className="flex justify-between items-center mb-4">
-              <h4 className="text-white font-semibold capitalize">{CATEGORY_LABELS[category]}</h4>
-              <div className="text-sm text-slate-400">{progress}% complete</div>
+              <div>
+                <h4 className="text-white font-semibold text-lg">{PHASE_LABELS[phase]} Phase</h4>
+                <p className="text-slate-400 text-xs mt-1">
+                  {phase === 'Construction' && 'Room preparation, renovation, and infrastructure'}
+                  {phase === 'Installation' && 'Equipment delivery, setup, and calibration'}
+                  {phase === 'Implementation' && 'Integration, training, and regulatory approval'}
+                  {phase === 'Go-Live' && 'Final testing and activation'}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-slate-400">{progress}% complete</div>
+                <div className="text-xs text-slate-500">{phaseMilestones.length} milestone{phaseMilestones.length !== 1 ? 's' : ''}</div>
+              </div>
             </div>
 
             <div className="w-full bg-slate-700 rounded-full h-2 mb-4">
@@ -366,7 +415,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
             </div>
 
             <div className="space-y-2">
-              {categoryMilestones.map(milestone => (
+              {phaseMilestones.map(milestone => (
                 <div
                   key={milestone.id}
                   className="bg-slate-700 rounded p-4"
@@ -392,6 +441,32 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-slate-400 text-xs mb-1">Phase</label>
+                          <select
+                            value={editingMilestone.phase || ''}
+                            onChange={(e) => setEditingMilestone({ ...editingMilestone, phase: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                          >
+                            <option value="">No Phase</option>
+                            {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                            <option value="Installation">Installation</option>
+                            <option value="Implementation">Implementation</option>
+                            <option value="Go-Live">Go-Live</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-xs mb-1">Category</label>
+                          <select
+                            value={editingMilestone.category || 'uncategorized'}
+                            onChange={(e) => setEditingMilestone({ ...editingMilestone, category: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                          >
+                            {MILESTONE_CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
+                            ))}
+                          </select>
+                        </div>
                         <div>
                           <label className="block text-slate-400 text-xs mb-1">Responsible Party</label>
                           <select
@@ -609,6 +684,288 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
           </div>
         );
       })}
+
+      {milestonesWithoutPhase.length > 0 && (
+        <div className="bg-slate-800 rounded-lg p-6 space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h4 className="text-white font-semibold text-lg">Other Milestones</h4>
+              <p className="text-slate-400 text-xs mt-1">Milestones not assigned to a specific phase</p>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-slate-500">{milestonesWithoutPhase.length} milestone{milestonesWithoutPhase.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {milestonesWithoutPhase.map(milestone => (
+              <div
+                key={milestone.id}
+                className="bg-slate-700 rounded p-4"
+              >
+                {editingMilestone?.id === milestone.id ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-slate-400 text-xs mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={editingMilestone.name}
+                        onChange={(e) => setEditingMilestone({ ...editingMilestone, name: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-xs mb-1">Description</label>
+                      <textarea
+                        value={editingMilestone.description || ''}
+                        onChange={(e) => setEditingMilestone({ ...editingMilestone, description: e.target.value })}
+                        rows={2}
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Phase</label>
+                        <select
+                          value={editingMilestone.phase || ''}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, phase: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        >
+                          <option value="">No Phase</option>
+                          {facility?.has_construction_phase && <option value="Construction">Construction</option>}
+                          <option value="Installation">Installation</option>
+                          <option value="Implementation">Implementation</option>
+                          <option value="Go-Live">Go-Live</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Category</label>
+                        <select
+                          value={editingMilestone.category || 'uncategorized'}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, category: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        >
+                          {MILESTONE_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Responsible Party</label>
+                        <select
+                          value={editingMilestone.responsible_party || ''}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, responsible_party: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        >
+                          <option value="">Select responsible party</option>
+                          {RESPONSIBLE_PARTY_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Target Date</label>
+                        <input
+                          type="date"
+                          value={editingMilestone.target_date || ''}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, target_date: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">
+                          Priority <span className="text-slate-500">(lower = higher priority)</span>
+                        </label>
+                        <select
+                          value={editingMilestone.priority || '5'}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, priority: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        >
+                          <option value="1">1 - Critical</option>
+                          <option value="2">2 - High</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5 - Medium</option>
+                          <option value="6">6</option>
+                          <option value="7">7</option>
+                          <option value="8">8 - Low</option>
+                          <option value="9">9</option>
+                          <option value="10">10 - Lowest</option>
+                        </select>
+                      </div>
+                    </div>
+                    {milestone.status === 'blocked' && (
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Blocked Reason</label>
+                        <input
+                          type="text"
+                          value={editingMilestone.blocked_reason || ''}
+                          onChange={(e) => setEditingMilestone({ ...editingMilestone, blocked_reason: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setEditingMilestone(null)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-600 rounded transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded text-sm transition-colors"
+                      >
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setExpandedMilestone(expandedMilestone === milestone.id ? null : milestone.id)}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h5 className="text-white font-semibold">{milestone.name}</h5>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${STATUS_COLORS[milestone.status] || STATUS_COLORS['not_started']}`}>
+                              {milestone.status?.charAt(0).toUpperCase() + milestone.status?.slice(1).replace('_', ' ')}
+                            </span>
+                            {milestone.priority && milestone.priority <= 3 && (
+                              <span className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
+                                milestone.priority === 1 ? 'bg-red-600 text-white' :
+                                milestone.priority === 2 ? 'bg-orange-600 text-white' :
+                                'bg-yellow-600 text-white'
+                              }`}>
+                                <Flag className="w-3 h-3" />
+                                P{milestone.priority}
+                              </span>
+                            )}
+                          </div>
+                          {milestone.description && (
+                            <p className="text-slate-400 text-sm mb-2">{milestone.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                            {milestone.priority && (
+                              <span className="flex items-center gap-1">
+                                <Flag className="w-3 h-3" />
+                                Priority: {milestone.priority}
+                              </span>
+                            )}
+                            {milestone.responsible_party && (
+                              <span>Responsible: {milestone.responsible_party}</span>
+                            )}
+                            {milestone.target_date && (
+                              <span>Target: {new Date(milestone.target_date).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {milestone.status === 'blocked' && (
+                            <AlertTriangle className="w-5 h-5 text-red-500 mb-2" />
+                          )}
+                          {milestone.completion_date && (
+                            <p className="text-teal-300 text-xs">
+                              Completed: {new Date(milestone.completion_date).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {expandedMilestone === milestone.id && (
+                      <div className="mt-4 pt-4 border-t border-slate-600 space-y-3">
+                        {isEditor && (
+                          <div className="flex flex-wrap items-center gap-2 mb-4">
+                            <span className="text-slate-400 text-xs">Update Status:</span>
+                            {STATUS_OPTIONS.map(opt => {
+                              const Icon = opt.icon;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => handleUpdateStatus(milestone.id, opt.value)}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                                    milestone.status === opt.value
+                                      ? opt.color
+                                      : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                                  }`}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {milestone.blocked_reason && (
+                          <div className="bg-red-900/30 p-3 rounded border border-red-700">
+                            <p className="text-red-200 text-sm">
+                              <span className="font-semibold">Blocked Reason:</span> {milestone.blocked_reason}
+                            </p>
+                            {milestone.blocked_since && (
+                              <p className="text-red-300 text-xs mt-1">
+                                Since: {new Date(milestone.blocked_since).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {milestone.dependencies && milestone.dependencies.length > 0 && (
+                          <div>
+                            <p className="text-slate-300 text-sm font-semibold mb-2">Dependencies</p>
+                            <div className="space-y-1">
+                              {milestone.dependencies.map(depId => {
+                                const depMilestone = milestones.find(m => m.id === depId);
+                                return (
+                                  <div key={depId} className="text-slate-400 text-xs bg-slate-600 p-2 rounded">
+                                    {depMilestone?.name || 'Unknown milestone'}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {milestone.priority && (
+                          <div>
+                            <p className="text-slate-300 text-sm">
+                              <span className="font-semibold">Priority:</span> {milestone.priority === 1 ? 'Critical' : milestone.priority <= 2 ? 'High' : milestone.priority === 5 ? 'Medium' : milestone.priority >= 8 ? 'Low' : milestone.priority}
+                            </p>
+                          </div>
+                        )}
+
+                        {isEditor && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-600">
+                            <button
+                              onClick={() => setEditingMilestone({ ...milestone })}
+                              className="flex items-center gap-1 px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-600 rounded text-xs transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMilestone(milestone.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-red-400 hover:text-red-300 hover:bg-slate-600 rounded text-xs transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
