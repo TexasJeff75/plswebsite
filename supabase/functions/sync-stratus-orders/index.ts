@@ -11,6 +11,11 @@ const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
 const STRATUS_USERNAME = "novagen_stratusdx_11";
 const STRATUS_PASSWORD = "9b910d57-49cb";
 
+const MAX_BATCHES = 50;
+const BATCH_SIZE = 5;
+const CONCURRENT_LIMIT = 3;
+const RETRY_DELAY_MS = 1000;
+
 interface StratusOrdersResponse {
   status: string;
   total_count: number;
@@ -22,6 +27,166 @@ interface StratusAckResponse {
   status: string;
   id: string;
   message: string;
+}
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function processOrderWithRetry(
+  guid: string,
+  supabaseClient: any,
+  headers: any,
+  retries = 2
+): Promise<{ guid: string; status: string; error?: string }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const { data: existing } = await supabaseClient
+        .from('lab_orders')
+        .select('id, sync_status, organization_id, facility_id')
+        .eq('stratus_guid', guid)
+        .maybeSingle();
+
+      if (existing && existing.sync_status === 'acknowledged') {
+        console.log(`Order ${guid} already acknowledged, re-ACKing to clear queue`);
+        const reAckResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, {
+          method: "POST",
+          headers,
+        });
+
+        if (reAckResponse.ok) {
+          return { guid, status: 're-acknowledged' };
+        }
+        throw new Error(`Re-ACK failed: ${reAckResponse.statusText}`);
+      }
+
+      console.log(`[${guid}] Retrieving order details...`);
+      const detailResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!detailResponse.ok) {
+        throw new Error(`Failed to fetch order: ${detailResponse.statusText}`);
+      }
+
+      const orderData = await detailResponse.json();
+
+      let organizationId = existing?.organization_id;
+      let facilityId = existing?.facility_id;
+
+      if (!organizationId) {
+        const facilityIdentifier = orderData.facility_name || orderData.facility_id || '';
+        const orgIdentifier = orderData.organization_name || orderData.organization_id || '';
+
+        if (facilityIdentifier) {
+          const { data: mapping } = await supabaseClient
+            .rpc('find_stratus_facility_mapping', {
+              p_facility_identifier: facilityIdentifier,
+              p_organization_identifier: orgIdentifier || null,
+            });
+
+          if (mapping && mapping.length > 0) {
+            organizationId = mapping[0].organization_id;
+            facilityId = mapping[0].facility_id;
+            console.log(`[${guid}] Mapped to org: ${organizationId}, facility: ${facilityId}`);
+
+            await supabaseClient
+              .from('stratus_facility_mappings')
+              .update({
+                last_matched_at: new Date().toISOString(),
+                match_count: supabaseClient.raw('match_count + 1'),
+              })
+              .eq('id', mapping[0].mapping_id);
+          }
+        }
+      }
+
+      const { error: upsertError } = await supabaseClient
+        .from('lab_orders')
+        .upsert({
+          stratus_guid: guid,
+          organization_id: organizationId,
+          facility_id: facilityId,
+          order_data: orderData,
+          sync_status: 'retrieved',
+          retrieved_at: new Date().toISOString(),
+        }, {
+          onConflict: 'stratus_guid',
+          ignoreDuplicates: false
+        });
+
+      if (upsertError) {
+        throw new Error(`Upsert failed: ${upsertError.message}`);
+      }
+
+      console.log(`[${guid}] Acknowledging order...`);
+      const ackResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, {
+        method: "POST",
+        headers,
+      });
+
+      if (!ackResponse.ok) {
+        throw new Error(`Failed to ACK: ${ackResponse.statusText}`);
+      }
+
+      await supabaseClient
+        .from('lab_orders')
+        .update({
+          sync_status: 'acknowledged',
+          acknowledged_at: new Date().toISOString(),
+        })
+        .eq('stratus_guid', guid);
+
+      console.log(`[${guid}] ✓ Successfully processed`);
+      return { guid, status: 'success' };
+
+    } catch (error) {
+      console.error(`[${guid}] Attempt ${attempt + 1}/${retries + 1} failed:`, error.message);
+
+      if (attempt < retries) {
+        await sleep(RETRY_DELAY_MS * (attempt + 1));
+        continue;
+      }
+
+      await supabaseClient
+        .from('lab_orders')
+        .upsert({
+          stratus_guid: guid,
+          sync_status: 'error',
+          sync_error: error.message,
+        }, {
+          onConflict: 'stratus_guid',
+          ignoreDuplicates: false
+        });
+
+      return { guid, status: 'error', error: error.message };
+    }
+  }
+
+  return { guid, status: 'error', error: 'Max retries exceeded' };
+}
+
+async function processBatchConcurrently(
+  guids: string[],
+  supabaseClient: any,
+  headers: any
+): Promise<any[]> {
+  const results = [];
+
+  for (let i = 0; i < guids.length; i += CONCURRENT_LIMIT) {
+    const chunk = guids.slice(i, i + CONCURRENT_LIMIT);
+    const chunkResults = await Promise.all(
+      chunk.map(guid => processOrderWithRetry(guid, supabaseClient, headers))
+    );
+    results.push(...chunkResults);
+
+    if (i + CONCURRENT_LIMIT < guids.length) {
+      await sleep(500);
+    }
+  }
+
+  return results;
 }
 
 Deno.serve(async (req: Request) => {
@@ -50,19 +215,17 @@ Deno.serve(async (req: Request) => {
       "Content-Type": "application/json",
     };
 
-    console.log("Fetching pending orders from StratusDX...");
-    console.log("Note: StratusDX API returns max 5 orders per request. Processing in batches.");
+    console.log("=== StratusDX Orders Sync Started ===");
+    console.log(`Max batches: ${MAX_BATCHES} | Batch size: ${BATCH_SIZE} | Concurrent: ${CONCURRENT_LIMIT}`);
 
-    const processedOrders = [];
-    const errors = [];
-    let totalProcessed = 0;
+    const allResults = [];
     let batchNumber = 0;
+    let totalProcessed = 0;
     let continueProcessing = true;
-    const MAX_BATCHES = 20;
 
     while (continueProcessing && batchNumber < MAX_BATCHES) {
       batchNumber++;
-      console.log(`\n=== Processing Batch ${batchNumber} (max 5 orders per batch) ===`);
+      console.log(`\n--- Batch ${batchNumber} ---`);
 
       const listResponse = await fetch(`${STRATUS_BASE_URL}/orders`, {
         method: "GET",
@@ -74,160 +237,41 @@ Deno.serve(async (req: Request) => {
       }
 
       const ordersData: StratusOrdersResponse = await listResponse.json();
-      console.log(`Batch ${batchNumber}: Found ${ordersData.result_count} pending orders (Total in queue: ${ordersData.total_count})`);
+      console.log(`Queue status: ${ordersData.result_count} retrieved | ${ordersData.total_count} total in queue`);
 
       if (!ordersData.results || ordersData.results.length === 0) {
-        console.log("No more orders to process");
+        console.log("Queue empty, stopping");
         continueProcessing = false;
         break;
       }
 
-      for (const guid of ordersData.results) {
-      try {
-        const { data: existing } = await supabaseClient
-          .from('lab_orders')
-          .select('id, sync_status, organization_id, facility_id')
-          .eq('stratus_guid', guid)
-          .maybeSingle();
+      const batchResults = await processBatchConcurrently(
+        ordersData.results,
+        supabaseClient,
+        headers
+      );
 
-        if (existing && existing.sync_status === 'acknowledged') {
-          console.log(`Order ${guid} already acknowledged locally, re-ACKing on StratusDX to clear queue`);
-          try {
-            const reAckResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, {
-              method: "POST",
-              headers,
-            });
-            if (reAckResponse.ok) {
-              console.log(`Re-ACK successful for ${guid}`);
-              processedOrders.push({ guid, status: 're-acknowledged', batch: batchNumber });
-              totalProcessed++;
-            } else {
-              console.error(`Re-ACK failed for ${guid}: ${reAckResponse.statusText}`);
-              errors.push({ guid, error: `Re-ACK failed: ${reAckResponse.statusText}` });
-            }
-          } catch (reAckErr) {
-            console.error(`Re-ACK error for ${guid}: ${reAckErr.message}`);
-            errors.push({ guid, error: `Re-ACK error: ${reAckErr.message}` });
-          }
-          continue;
-        }
+      allResults.push(...batchResults);
+      totalProcessed += batchResults.length;
 
-        console.log(`Retrieving order details for ${guid}...`);
-        const detailResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}`, {
-          method: "GET",
-          headers,
-        });
+      const successCount = batchResults.filter(r => r.status === 'success' || r.status === 're-acknowledged').length;
+      const errorCount = batchResults.filter(r => r.status === 'error').length;
+      console.log(`Batch ${batchNumber} complete: ${successCount} success, ${errorCount} errors`);
 
-        if (!detailResponse.ok) {
-          throw new Error(`Failed to fetch order ${guid}: ${detailResponse.statusText}`);
-        }
-
-        const orderData = await detailResponse.json();
-        console.log(`Retrieved order ${guid}`);
-
-        let organizationId = existing?.organization_id;
-        let facilityId = existing?.facility_id;
-
-        if (!organizationId) {
-          const facilityIdentifier = orderData.facility_name || orderData.facility_id || '';
-          const orgIdentifier = orderData.organization_name || orderData.organization_id || '';
-
-          if (facilityIdentifier) {
-            const { data: mapping } = await supabaseClient
-              .rpc('find_stratus_facility_mapping', {
-                p_facility_identifier: facilityIdentifier,
-                p_organization_identifier: orgIdentifier || null,
-              });
-
-            if (mapping && mapping.length > 0) {
-              organizationId = mapping[0].organization_id;
-              facilityId = mapping[0].facility_id;
-              console.log(`Mapped to org: ${organizationId}, facility: ${facilityId}`);
-
-              await supabaseClient
-                .from('stratus_facility_mappings')
-                .update({
-                  last_matched_at: new Date().toISOString(),
-                  match_count: supabaseClient.raw('match_count + 1'),
-                })
-                .eq('id', mapping[0].mapping_id);
-            }
-          }
-        }
-
-        const { error: upsertError } = await supabaseClient
-          .from('lab_orders')
-          .upsert({
-            stratus_guid: guid,
-            organization_id: organizationId,
-            facility_id: facilityId,
-            order_data: orderData,
-            sync_status: 'retrieved',
-            retrieved_at: new Date().toISOString(),
-          }, {
-            onConflict: 'stratus_guid',
-            ignoreDuplicates: false
-          });
-
-        if (upsertError) {
-          console.error(`Error upserting order ${guid}:`, upsertError);
-          errors.push({ guid, error: upsertError.message });
-          continue;
-        }
-
-        console.log(`Acknowledging order ${guid}...`);
-        const ackResponse = await fetch(`${STRATUS_BASE_URL}/order/${guid}/ack`, {
-          method: "POST",
-          headers,
-        });
-
-        if (!ackResponse.ok) {
-          console.error(`Failed to ACK order ${guid}: ${ackResponse.statusText}`);
-          errors.push({ guid, error: `Failed to ACK: ${ackResponse.statusText}` });
-          continue;
-        }
-
-        const ackData: StratusAckResponse = await ackResponse.json();
-        console.log(`Acknowledged order ${guid}: ${ackData.message}`);
-
-        await supabaseClient
-          .from('lab_orders')
-          .update({
-            sync_status: 'acknowledged',
-            acknowledged_at: new Date().toISOString(),
-          })
-          .eq('stratus_guid', guid);
-
-        processedOrders.push({ guid, status: 'success', batch: batchNumber });
-        totalProcessed++;
-
-      } catch (error) {
-        console.error(`Error processing order ${guid}:`, error);
-        errors.push({ guid, error: error.message, batch: batchNumber });
-
-        await supabaseClient
-          .from('lab_orders')
-          .update({
-            sync_status: 'error',
-            sync_error: error.message,
-          })
-          .eq('stratus_guid', guid);
+      if (ordersData.result_count >= ordersData.total_count) {
+        console.log("All orders processed");
+        continueProcessing = false;
       }
+
+      await sleep(1000);
     }
 
-    console.log(`Batch ${batchNumber} complete. Processed: ${ordersData.results.length}`);
+    const successful = allResults.filter(r => r.status === 'success' || r.status === 're-acknowledged');
+    const errors = allResults.filter(r => r.status === 'error');
 
-    if (ordersData.results.length >= ordersData.total_count) {
-      continueProcessing = false;
-    } else {
-      console.log(`More orders available in queue. Fetching next batch...`);
-    }
-  }
-
-  console.log(`\n=== Sync Complete ===`);
-    console.log(`Total batches: ${batchNumber}`);
-    console.log(`Total processed: ${totalProcessed}`);
-    console.log(`Total errors: ${errors.length}`);
+    console.log("\n=== Sync Complete ===");
+    console.log(`Batches: ${batchNumber} | Processed: ${totalProcessed}`);
+    console.log(`Success: ${successful.length} | Errors: ${errors.length}`);
 
     return new Response(
       JSON.stringify({
@@ -236,11 +280,10 @@ Deno.serve(async (req: Request) => {
         summary: {
           batches: batchNumber,
           total_processed: totalProcessed,
-          successful: processedOrders.length,
+          successful: successful.length,
           errors: errors.length,
         },
-        processedOrders,
-        errors,
+        results: allResults,
       }),
       {
         status: 200,
@@ -252,10 +295,11 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error("Error syncing orders:", error);
+    console.error("Fatal error syncing orders:", error);
 
     return new Response(
       JSON.stringify({
+        success: false,
         error: "Failed to sync orders",
         details: error.message,
       }),
