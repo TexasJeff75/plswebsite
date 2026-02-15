@@ -47,6 +47,27 @@ export default function LabOrdersTab({ facility }) {
       setSyncing(true);
       const syncResult = await labOrdersService.syncAll();
       console.log('Sync completed:', syncResult);
+
+      const messages = [];
+      if (syncResult.orders?.error) {
+        messages.push(`Orders: ${syncResult.orders.error.message || syncResult.orders.error}`);
+      } else if (syncResult.orders?.summary) {
+        messages.push(`Orders: ${syncResult.orders.summary.total_processed || 0} processed`);
+      }
+
+      if (syncResult.confirmations?.error) {
+        messages.push(`Confirmations: ${syncResult.confirmations.error.message || syncResult.confirmations.error}`);
+      } else if (syncResult.confirmations?.summary) {
+        messages.push(`Confirmations: ${syncResult.confirmations.summary.total_processed || 0} processed`);
+      }
+
+      if (syncResult.results?.error) {
+        messages.push(`Results: ${syncResult.results.error.message || syncResult.results.error}`);
+      } else if (syncResult.results?.summary) {
+        messages.push(`Results: ${syncResult.results.summary.processed || 0} processed`);
+      }
+
+      alert('Sync completed:\n\n' + messages.join('\n'));
       await loadData();
     } catch (error) {
       console.error('Error syncing:', error);
