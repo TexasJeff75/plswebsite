@@ -153,7 +153,7 @@ export default function Reports() {
     const { data: facilities } = await supabase
       .from('facilities')
       .select(`
-        id, name, street_address, city, state, zip,
+        id, name, address, city, state, zip,
         organization:organizations(name),
         project:projects(name)
       `)
@@ -166,15 +166,15 @@ export default function Reports() {
         totalFacilities: facilities?.length || 0,
         withOrganization: facilities?.filter(f => f.organization).length || 0,
         withProject: facilities?.filter(f => f.project).length || 0,
-        withCompleteAddress: facilities?.filter(f => f.street_address && f.city && f.state).length || 0,
+        withCompleteAddress: facilities?.filter(f => f.address && f.city && f.state).length || 0,
       },
       facilities: facilities?.map(f => ({
         name: f.name,
-        address: f.street_address || '-',
+        address: f.address || '-',
         city: f.city || '-',
         state: f.state || '-',
         zip: f.zip || '-',
-        fullAddress: [f.street_address, f.city, f.state, f.zip].filter(Boolean).join(', ') || 'Address incomplete',
+        fullAddress: [f.address, f.city, f.state, f.zip].filter(Boolean).join(', ') || 'Address incomplete',
         organization: f.organization?.name || '-',
         project: f.project?.name || '-',
       })) || [],
