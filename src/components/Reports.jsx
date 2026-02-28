@@ -10,6 +10,13 @@ import { format, subMonths, startOfMonth, endOfMonth, startOfQuarter, endOfQuart
 
 const REPORTS = [
   {
+    id: 'facility-list',
+    title: 'Facility List',
+    description: 'Complete list of all facilities with addresses, organizations, and projects',
+    icon: FileText,
+    color: 'bg-slate-500/10 text-slate-400',
+  },
+  {
     id: 'compliance',
     title: 'Compliance Report',
     description: 'CLIA status, PT results, deficiencies, and regulatory compliance across all sites',
@@ -106,6 +113,9 @@ export default function Reports() {
       let data = null;
 
       switch (reportId) {
+        case 'facility-list':
+          data = await generateFacilityListReport(start, end);
+          break;
         case 'compliance':
           data = await generateComplianceReport(start, end);
           break;
@@ -137,6 +147,38 @@ export default function Reports() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const generateFacilityListReport = async (start, end) => {
+    const { data: facilities } = await supabase
+      .from('facilities')
+      .select(`
+        id, name, street_address, city, state, zip,
+        organization:organizations(name),
+        project:projects(name)
+      `)
+      .order('name');
+
+    return {
+      title: 'Facility List',
+      dateRange: `Generated on ${format(new Date(), 'MMM d, yyyy')}`,
+      summary: {
+        totalFacilities: facilities?.length || 0,
+        withOrganization: facilities?.filter(f => f.organization).length || 0,
+        withProject: facilities?.filter(f => f.project).length || 0,
+        withCompleteAddress: facilities?.filter(f => f.street_address && f.city && f.state).length || 0,
+      },
+      facilities: facilities?.map(f => ({
+        name: f.name,
+        address: f.street_address || '-',
+        city: f.city || '-',
+        state: f.state || '-',
+        zip: f.zip || '-',
+        fullAddress: [f.street_address, f.city, f.state, f.zip].filter(Boolean).join(', ') || 'Address incomplete',
+        organization: f.organization?.name || '-',
+        project: f.project?.name || '-',
+      })) || [],
+    };
   };
 
   const generateComplianceReport = async (start, end) => {
@@ -404,6 +446,17 @@ export default function Reports() {
     csvContent += `Date Range: ${data.dateRange}\n\n`;
 
     switch (reportId) {
+      case 'facility-list':
+        rows = data.facilities.map(f => ({
+          Facility: f.name,
+          'Street Address': f.address,
+          City: f.city,
+          State: f.state,
+          ZIP: f.zip,
+          Organization: f.organization,
+          Project: f.project,
+        }));
+        break;
       case 'compliance':
         rows = data.facilities.map(f => ({
           Site: f.name,
