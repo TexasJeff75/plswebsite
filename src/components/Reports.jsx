@@ -567,37 +567,41 @@ export default function Reports() {
               </div>
 
               <div className="space-y-3 mb-4">
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Date Range</label>
-                  <div className="relative">
-                    <select
-                      value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
-                      className="w-full appearance-none px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500 cursor-pointer"
-                    >
-                      {DATE_RANGES.map(range => (
-                        <option key={range.id} value={range.id}>{range.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
+                {report.id !== 'facility-list' && (
+                  <>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Date Range</label>
+                      <div className="relative">
+                        <select
+                          value={dateRange}
+                          onChange={(e) => setDateRange(e.target.value)}
+                          className="w-full appearance-none px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500 cursor-pointer"
+                        >
+                          {DATE_RANGES.map(range => (
+                            <option key={range.id} value={range.id}>{range.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
 
-                {dateRange === 'custom' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
+                    {dateRange === 'custom' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
+                        />
+                        <input
+                          type="date"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div>
