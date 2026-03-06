@@ -18,6 +18,7 @@ import ProjectDetail from './components/ProjectDetail';
 import SupportTickets from './components/SupportTickets';
 import TicketDetail from './components/TicketDetail';
 import Reports from './components/Reports';
+import TasksReport from './components/TasksReport';
 import Notifications from './components/Notifications';
 import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
@@ -105,6 +106,7 @@ function App() {
                 <Route path="support" element={<SupportTickets />} />
                 <Route path="support/:id" element={<TicketDetail />} />
                 <Route path="reports" element={<Reports />} />
+                <Route path="tasks-report" element={<TasksReport />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
                 <Route path="documents" element={

@@ -1,6 +1,36 @@
 import { supabase } from '../lib/supabase';
 
 export const taskService = {
+  async getAllIncompleteTasks() {
+    const { data, error } = await supabase
+      .from('milestone_tasks')
+      .select(`
+        *,
+        facility:facilities(id, name),
+        milestone:milestones(id, name, status),
+        assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
+          id,
+          email,
+          display_name
+        ),
+        created_user:user_roles!milestone_tasks_created_by_fkey(
+          id,
+          email,
+          display_name
+        )
+      `)
+      .neq('status', 'completed')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching incomplete tasks:', error);
+      throw error;
+    }
+
+    return data;
+  },
+
   async getTasksForFacility(facilityId, filters = {}) {
     let query = supabase
       .from('milestone_tasks')
