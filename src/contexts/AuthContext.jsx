@@ -140,21 +140,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signInWithPassword = async (email, password) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      console.error('Error signing in with password:', error);
-      return { data: null, error };
-    }
-  };
-
   const signOut = async () => {
     try {
       console.log('Signing out user...');
@@ -266,7 +251,6 @@ export const AuthProvider = ({ children }) => {
     originalAdmin,
     loading,
     signInWithMicrosoft,
-    signInWithPassword,
     signOut,
     startImpersonation,
     stopImpersonation,
