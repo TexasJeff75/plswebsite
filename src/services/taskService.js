@@ -10,12 +10,12 @@ export const taskService = {
         assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
           id,
           email,
-          full_name
+          display_name
         ),
         created_user:user_roles!milestone_tasks_created_by_fkey(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .eq('facility_id', facilityId)
@@ -52,12 +52,12 @@ export const taskService = {
         assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
           id,
           email,
-          full_name
+          display_name
         ),
         created_user:user_roles!milestone_tasks_created_by_fkey(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .eq('id', taskId)
@@ -108,12 +108,12 @@ export const taskService = {
           assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
             id,
             email,
-            full_name
+            display_name
           ),
           created_user:user_roles!milestone_tasks_created_by_fkey(
             id,
             email,
-            full_name
+            display_name
           )
         `)
         .single();
@@ -141,12 +141,12 @@ export const taskService = {
         assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
           id,
           email,
-          full_name
+          display_name
         ),
         created_user:user_roles!milestone_tasks_created_by_fkey(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .single();
@@ -179,7 +179,7 @@ export const taskService = {
         user:user_roles(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .eq('task_id', taskId)
@@ -212,7 +212,7 @@ export const taskService = {
         user:user_roles(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .single();
@@ -235,7 +235,7 @@ export const taskService = {
         user:user_roles(
           id,
           email,
-          full_name
+          display_name
         )
       `)
       .single();

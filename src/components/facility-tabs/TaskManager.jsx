@@ -380,7 +380,7 @@ export default function TaskManager({ facilityId, milestoneId = null, milestones
                       {task.assigned_user && (
                         <span className="flex items-center gap-1">
                           <User className="w-3 h-3" />
-                          {task.assigned_user.full_name || task.assigned_user.email}
+                          {task.assigned_user.display_name || task.assigned_user.email}
                         </span>
                       )}
                       <span className="flex items-center gap-1">
@@ -402,7 +402,7 @@ export default function TaskManager({ facilityId, milestoneId = null, milestones
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-sm text-white">
-                                {comment.user.full_name || comment.user.email}
+                                {comment.user.display_name || comment.user.email}
                               </span>
                               <span className="text-xs text-slate-500">
                                 {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
