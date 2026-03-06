@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { auditService } from '../services/auditService';
+
+const IDLE_TIMEOUT_MS = 3 * 60 * 60 * 1000; // 3 hours
+const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
 
 const AuthContext = createContext({});
 
@@ -19,6 +22,48 @@ export const AuthProvider = ({ children }) => {
   const [impersonatedUser, setImpersonatedUser] = useState(null);
   const [impersonatedProfile, setImpersonatedProfile] = useState(null);
   const [originalAdmin, setOriginalAdmin] = useState(null);
+  const idleTimerRef = useRef(null);
+  const userRef = useRef(null);
+
+  // Keep userRef in sync so the idle handler always sees the latest value
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    const resetIdleTimer = () => {
+      if (!userRef.current) return;
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(async () => {
+        console.warn('Session expired due to 3 hours of inactivity. Signing out.');
+        const { error } = await supabase.auth.signOut();
+        if (error) console.error('Error signing out on idle timeout:', error);
+        setUser(null);
+        setProfile(null);
+        setImpersonatedUser(null);
+        setImpersonatedProfile(null);
+        setOriginalAdmin(null);
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const startIdleTracking = () => {
+      resetIdleTimer();
+      IDLE_EVENTS.forEach(event => window.addEventListener(event, resetIdleTimer, { passive: true }));
+    };
+
+    const stopIdleTracking = () => {
+      clearTimeout(idleTimerRef.current);
+      IDLE_EVENTS.forEach(event => window.removeEventListener(event, resetIdleTimer));
+    };
+
+    if (user) {
+      startIdleTracking();
+    } else {
+      stopIdleTracking();
+    }
+
+    return () => stopIdleTracking();
+  }, [user]);
 
   useEffect(() => {
     console.log('AuthProvider: Initializing...');
