@@ -132,21 +132,21 @@ export default function TasksReport() {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'critical': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      case 'high': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+      case 'medium': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'low': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'open': return <Circle className="w-4 h-4 text-blue-500" />;
-      case 'in_progress': return <Clock className="w-4 h-4 text-yellow-500" />;
-      case 'blocked': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case 'completed': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-      default: return <Circle className="w-4 h-4 text-gray-500" />;
+      case 'open': return <Circle className="w-4 h-4 text-blue-400" />;
+      case 'in_progress': return <Clock className="w-4 h-4 text-yellow-400" />;
+      case 'blocked': return <AlertCircle className="w-4 h-4 text-red-400" />;
+      case 'completed': return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+      default: return <Circle className="w-4 h-4 text-slate-400" />;
     }
   };
 
@@ -161,85 +161,92 @@ export default function TasksReport() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"/>
+          <p className="text-slate-400">Loading tasks report...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Incomplete Tasks Report</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-white">Incomplete Tasks Report</h1>
+          <p className="text-sm text-slate-400 mt-1">
             Overview of all incomplete milestone-related tasks across all facilities
           </p>
         </div>
         <button
           onClick={exportToCSV}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
         >
           <Download className="w-4 h-4" />
           Export CSV
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Incomplete</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-gradient-to-br from-blue-500/10 to-slate-800/50 border border-blue-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-blue-300/80 text-xs font-medium uppercase tracking-wider">Total Incomplete</h3>
+            <div className="w-8 h-8 bg-blue-500/15 rounded flex items-center justify-center ring-1 ring-blue-500/20">
+              <FileText className="w-4 h-4 text-blue-400" />
             </div>
-            <FileText className="w-8 h-8 text-blue-500" />
           </div>
+          <p className="text-2xl font-bold text-white">{stats.total}</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Overdue</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{stats.overdue}</p>
+        <div className="bg-gradient-to-br from-red-500/10 to-slate-800/50 border border-red-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-red-300/80 text-xs font-medium uppercase tracking-wider">Overdue</h3>
+            <div className="w-8 h-8 bg-red-500/15 rounded flex items-center justify-center ring-1 ring-red-500/20">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-500" />
           </div>
+          <p className="text-2xl font-bold text-white">{stats.overdue}</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Critical Priority</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">{stats.critical}</p>
+        <div className="bg-gradient-to-br from-orange-500/10 to-slate-800/50 border border-orange-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-orange-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-orange-300/80 text-xs font-medium uppercase tracking-wider">Critical Priority</h3>
+            <div className="w-8 h-8 bg-orange-500/15 rounded flex items-center justify-center ring-1 ring-orange-500/20">
+              <AlertCircle className="w-4 h-4 text-orange-400" />
             </div>
-            <AlertCircle className="w-8 h-8 text-orange-500" />
           </div>
+          <p className="text-2xl font-bold text-white">{stats.critical}</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Unassigned</p>
-              <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.unassigned}</p>
+        <div className="bg-gradient-to-br from-yellow-500/10 to-slate-800/50 border border-yellow-500/20 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-yellow-300/80 text-xs font-medium uppercase tracking-wider">Unassigned</h3>
+            <div className="w-8 h-8 bg-yellow-500/15 rounded flex items-center justify-center ring-1 ring-yellow-500/20">
+              <Users className="w-4 h-4 text-yellow-400" />
             </div>
-            <Users className="w-8 h-8 text-yellow-500" />
           </div>
+          <p className="text-2xl font-bold text-white">{stats.unassigned}</p>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-500" />
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          <Filter className="w-5 h-5 text-slate-400" />
+          <h2 className="text-lg font-semibold text-white">Filters</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="all">All Statuses</option>
               <option value="open">Open</option>
@@ -249,11 +256,11 @@ export default function TasksReport() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Priority</label>
             <select
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="all">All Priorities</option>
               <option value="critical">Critical</option>
@@ -264,11 +271,11 @@ export default function TasksReport() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Due Date</label>
             <select
               value={filters.dateRange}
               onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="all">All Dates</option>
               <option value="overdue">Overdue</option>
@@ -279,11 +286,11 @@ export default function TasksReport() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assignment</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Assignment</label>
             <select
               value={filters.assignedTo}
               onChange={(e) => setFilters({ ...filters, assignedTo: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="all">All Tasks</option>
               <option value="assigned">Assigned</option>
@@ -300,7 +307,7 @@ export default function TasksReport() {
                 assignedTo: 'all',
                 milestone: 'all'
               })}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="w-full px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700/50 transition-colors"
             >
               Clear Filters
             </button>
@@ -308,66 +315,66 @@ export default function TasksReport() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/30">
+          <h2 className="text-lg font-semibold text-white">
             Tasks ({filteredTasks.length})
           </h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-slate-900/30 border-b border-slate-700/50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Facility
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Milestone
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Subject
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Priority
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Assigned To
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                   Due Date
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-700/50">
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-4 py-8 text-center text-slate-400">
                     No incomplete tasks found
                   </td>
                 </tr>
               ) : (
                 filteredTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                  <tr key={task.id} className="hover:bg-slate-700/30 transition-colors">
+                    <td className="px-4 py-3 text-sm text-white">
                       {task.facility?.name || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {task.milestone?.name || <span className="text-gray-400 italic">General Task</span>}
+                    <td className="px-4 py-3 text-sm text-slate-300">
+                      {task.milestone?.name || <span className="text-slate-500 italic">General Task</span>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 max-w-xs">
+                    <td className="px-4 py-3 text-sm text-white max-w-xs">
                       <div className="font-medium">{task.subject}</div>
                       {task.description && (
-                        <div className="text-gray-500 text-xs mt-1 line-clamp-1">
+                        <div className="text-slate-400 text-xs mt-1 line-clamp-1">
                           {task.description}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-slate-300">
                         {getStatusIcon(task.status)}
                         <span className="capitalize">{task.status.replace('_', ' ')}</span>
                       </div>
@@ -378,17 +385,17 @@ export default function TasksReport() {
                           {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                         </span>
                       ) : (
-                        <span className="text-gray-400">N/A</span>
+                        <span className="text-slate-500">N/A</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-white">
                       {task.assigned_user?.display_name || (
-                        <span className="text-yellow-600 font-medium">Unassigned</span>
+                        <span className="text-yellow-400 font-medium">Unassigned</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {task.due_date ? (
-                        <div className={`flex items-center gap-2 ${isOverdue(task.due_date) ? 'text-red-600 font-medium' : 'text-gray-900'}`}>
+                        <div className={`flex items-center gap-2 ${isOverdue(task.due_date) ? 'text-red-400 font-medium' : 'text-slate-300'}`}>
                           <Calendar className="w-4 h-4" />
                           {format(parseISO(task.due_date), 'MMM d, yyyy')}
                           {isOverdue(task.due_date) && (
@@ -396,7 +403,7 @@ export default function TasksReport() {
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400">No due date</span>
+                        <span className="text-slate-500">No due date</span>
                       )}
                     </td>
                   </tr>
