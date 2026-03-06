@@ -157,16 +157,30 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      console.log('Signing out user...');
+
+      // Clear impersonation state first
+      setImpersonatedUser(null);
+      setImpersonatedProfile(null);
+      setOriginalAdmin(null);
+
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
+      // Clear user state
+      setUser(null);
+      setProfile(null);
+
+      console.log('Sign out successful');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Even if there's an error, clear the local state
       setUser(null);
       setProfile(null);
       setImpersonatedUser(null);
       setImpersonatedProfile(null);
       setOriginalAdmin(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
       throw error;
     }
   };

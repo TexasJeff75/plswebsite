@@ -39,8 +39,13 @@ export default function Layout() {
   }
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      navigate('/login', { replace: true });
+    }
   };
 
   const navItems = [

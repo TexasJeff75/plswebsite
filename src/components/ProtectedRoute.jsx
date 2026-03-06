@@ -18,7 +18,8 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
+    console.log('No user or profile found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 

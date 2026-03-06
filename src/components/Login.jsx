@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const { signInWithMicrosoft, signInWithPassword } = useAuth();
+  const { user, signInWithMicrosoft, signInWithPassword, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
@@ -10,6 +12,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
 
   console.log('Login component rendering');
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      console.log('User already logged in, redirecting to tracker');
+      navigate('/tracker', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleMicrosoftSignIn = async () => {
     try {
