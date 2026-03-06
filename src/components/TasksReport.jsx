@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertTriangle, Clock, Users, Filter, Download, Calendar, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { FileText, TriangleAlert as AlertTriangle, Clock, Users, ListFilter as Filter, Download, Calendar, CircleCheck as CheckCircle2, Circle, CircleAlert as AlertCircle } from 'lucide-react';
 import { taskService } from '../services/taskService';
 import { format, isAfter, isBefore, addDays, parseISO } from 'date-fns';
 
