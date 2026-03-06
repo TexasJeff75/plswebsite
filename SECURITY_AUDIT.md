@@ -385,6 +385,199 @@ const fileName = `.../${Date.now()}-${Math.random().toString(36).substring(7)}.$
 
 ---
 
+---
+
+## MEDIUM — Missing Security Headers in Netlify Configuration
+
+**Severity: MEDIUM**
+**Files affected:** `netlify.toml`
+
+**Description:** The Netlify configuration has no security headers defined. The current config only specifies build settings:
+
+```toml
+[build]
+publish = "dist"
+command = "npx vite build"
+```
+
+**Missing headers:**
+- `Content-Security-Policy` — no XSS mitigation
+- `X-Frame-Options` — no clickjacking protection
+- `X-Content-Type-Options` — no MIME sniffing protection
+- `Strict-Transport-Security` — no HSTS enforcement
+- `Referrer-Policy` — no referrer leakage control
+- `Permissions-Policy` — no browser feature restrictions
+
+**Recommendation:** Add the following to `netlify.toml`:
+
+```toml
+[[headers]]
+for = "/*"
+[headers.values]
+  Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none';"
+  X-Frame-Options = "DENY"
+  X-Content-Type-Options = "nosniff"
+  Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+  Referrer-Policy = "strict-origin-when-cross-origin"
+  Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+```
+
+---
+
+## Performance Issues
+
+### N+1 Query Patterns
+
+**Severity: MEDIUM**
+**Files affected:**
+- `src/services/supportService.js` — `getTicketById()` runs 4 sequential queries (ticket, org, site, assignee) instead of 1 join
+- `src/services/usersService.js` — `getAll()` fetches users then runs separate assignments query and maps
+- `src/services/organizationsService.js` — `getWithStats()` uses `Promise.all(orgs.map(...))` — 2 queries per organization (100 orgs = 200+ queries)
+
+**Recommendation:** Use Supabase's relation embedding (`.select('*, organization(*)')`) to fetch related data in single queries.
+
+### Missing Pagination on Large Datasets
+
+**Severity: MEDIUM**
+**Files affected:**
+- `src/services/facilitiesService.js:4-42` — `getAll()` fetches entire table with all relations (milestones, equipment, contacts, personnel), no limit
+- `src/services/labOrdersService.js:4-26` — `getOrders()` returns all lab orders, no pagination
+- `src/services/organizationsService.js:4-12` — `getAll()` has no pagination
+
+**Recommendation:** Add `.range(offset, offset + limit)` to all list queries. Implement cursor-based or offset pagination in the UI.
+
+### Broad Column Selection
+
+**Severity: LOW**
+**Files affected:** 37+ instances of `.select('*')` across services
+
+**Recommendation:** Specify only needed columns (e.g., `.select('id, name, status, created_at')`) to reduce payload size and database load.
+
+---
+
+## Code Quality Issues
+
+### Duplicate Component Implementations
+
+**Severity: LOW**
+**Files affected:**
+- `src/components/facility-tabs/OverviewTab.jsx` (348 lines) vs `OverviewTabImproved.jsx` (379 lines)
+- `src/components/facility-tabs/EquipmentTab.jsx` (615 lines) vs `EquipmentTabImproved.jsx` (608 lines)
+
+**Description:** Two pairs of near-duplicate components exist. The "Improved" variants add features like debounced auto-save, compact mode, and bulk operations, but duplicate most of the original code.
+
+**Recommendation:** Consolidate each pair into a single optimized component. Remove the unused variant.
+
+### Oversized Monolithic Components
+
+**Severity: LOW**
+**Files affected:**
+| Component | Lines |
+|-----------|-------|
+| `ProjectDetail.jsx` | 1,180 |
+| `OrganizationDetail.jsx` | 1,179 |
+| `StratusAPIViewer.jsx` | 1,111 |
+| `MilestonesTab.jsx` | 993 |
+| `FacilityDetail.jsx` | 974 |
+| `PersonnelTrainingTab.jsx` | 794 |
+
+**Recommendation:** Break components over 500 lines into focused sub-components (200-300 lines each). Extract form sections, filter bars, and list renderers.
+
+### Missing React Performance Optimizations
+
+**Severity: LOW**
+**Files affected:** Most large components
+
+**Description:** No use of `React.memo()`, `useMemo()`, or `useCallback()` in performance-sensitive components. Large components re-render entire subtrees on any state change.
+
+**Recommendation:** Add `useMemo()` for expensive calculations (filtering, sorting), `useCallback()` for handlers passed to children, and `React.memo()` for pure child components.
+
+### Missing Error Boundaries
+
+**Severity: LOW**
+**Files affected:** `src/tracker-app.jsx` and major feature pages
+
+**Description:** No React error boundaries wrap the major feature pages. An uncaught rendering error in any component crashes the entire app.
+
+**Recommendation:** Add `<ErrorBoundary>` wrappers to each top-level route component to contain failures and show user-friendly error states.
+
+### Async Cleanup Issues
+
+**Severity: LOW**
+**Files affected:**
+- `src/components/facility-tabs/EquipmentTab.jsx:44-55` — `loadEquipmentImages()` loop doesn't handle component unmount during fetch
+- `src/hooks/useAutoSave.js:8-20` — Auto-save doesn't prevent concurrent saves
+
+**Recommendation:** Use `AbortController` for fetch cleanup on unmount. Add debounce guards to prevent concurrent auto-save operations.
+
+---
+
+## Updated Summary Table
+
+| # | Finding | Severity | Category |
+|---|---------|----------|----------|
+| 1 | Hardcoded StratusDX credentials in source code (3 sets) | CRITICAL | Secrets Management |
+| 2 | Wildcard CORS on all serverless functions | HIGH | Access Control |
+| 3 | No authentication on Stratus API proxy & explorer | HIGH | Authentication |
+| 4 | Raw REST query construction in Netlify functions | HIGH | Injection |
+| 5 | Impersonation audit logging is console-only (no persistence) | HIGH | Audit & Accountability |
+| 6 | Client-side-only authorization for impersonation | MEDIUM | Authorization |
+| 7 | Silent role downgrade on profile fetch failure | MEDIUM | Error Handling |
+| 8 | Search term injection in PostgREST filter strings | MEDIUM | Injection |
+| 9 | HTML injection in email templates | MEDIUM | Injection |
+| 10 | Excessive console logging of sensitive data | MEDIUM | Information Disclosure |
+| 11 | No file type/size validation on document upload | MEDIUM | Input Validation |
+| 12 | 3-hour idle timeout (compliance concern) | MEDIUM | Session Management |
+| 13 | Missing security headers (CSP, HSTS, X-Frame-Options, etc.) | MEDIUM | Configuration |
+| 14 | N+1 query patterns in services | MEDIUM | Performance |
+| 15 | Missing pagination on large dataset queries | MEDIUM | Performance |
+| 16 | Duplicate Supabase client (one without PKCE) | LOW | Configuration |
+| 17 | Unencoded query parameter passthrough in proxy | LOW | Input Validation |
+| 18 | `Math.random()` for file path uniqueness | LOW | Cryptography |
+| 19 | Duplicate component implementations | LOW | Code Quality |
+| 20 | Oversized monolithic components (6 files > 900 lines) | LOW | Code Quality |
+| 21 | Missing React performance optimizations | LOW | Performance |
+| 22 | Missing error boundaries | LOW | Reliability |
+| 23 | Async cleanup issues (no AbortController) | LOW | Reliability |
+| 24 | Broad `.select('*')` queries (37+ instances) | LOW | Performance |
+
+---
+
+## Recommended Action Plan
+
+### Phase 1: Critical Security (Week 1)
+1. Rotate all hardcoded StratusDX credentials — consider them compromised
+2. Move credentials to environment variables (Netlify dashboard / Supabase secrets)
+3. Scrub credentials from git history (BFG Repo-Cleaner)
+4. Add authentication to Stratus API proxy functions (JWT validation)
+5. Add pre-commit secret scanning (`gitleaks` or `trufflehog`)
+
+### Phase 2: High-Priority Fixes (Weeks 2-3)
+6. Restrict CORS to known domains
+7. Implement persistent impersonation audit logging
+8. Add security headers to `netlify.toml`
+9. Sanitize search terms before PostgREST filter interpolation
+10. Add file upload validation (type allowlist, size limit, MIME check)
+11. HTML-encode email template interpolations
+12. Gate sensitive `console.log` behind `NODE_ENV` checks
+
+### Phase 3: Performance & Reliability (Weeks 4-5)
+13. Add pagination to facilities, lab orders, and organizations queries
+14. Fix N+1 queries with Supabase relation embedding
+15. Reduce idle timeout to 30-60 minutes
+16. Remove duplicate Supabase client (`src/js/supabase.js`)
+17. Add error boundaries to major route components
+18. Specify columns in `.select()` calls
+
+### Phase 4: Code Quality (Weeks 6-8)
+19. Consolidate duplicate tab components
+20. Break 1000+ line components into sub-components
+21. Add `React.memo()`, `useMemo()`, `useCallback()` optimizations
+22. Add `AbortController` cleanup to async effects
+23. Remove or gate `explore-stratus-api` function from production
+
+---
+
 ## Positive Security Observations
 
 - **PKCE auth flow** is properly configured in the primary Supabase client
