@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flag, AlertTriangle, Plus, CheckCircle2, Clock, XCircle, Minus, Loader2, Pencil, Trash2, X, Check, ListTodo } from 'lucide-react';
+import { Flag, TriangleAlert as AlertTriangle, Plus, CircleCheck as CheckCircle2, Clock, Circle as XCircle, Minus, Loader as Loader2, Pencil, Trash2, X, Check, ListTodo } from 'lucide-react';
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
 import TaskManager from './TaskManager';

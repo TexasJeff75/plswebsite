@@ -1,20 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  CheckCircle2,
-  Circle,
-  Clock,
-  XCircle,
-  Plus,
-  MessageSquare,
-  Calendar,
-  User,
-  Flag,
-  ChevronDown,
-  ChevronRight,
-  Edit2,
-  Trash2,
-  Send
-} from 'lucide-react';
+import { CircleCheck as CheckCircle2, Circle, Clock, Circle as XCircle, Plus, MessageSquare, Calendar, User, Flag, ChevronDown, ChevronRight, CreditCard as Edit2, Trash2, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { taskService } from '../../services/taskService';
 import { useAuth } from '../../contexts/AuthContext';
