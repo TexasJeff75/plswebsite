@@ -578,12 +578,121 @@ for = "/*"
 
 ---
 
+## Additional Findings from Deep-Dive Audit
+
+### MEDIUM — No Rate Limiting on Netlify Functions
+
+**Severity: MEDIUM**
+**Files affected:** All 6 Netlify functions
+
+**Description:** No rate limiting is implemented on any serverless function endpoint. Functions like `sync-stratus-orders.js` could be called repeatedly to hammer the StratusDX API or exhaust Supabase quotas.
+
+**Recommendation:** Implement rate limiting via Netlify's built-in features or add a token-bucket check at the function level.
+
+### MEDIUM — Missing Email & Role Validation in Invitation Function
+
+**Severity: MEDIUM**
+**Files affected:** `netlify/functions/send-invitation-email.js:24-31`
+
+**Description:** The invitation email function only checks for field existence (`if (!email || !role || !inviteUrl)`). It does not validate:
+- Email format (RFC 5322 — accepts `admin@`, `test@..`, unicode strings)
+- Role against an allowlist of valid roles
+- `inviteUrl` against the expected domain (could redirect to a phishing site)
+- `expiresAt` (could be a past date)
+
+**Recommendation:**
+1. Validate email with a regex (e.g., `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`)
+2. Whitelist roles: `['Proximity Admin', 'Proximity Staff', 'Customer Admin', 'Customer User']`
+3. Validate `inviteUrl` starts with your known domain
+4. Check `expiresAt` is a future timestamp
+
+### MEDIUM — Error Details Leaked to Clients
+
+**Severity: MEDIUM**
+**Files affected:**
+- `netlify/functions/send-invitation-email.js:194-196`
+- `netlify/functions/sync-stratus-orders.js:237-239`
+- `netlify/functions/sync-stratus-confirmations.js:239-241`
+- `netlify/functions/sync-stratus-results.js:239-241`
+
+**Description:** Catch blocks return `error.message` directly to the client:
+
+```js
+return {
+  statusCode: 500,
+  body: JSON.stringify({
+    error: 'Failed to send invitation email',
+    details: error.message,  // Leaks internal details
+  }),
+};
+```
+
+**Risk:** Exposes internal system details, database error messages, and API paths to callers.
+
+**Recommendation:** Log full errors server-side; return generic error messages to clients.
+
+### LOW — Missing Database Indexes on Lab Tables
+
+**Severity: LOW**
+**Files affected:** `supabase/migrations/20260205072740_create_lab_integration_tables.sql`
+
+**Description:** The `lab_order_confirmations` and `lab_results` tables lack `created_at DESC` indexes. The `lab_orders` table has one (`idx_lab_orders_created_at`), but the related tables do not.
+
+**Recommendation:**
+```sql
+CREATE INDEX idx_lab_confirmations_created_at ON lab_order_confirmations(created_at DESC);
+CREATE INDEX idx_lab_results_created_at ON lab_results(created_at DESC);
+```
+
+Also consider composite indexes for common filter combinations like `(organization_id, status)` and `(facility_id, created_at DESC)`.
+
+---
+
+## Final Summary Table
+
+| # | Finding | Severity | Category |
+|---|---------|----------|----------|
+| 1 | Hardcoded StratusDX credentials in source code (3 sets) | CRITICAL | Secrets Management |
+| 2 | Wildcard CORS on all serverless functions | HIGH | Access Control |
+| 3 | No authentication on Stratus API proxy & explorer | HIGH | Authentication |
+| 4 | Raw REST query construction in Netlify functions | HIGH | Injection |
+| 5 | Impersonation audit logging is console-only (no persistence) | HIGH | Audit & Accountability |
+| 6 | Client-side-only authorization for impersonation | MEDIUM | Authorization |
+| 7 | Silent role downgrade on profile fetch failure | MEDIUM | Error Handling |
+| 8 | Search term injection in PostgREST filter strings | MEDIUM | Injection |
+| 9 | HTML injection in email templates | MEDIUM | Injection |
+| 10 | Excessive console logging of sensitive data | MEDIUM | Information Disclosure |
+| 11 | No file type/size validation on document upload | MEDIUM | Input Validation |
+| 12 | 3-hour idle timeout (compliance concern) | MEDIUM | Session Management |
+| 13 | Missing security headers (CSP, HSTS, X-Frame-Options, etc.) | MEDIUM | Configuration |
+| 14 | N+1 query patterns in services | MEDIUM | Performance |
+| 15 | Missing pagination on large dataset queries | MEDIUM | Performance |
+| 16 | No rate limiting on Netlify functions | MEDIUM | Access Control |
+| 17 | Missing email/role validation in invitation function | MEDIUM | Input Validation |
+| 18 | Error details leaked to clients in function responses | MEDIUM | Information Disclosure |
+| 19 | Duplicate Supabase client (one without PKCE) | LOW | Configuration |
+| 20 | Unencoded query parameter passthrough in proxy | LOW | Input Validation |
+| 21 | `Math.random()` for file path uniqueness | LOW | Cryptography |
+| 22 | Duplicate component implementations | LOW | Code Quality |
+| 23 | Oversized monolithic components (6 files > 900 lines) | LOW | Code Quality |
+| 24 | Missing React performance optimizations | LOW | Performance |
+| 25 | Missing error boundaries | LOW | Reliability |
+| 26 | Async cleanup issues (no AbortController) | LOW | Reliability |
+| 27 | Broad `.select('*')` queries (37+ instances) | LOW | Performance |
+| 28 | Missing database indexes on lab tables | LOW | Performance |
+
+---
+
 ## Positive Security Observations
 
 - **PKCE auth flow** is properly configured in the primary Supabase client
 - **Microsoft OAuth (Azure AD)** for SSO — no password management needed
 - **escapeHtml()** is used in `deployment-tracker.js` when rendering notifications with `innerHTML`
-- **Supabase RLS** is likely providing server-side enforcement (not visible in frontend code but architecture suggests it)
+- **RLS enabled on all 30+ tables** with 739 policy statements across 92 migrations
+- **Proper cascading deletes** — 19 tables use `ON DELETE CASCADE`, 8 use `ON DELETE SET NULL`
+- **182 database indexes** across migrations for foreign keys and frequently queried columns
 - **Signed URLs** for document access with 1-hour expiry — good practice
 - **Idle timeout** exists (even if generous) for session management
 - **Authorization token forwarding** in sync functions ensures Supabase RLS applies to data operations
+- **Retry logic with exponential backoff** in `stratus-api-proxy.js`
+- **Recent migration removed public RLS policies** (20260203) — tightening access
