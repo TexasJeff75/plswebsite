@@ -1,10 +1,17 @@
-const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_BASE_URL = process.env.STRATUS_BASE_URL || "https://testapi.stratusdx.net/interface";
+const STRATUS_USERNAME = process.env.STRATUS_PROXY_USERNAME;
+const STRATUS_PASSWORD = process.env.STRATUS_PROXY_PASSWORD;
+
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://proximitylabservices.com';
+
+// Whitelist of allowed API path prefixes
+const ALLOWED_ENDPOINTS = ['/orders', '/order/', '/results', '/result/'];
 
 exports.handler = async (event, context) => {
+  const origin = event.headers.origin || event.headers.Origin || '';
+  const corsOrigin = ALLOWED_ORIGIN === '*' ? '*' : (origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN);
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
   };
@@ -25,6 +32,25 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Require authentication
+  const userToken = event.headers.authorization || event.headers.Authorization;
+  if (!userToken) {
+    return {
+      statusCode: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Authorization required' }),
+    };
+  }
+
+  if (!STRATUS_USERNAME || !STRATUS_PASSWORD) {
+    console.error('StratusDX credentials not configured in environment variables');
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Service not configured' }),
+    };
+  }
+
   try {
     const endpoint = event.queryStringParameters?.endpoint;
 
@@ -33,6 +59,16 @@ exports.handler = async (event, context) => {
         statusCode: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'endpoint parameter is required' }),
+      };
+    }
+
+    // Validate endpoint against whitelist to prevent SSRF
+    const isAllowed = ALLOWED_ENDPOINTS.some(prefix => endpoint.startsWith(prefix));
+    if (!isAllowed) {
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Endpoint not allowed' }),
       };
     }
 
@@ -45,25 +81,24 @@ exports.handler = async (event, context) => {
 
     let stratusUrl = `${STRATUS_BASE_URL}${endpoint}`;
 
-    const queryParams = [];
+    const params = new URLSearchParams();
 
     if (event.queryStringParameters) {
       for (const [key, value] of Object.entries(event.queryStringParameters)) {
         if (key !== 'endpoint') {
           if (key === 'limit') {
-            queryParams.push(`max=${value}`);
+            params.set('max', value);
           } else {
-            queryParams.push(`${key}=${value}`);
+            params.set(key, value);
           }
         }
       }
     }
 
-    if (queryParams.length > 0) {
-      stratusUrl += (endpoint.includes('?') ? '&' : '?') + queryParams.join('&');
+    const paramString = params.toString();
+    if (paramString) {
+      stratusUrl += (endpoint.includes('?') ? '&' : '?') + paramString;
     }
-    console.log(`[REQUEST] Query params: ${queryParams.join(', ')}`);
-    console.log(`[REQUEST] Final URL: ${stratusUrl}`);
 
     const maxRetries = 3;
     let lastError = null;
@@ -71,7 +106,6 @@ exports.handler = async (event, context) => {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[ATTEMPT ${attempt}/${maxRetries}] Fetching...`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -88,15 +122,12 @@ exports.handler = async (event, context) => {
         response = await fetch(stratusUrl, fetchOptions);
 
         clearTimeout(timeoutId);
-        console.log(`[SUCCESS] Connected on attempt ${attempt}`);
         break;
       } catch (fetchError) {
         lastError = fetchError;
-        console.error(`[ATTEMPT ${attempt} FAILED] ${fetchError.message}`);
 
         if (attempt < maxRetries) {
           const delay = attempt * 1000;
-          console.log(`[RETRY] Waiting ${delay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -106,20 +137,13 @@ exports.handler = async (event, context) => {
       throw lastError || new Error('Failed to connect after retries');
     }
 
-    console.log(`[RESPONSE] Status: ${response.status} ${response.statusText}`);
-
     const contentType = response.headers.get('content-type');
     let data;
 
     if (contentType && contentType.includes('application/json')) {
       data = await response.json();
-      console.log(`[DATA] JSON Response received`);
-      if (data.total_count !== undefined && data.result_count !== undefined) {
-        console.log(`[PAGINATION] total_count: ${data.total_count}, result_count: ${data.result_count}`);
-      }
     } else {
       data = await response.text();
-      console.log(`[DATA] Text Response (${data.length} chars)`);
     }
 
     return {
@@ -139,7 +163,6 @@ exports.handler = async (event, context) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         error: "Failed to proxy request",
-        details: error.message,
       }),
     };
   }

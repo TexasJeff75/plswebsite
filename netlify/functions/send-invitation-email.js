@@ -1,22 +1,41 @@
 const nodemailer = require('nodemailer');
 
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://proximitylabservices.com';
+const VALID_ROLES = ['Proximity Admin', 'Proximity Staff', 'Customer Admin', 'Customer User', 'Viewer'];
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_INVITE_DOMAINS = (process.env.ALLOWED_INVITE_DOMAINS || 'proximitylabservices.com,proximitylabservices.netlify.app').split(',');
+
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 exports.handler = async (event, context) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-      body: '',
-    };
+    return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Method not allowed' }),
+    };
+  }
+
+  // Require authentication
+  const userToken = event.headers.authorization || event.headers.Authorization;
+  if (!userToken) {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: 'Authorization required' }),
     };
   }
 
@@ -26,7 +45,45 @@ exports.handler = async (event, context) => {
     if (!email || !role || !inviteUrl) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Missing required fields' }),
+      };
+    }
+
+    // Validate email format
+    if (!EMAIL_REGEX.test(email)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid email format' }),
+      };
+    }
+
+    // Validate role against whitelist
+    if (!VALID_ROLES.includes(role)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid role' }),
+      };
+    }
+
+    // Validate invite URL domain
+    try {
+      const urlObj = new URL(inviteUrl);
+      const isAllowedDomain = ALLOWED_INVITE_DOMAINS.some(d => urlObj.hostname === d || urlObj.hostname.endsWith('.' + d));
+      if (!isAllowedDomain) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Invalid invite URL domain' }),
+        };
+      }
+    } catch {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid invite URL' }),
       };
     }
 
@@ -35,6 +92,9 @@ exports.handler = async (event, context) => {
       month: 'long',
       day: 'numeric'
     });
+
+    const safeRole = escapeHtml(role);
+    const safeInviteUrl = escapeHtml(inviteUrl);
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -54,19 +114,19 @@ exports.handler = async (event, context) => {
             <p style="font-size: 16px; margin-top: 0;">Hello,</p>
 
             <p style="font-size: 16px;">
-              You've been invited to join the Proximity Lab Services Deployment Tracker platform as a <strong>${role}</strong>.
+              You've been invited to join the Proximity Lab Services Deployment Tracker platform as a <strong>${safeRole}</strong>.
             </p>
 
             <div style="background: white; border: 2px solid #00d4aa; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
               <p style="margin: 0 0 15px 0; font-size: 14px; color: #64748b;">Click the button below to accept your invitation:</p>
-              <a href="${inviteUrl}" style="display: inline-block; background: #00d4aa; color: #0f172a; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+              <a href="${safeInviteUrl}" style="display: inline-block; background: #00d4aa; color: #0f172a; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
                 Accept Invitation
               </a>
             </div>
 
             <div style="background: #fff7ed; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
               <p style="margin: 0; font-size: 14px; color: #92400e;">
-                <strong>Important:</strong> This invitation expires on ${expiryDate}. Please accept it before then to gain access.
+                <strong>Important:</strong> This invitation expires on ${escapeHtml(expiryDate)}. Please accept it before then to gain access.
               </p>
             </div>
 
@@ -122,25 +182,12 @@ Deployment Tracker Platform
     const SMTP_FROM = process.env.SMTP_FROM || 'noreply@proximitylabservices.com';
 
     if (!SMTP_USER || !SMTP_PASS) {
-      console.log('Email would be sent to:', email);
-      console.log('Role:', role);
-      console.log('Invite URL:', inviteUrl);
-
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: true,
           message: 'Email service not configured - invitation created but email not sent',
-          debug: {
-            email,
-            role,
-            inviteUrl,
-            expiresAt: expiryDate,
-          },
         }),
       };
     }
@@ -163,22 +210,12 @@ Deployment Tracker Platform
       html: emailHtml,
     });
 
-    console.log('Email sent successfully to:', email);
-
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
         message: 'Invitation email sent successfully',
-        details: {
-          email,
-          role,
-          expiresAt: expiryDate,
-        },
       }),
     };
   } catch (error) {
@@ -186,13 +223,9 @@ Deployment Tracker Platform
 
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         error: 'Failed to send invitation email',
-        details: error.message,
       }),
     };
   }

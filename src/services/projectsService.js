@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase';
 
+function sanitizeSearch(term) {
+  return term.replace(/[%_\\,.()"']/g, c => '\\' + c);
+}
+
 export const projectsService = {
   async getAll(filters = {}) {
     let query = supabase
@@ -19,7 +23,8 @@ export const projectsService = {
     }
 
     if (filters.search) {
-      query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      const safe = sanitizeSearch(filters.search);
+      query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`);
     }
 
     const { data, error } = await query;

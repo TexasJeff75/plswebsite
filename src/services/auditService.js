@@ -112,12 +112,19 @@ export const auditService = {
 
   async logImpersonationStart(adminUserId, targetUserId, targetUserEmail) {
     try {
-      console.log('Logging impersonation start:', {
-        admin_user_id: adminUserId,
-        target_user_id: targetUserId,
-        target_user_email: targetUserEmail,
-        action: 'impersonation_start'
-      });
+      await supabase
+        .from('activity_log')
+        .insert({
+          action: 'impersonation_start',
+          field_name: 'impersonation',
+          old_value: null,
+          new_value: JSON.stringify({
+            admin_user_id: adminUserId,
+            target_user_id: targetUserId,
+            target_user_email: targetUserEmail,
+          }),
+          user_id: adminUserId,
+        });
     } catch (error) {
       console.error('Error logging impersonation start:', error);
     }
@@ -125,11 +132,15 @@ export const auditService = {
 
   async logImpersonationStop(adminUserId, targetUserId) {
     try {
-      console.log('Logging impersonation stop:', {
-        admin_user_id: adminUserId,
-        target_user_id: targetUserId,
-        action: 'impersonation_stop'
-      });
+      await supabase
+        .from('activity_log')
+        .insert({
+          action: 'impersonation_stop',
+          field_name: 'impersonation',
+          old_value: JSON.stringify({ target_user_id: targetUserId }),
+          new_value: null,
+          user_id: adminUserId,
+        });
     } catch (error) {
       console.error('Error logging impersonation stop:', error);
     }

@@ -18,6 +18,13 @@ import { supabase } from '../lib/supabase';
  * - 'support_ticket': Support ticket attachments
  */
 
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'heic'];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
+function sanitizeSearch(term) {
+  return term.replace(/[%_\\,.()"']/g, c => '\\' + c);
+}
+
 export const unifiedDocumentService = {
   /**
    * Get all documents for a specific entity
@@ -72,14 +79,27 @@ export const unifiedDocumentService = {
    */
   async uploadDocument(entityType, entityId, file, metadata = {}, storageBucket = null) {
     try {
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
+      }
+
+      // Validate file extension
+      const fileExt = file.name.split('.').pop().toLowerCase();
+      if (!ALLOWED_FILE_EXTENSIONS.includes(fileExt)) {
+        throw new Error(`File type .${fileExt} is not allowed. Allowed types: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`);
+      }
+
       // Determine storage bucket based on entity type if not specified
       if (!storageBucket) {
         storageBucket = this.getDefaultBucket(entityType);
       }
 
-      // Generate unique file path
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${entityType}/${entityId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      // Generate unique file path using crypto for better uniqueness
+      const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const fileName = `${entityType}/${entityId}/${uniqueId}.${fileExt}`;
 
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -272,7 +292,8 @@ export const unifiedDocumentService = {
 
     // Text search
     if (searchTerm) {
-      query = query.or(`document_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+      const safe = sanitizeSearch(searchTerm);
+      query = query.or(`document_name.ilike.%${safe}%,description.ilike.%${safe}%`);
     }
 
     // Filter by entity type
@@ -473,7 +494,8 @@ export const unifiedDocumentService = {
 
     // Text search
     if (filters.search) {
-      query = query.or(`document_name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      const safe = sanitizeSearch(filters.search);
+      query = query.or(`document_name.ilike.%${safe}%,description.ilike.%${safe}%`);
     }
 
     // Entity type filter

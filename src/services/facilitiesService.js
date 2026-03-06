@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase';
 
+function sanitizeSearch(term) {
+  return term.replace(/[%_\\,.()"']/g, c => '\\' + c);
+}
+
 export const facilitiesService = {
   async getAll(filters = {}) {
     let query = supabase
@@ -24,7 +28,7 @@ export const facilitiesService = {
     }
 
     if (filters.search) {
-      query = query.ilike('name', `%${filters.search}%`);
+      query = query.ilike('name', `%${sanitizeSearch(filters.search)}%`);
     }
 
     if (filters.organization_id) {

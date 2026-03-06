@@ -1,15 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.1";
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://proximitylabservices.com";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_BASE_URL = Deno.env.get("STRATUS_BASE_URL") || "https://testapi.stratusdx.net/interface";
+const STRATUS_USERNAME = Deno.env.get("STRATUS_PROXY_USERNAME");
+const STRATUS_PASSWORD = Deno.env.get("STRATUS_PROXY_PASSWORD");
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {

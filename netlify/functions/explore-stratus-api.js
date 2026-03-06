@@ -1,9 +1,11 @@
-const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_BASE_URL = process.env.STRATUS_BASE_URL || "https://testapi.stratusdx.net/interface";
+const STRATUS_USERNAME = process.env.STRATUS_PROXY_USERNAME;
+const STRATUS_PASSWORD = process.env.STRATUS_PROXY_PASSWORD;
+
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://proximitylabservices.com';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
@@ -87,6 +89,16 @@ exports.handler = async (event) => {
 
   if (!['GET', 'POST'].includes(event.httpMethod)) {
     return respond(405, { error: 'Method not allowed' });
+  }
+
+  // Require authentication — this is a diagnostic tool for admins only
+  const userToken = event.headers.authorization || event.headers.Authorization;
+  if (!userToken) {
+    return respond(401, { error: 'Authorization required' });
+  }
+
+  if (!STRATUS_USERNAME || !STRATUS_PASSWORD) {
+    return respond(500, { error: 'Service not configured' });
   }
 
   try {
@@ -247,6 +259,6 @@ exports.handler = async (event) => {
 
   } catch (error) {
     console.error("Exploration error:", error);
-    return respond(500, { success: false, error: error.message });
+    return respond(500, { success: false, error: 'Exploration failed' });
   }
 };

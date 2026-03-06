@@ -1,11 +1,13 @@
-const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_13";
-const STRATUS_PASSWORD = "be917642-d7c6";
+const STRATUS_BASE_URL = process.env.STRATUS_BASE_URL || "https://testapi.stratusdx.net/interface";
+const STRATUS_USERNAME = process.env.STRATUS_CONFIRMATIONS_USERNAME;
+const STRATUS_PASSWORD = process.env.STRATUS_CONFIRMATIONS_PASSWORD;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://proximitylabservices.com';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
@@ -237,6 +239,6 @@ exports.handler = async (event) => {
 
   } catch (error) {
     console.error('Error syncing confirmations:', error);
-    return respond(500, { error: 'Failed to sync confirmations', details: error.message });
+    return respond(500, { error: 'Failed to sync confirmations' });
   }
 };

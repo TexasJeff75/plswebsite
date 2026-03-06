@@ -1,15 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://proximitylabservices.com";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_13";
-const STRATUS_PASSWORD = "be917642-d7c6";
+const STRATUS_BASE_URL = Deno.env.get("STRATUS_BASE_URL") || "https://testapi.stratusdx.net/interface";
+const STRATUS_USERNAME = Deno.env.get("STRATUS_CONFIRMATIONS_USERNAME");
+const STRATUS_PASSWORD = Deno.env.get("STRATUS_CONFIRMATIONS_PASSWORD");
 
 const MAX_BATCHES = 50;
 const CONCURRENT_LIMIT = 3;
