@@ -72,40 +72,62 @@ export const taskService = {
   },
 
   async createTask(taskData) {
-    const { data: userRole } = await supabase
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', (await supabase.auth.getUser()).data.user.id)
-      .single();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
-      .from('milestone_tasks')
-      .insert({
-        ...taskData,
-        created_by: userRole.id
-      })
-      .select(`
-        *,
-        milestone:milestones(id, name, status),
-        assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
-          id,
-          email,
-          full_name
-        ),
-        created_user:user_roles!milestone_tasks_created_by_fkey(
-          id,
-          email,
-          full_name
-        )
-      `)
-      .single();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-    if (error) {
-      console.error('Error creating task:', error);
+      const { data: userRole, error: userRoleError } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (userRoleError) {
+        console.error('Error fetching user role:', userRoleError);
+        throw new Error('Could not find user role: ' + userRoleError.message);
+      }
+
+      if (!userRole) {
+        throw new Error('User role not found');
+      }
+
+      console.log('Creating task with user role:', userRole.id);
+
+      const { data, error } = await supabase
+        .from('milestone_tasks')
+        .insert({
+          ...taskData,
+          created_by: userRole.id
+        })
+        .select(`
+          *,
+          milestone:milestones(id, name, status),
+          assigned_user:user_roles!milestone_tasks_assigned_to_fkey(
+            id,
+            email,
+            full_name
+          ),
+          created_user:user_roles!milestone_tasks_created_by_fkey(
+            id,
+            email,
+            full_name
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error creating task:', error);
+        throw new Error('Failed to create task: ' + error.message);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in createTask:', error);
       throw error;
     }
-
-    return data;
   },
 
   async updateTask(taskId, updates) {

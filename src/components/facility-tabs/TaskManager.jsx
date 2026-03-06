@@ -57,11 +57,17 @@ export default function TaskManager({ facilityId, milestoneId = null, milestones
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await taskService.createTask({
+      console.log('Creating task with data:', {
         ...newTask,
         facility_id: facilityId,
         milestone_id: newTask.milestone_id || null
       });
+      const result = await taskService.createTask({
+        ...newTask,
+        facility_id: facilityId,
+        milestone_id: newTask.milestone_id || null
+      });
+      console.log('Task created successfully:', result);
       setNewTask({
         subject: '',
         description: '',
@@ -74,6 +80,7 @@ export default function TaskManager({ facilityId, milestoneId = null, milestones
       loadTasks();
     } catch (error) {
       console.error('Error creating task:', error);
+      alert('Failed to create task: ' + (error.message || 'Unknown error'));
     }
   };
 
