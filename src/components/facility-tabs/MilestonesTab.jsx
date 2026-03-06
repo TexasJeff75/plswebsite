@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Flag, AlertTriangle, Plus, CheckCircle2, Clock, XCircle, Minus, Loader2, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Flag, AlertTriangle, Plus, CheckCircle2, Clock, XCircle, Minus, Loader2, Pencil, Trash2, X, Check, ListTodo } from 'lucide-react';
 import { facilityStatsService } from '../../services/facilityStatsService';
 import { facilitiesService } from '../../services/facilitiesService';
+import TaskManager from './TaskManager';
 
 const MILESTONE_CATEGORIES = ['regulatory', 'equipment', 'integration', 'training', 'go_live', 'uncategorized'];
 const CATEGORY_LABELS = {
@@ -58,6 +59,7 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showTaskManager, setShowTaskManager] = useState(false);
   const [newMilestone, setNewMilestone] = useState({
     name: '',
     description: '',
@@ -239,11 +241,31 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Flag className="w-5 h-5 text-teal-400" />
-          <h3 className="text-lg font-semibold text-white">Milestone Tracking</h3>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowTaskManager(false)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+              !showTaskManager
+                ? 'bg-teal-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            <Flag className="w-4 h-4" />
+            Milestones
+          </button>
+          <button
+            onClick={() => setShowTaskManager(true)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+              showTaskManager
+                ? 'bg-teal-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            <ListTodo className="w-4 h-4" />
+            Tasks
+          </button>
         </div>
-        {isEditor && (
+        {isEditor && !showTaskManager && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors text-sm font-medium"
@@ -253,6 +275,13 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
           </button>
         )}
       </div>
+
+      {showTaskManager ? (
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+          <TaskManager facilityId={facility.id} milestones={milestones} />
+        </div>
+      ) : (
+        <div className="space-y-6">
 
       {showAddForm && isEditor && (
         <div className="bg-slate-800 border border-teal-600/50 rounded-lg p-6 space-y-4">
@@ -961,6 +990,8 @@ export default function MilestonesTab({ facility, isEditor, onUpdate }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>
