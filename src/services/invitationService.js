@@ -31,6 +31,49 @@ export const invitationService = {
   async create(invitation) {
     const { data: currentUser } = await supabase.auth.getUser();
 
+    // Check for existing invitation to give clear error messages
+    const { data: existing } = await supabase
+      .from('user_invitations')
+      .select('id, status, expires_at')
+      .eq('email', invitation.email)
+      .maybeSingle();
+
+    if (existing) {
+      const isPastExpiry = existing.status === 'pending' && new Date(existing.expires_at) < new Date();
+      const canReplace = ['expired', 'cancelled'].includes(existing.status) || isPastExpiry;
+
+      if (existing.status === 'accepted') {
+        throw new Error('This email has already accepted an invitation.');
+      }
+      if (existing.status === 'pending' && !isPastExpiry) {
+        throw new Error('An active pending invitation already exists for this email. Use resend instead.');
+      }
+
+      // For expired/cancelled/past-expiry: use upsert to atomically replace
+      if (canReplace) {
+        const { data, error } = await supabase
+          .from('user_invitations')
+          .upsert({
+            id: existing.id,
+            email: invitation.email,
+            role: invitation.role,
+            invited_by: currentUser.user.id,
+            organization_assignments: invitation.organization_assignments || [],
+            expires_at: invitation.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'pending',
+            invitation_token: crypto.randomUUID(),
+            accepted_at: null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    }
+
+    // No existing invitation — normal insert
     const { data, error } = await supabase
       .from('user_invitations')
       .insert({
