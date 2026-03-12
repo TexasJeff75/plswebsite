@@ -31,6 +31,30 @@ export const invitationService = {
   async create(invitation) {
     const { data: currentUser } = await supabase.auth.getUser();
 
+    // Remove any existing non-active invitation for this email
+    // so the unique constraint on email doesn't block re-inviting.
+    // This covers: explicitly expired, cancelled, and pending-but-past-expiry invitations.
+    const { data: existing } = await supabase
+      .from('user_invitations')
+      .select('id, status, expires_at')
+      .eq('email', invitation.email)
+      .maybeSingle();
+
+    if (existing) {
+      const isExpiredOrCancelled = ['expired', 'cancelled'].includes(existing.status);
+      const isPastExpiry = existing.status === 'pending' && new Date(existing.expires_at) < new Date();
+      if (isExpiredOrCancelled || isPastExpiry) {
+        await supabase
+          .from('user_invitations')
+          .delete()
+          .eq('id', existing.id);
+      } else if (existing.status === 'pending') {
+        throw new Error('An active pending invitation already exists for this email. Use resend instead.');
+      } else if (existing.status === 'accepted') {
+        throw new Error('This email has already accepted an invitation.');
+      }
+    }
+
     const { data, error } = await supabase
       .from('user_invitations')
       .insert({
