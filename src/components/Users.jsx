@@ -617,11 +617,11 @@ export default function Users() {
               {(invitations || []).filter(i => i.status === 'pending').length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                    No pending invitations
+                    No pending or expired invitations
                   </td>
                 </tr>
-              ) : (invitations || []).filter(i => i.status === 'pending').map(invitation => {
-                const isExpired = new Date(invitation.expires_at) < new Date();
+              ) : (invitations || []).filter(i => i.status === 'pending' || i.status === 'expired').map(invitation => {
+                const isExpired = invitation.status === 'expired' || (invitation.status === 'pending' && new Date(invitation.expires_at) < new Date());
                 const isPending = invitation.status === 'pending' && !isExpired;
 
                 return (
@@ -635,18 +635,16 @@ export default function Users() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {invitation.status === 'pending' ? (
-                        isExpired ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-slate-500/20 text-slate-400 border-slate-500/30">
-                            <XCircle className="w-3 h-3" />
-                            Expired
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                            <Clock className="w-3 h-3" />
-                            Pending
-                          </span>
-                        )
+                      {isExpired ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-slate-500/20 text-slate-400 border-slate-500/30">
+                          <XCircle className="w-3 h-3" />
+                          Expired
+                        </span>
+                      ) : isPending ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                          <Clock className="w-3 h-3" />
+                          Pending
+                        </span>
                       ) : invitation.status === 'accepted' ? (
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border bg-green-500/20 text-green-400 border-green-500/30">
                           <CheckCircle className="w-3 h-3" />
@@ -676,11 +674,11 @@ export default function Users() {
                             <Copy className="w-4 h-4" />
                           </button>
                         )}
-                        {isPending && (
+                        {(isPending || isExpired) && (
                           <button
                             onClick={() => handleResendInvitation(invitation.id)}
                             className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-700 rounded transition-colors"
-                            title="Resend invitation email"
+                            title={isExpired ? "Resend expired invitation" : "Resend invitation email"}
                           >
                             <RefreshCw className="w-4 h-4" />
                           </button>
