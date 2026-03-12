@@ -85,15 +85,21 @@ export const invitationService = {
       throw new Error('Invitation not found');
     }
 
-    if (invitation.status !== 'pending') {
-      throw new Error('Can only resend pending invitations');
+    if (invitation.status === 'accepted') {
+      throw new Error('Cannot resend an already accepted invitation');
+    }
+
+    if (invitation.status === 'cancelled') {
+      throw new Error('Cannot resend a cancelled invitation');
     }
 
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Reset status to pending (handles expired invitations) and extend expiry
     const { data, error } = await supabase
       .from('user_invitations')
       .update({
+        status: 'pending',
         expires_at: newExpiresAt,
         updated_at: new Date().toISOString(),
       })

@@ -120,6 +120,20 @@ export const AuthProvider = ({ children }) => {
 
   async function fetchUserProfile(authUser) {
     try {
+      // Check for and apply any pending invitation for this user.
+      // This handles the case where a user's original invite expired before
+      // they signed in, and a new invite was created after they already exist
+      // in auth.users (so the handle_new_user trigger won't fire again).
+      try {
+        const { data: invResult } = await supabase.rpc('apply_pending_invitation');
+        if (invResult?.applied) {
+          console.log('Applied pending invitation, role:', invResult.role);
+        }
+      } catch (invError) {
+        // Non-fatal: function may not exist yet during migration rollout
+        console.debug('apply_pending_invitation check:', invError.message);
+      }
+
       let { data, error } = await supabase
         .from('user_roles')
         .select('*')
