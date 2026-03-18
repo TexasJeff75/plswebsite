@@ -92,7 +92,8 @@ function parseQBXlsx(workbook) {
 
   const cols = {
     txn_date: colIdx(['transaction date', 'txn date']),
-    rep: colIdx(['1099 rep original', '1099 rep', 'rep original', 'sales rep', 'rep']),
+    ar_paid: colIdx(['a/r paid', 'ar paid']),
+    rep: colIdx(['1099 rep original', '1099 rep', 'rep original', 'sales rep']),
     num: colIdx(['num', 'invoice num', 'invoice no', 'number']),
     comm_paid: colIdx(['comm paid']),
     date: colIdx(['date']),
@@ -117,53 +118,45 @@ function parseQBXlsx(workbook) {
 
   const dataRows = raw.slice(headerRowIdx + 1);
   const invoices = [];
-  let currentMonth = null;
 
   for (const row of dataRows) {
     if (!row || row.every(c => c == null || String(c).trim() === '')) continue;
 
-    const firstCell = String(row[0] ?? '').trim();
-    const secondCell = String(row[1] ?? '').trim();
+    const firstCellStr = String(row[0] ?? '').trim().toLowerCase();
+    if (firstCellStr.startsWith('total') || firstCellStr.startsWith('grand total')) continue;
 
-    if (firstCell && !secondCell && row.slice(1).every(c => c == null || String(c).trim() === '')) {
-      currentMonth = firstCell;
-      continue;
-    }
-    if (firstCell.toLowerCase().startsWith('total for') || firstCell.toLowerCase().startsWith('paid')) {
-      continue;
-    }
-
-    const amount = parseAmount(cols.amount !== -1 ? row[cols.amount] : null);
     const customer = cols.customer !== -1 ? String(row[cols.customer] ?? '').trim() : '';
-    const txnDate = cols.txn_date !== -1 ? row[cols.txn_date] : (cols.date !== -1 ? row[cols.date] : null);
-
-    if (!customer && amount === 0) continue;
     if (!customer) continue;
 
-    const invoiceDateISO = excelDateToISO(txnDate);
+    const amount = parseAmount(cols.amount !== -1 ? row[cols.amount] : null);
+    const txnDate = row[cols.txn_date];
+    const txnDateISO = excelDateToISO(txnDate);
+    if (!txnDateISO) continue;
+
     const dueDateISO = cols.due_date !== -1 ? excelDateToISO(row[cols.due_date]) : null;
-    const commDateISO = cols.date !== -1 && cols.date !== cols.txn_date ? excelDateToISO(row[cols.date]) : null;
+    const dateISO = cols.date !== -1 && cols.date !== cols.txn_date ? excelDateToISO(row[cols.date]) : null;
 
     const num = cols.num !== -1 ? String(row[cols.num] ?? '').trim() : '';
     const rep = cols.rep !== -1 ? String(row[cols.rep] ?? '').trim() : '';
+    const arPaid = cols.ar_paid !== -1 ? String(row[cols.ar_paid] ?? '').trim() : '';
     const txnType = cols.txn_type !== -1 ? String(row[cols.txn_type] ?? '').trim() : 'Invoice';
     const product = cols.product !== -1 ? String(row[cols.product] ?? '').trim() : '';
     const salesManager = cols.sales_manager !== -1 ? String(row[cols.sales_manager] ?? '').trim() : '';
-    const commPaid = cols.comm_paid !== -1 ? String(row[cols.comm_paid] ?? '').toLowerCase().trim() : '';
+    const commPaidRaw = cols.comm_paid !== -1 ? String(row[cols.comm_paid] ?? '').toLowerCase().trim() : '';
 
     invoices.push({
-      invoice_number: num || `${customer}-${invoiceDateISO}`,
-      customer_name: customer,
-      invoice_date: invoiceDateISO,
+      transaction_date: txnDateISO,
+      invoice_date: dateISO || txnDateISO,
       due_date: dueDateISO,
-      total_amount: amount,
-      balance: amount,
-      status: txnType || 'Invoice',
-      month_group: currentMonth,
+      ar_paid: arPaid,
       rep_name: rep,
+      num,
+      comm_paid: commPaidRaw === 'yes',
+      txn_type: txnType,
+      customer_name: customer,
       product_service: product,
-      sales_manager: salesManager,
-      comm_paid: commPaid === 'yes',
+      amount,
+      sales_manager_name: salesManager,
     });
   }
 
@@ -327,42 +320,51 @@ export default function InvoicesTab() {
         .single();
       if (batchError) throw batchError;
 
-      const VALID_STATUSES = ['Paid', 'Unpaid', 'Partially Paid', 'Overdue', 'Voided'];
-
-      const toInsert = await Promise.all(parsedData.invoices.map(async (inv, i) => {
-        const rawStatus = inv.status || '';
-        const status = VALID_STATUSES.includes(rawStatus)
-          ? rawStatus
-          : inv.comm_paid ? 'Paid' : 'Unpaid';
+      const toUpsert = await Promise.all(parsedData.invoices.map(async (inv) => {
+        const arPaidLower = (inv.ar_paid || '').toLowerCase();
+        const status = arPaidLower === 'paid' ? 'Paid' : arPaidLower === 'unpaid' ? 'Unpaid' : inv.txn_type || 'Invoice';
 
         const repId = inv.rep_name
           ? (repByName[inv.rep_name.trim().toLowerCase()] ?? null)
           : null;
 
-        const periodId = await resolveOrCreatePeriod(inv.invoice_date, periodCache);
+        const periodId = await resolveOrCreatePeriod(inv.transaction_date, periodCache);
 
         return {
-          qbo_invoice_id: `${batch.id}-${i}-${inv.invoice_number}`,
-          invoice_number: inv.invoice_number,
+          transaction_date: inv.transaction_date,
+          num: inv.num || null,
           customer_name: inv.customer_name,
-          customer_email: null,
+          product_service: inv.product_service || null,
+          ar_paid: inv.ar_paid || null,
+          rep_name: inv.rep_name || null,
+          comm_paid: inv.comm_paid,
           invoice_date: inv.invoice_date,
-          due_date: inv.due_date,
-          total_amount: inv.total_amount,
-          balance: inv.balance,
+          due_date: inv.due_date || null,
+          total_amount: inv.amount,
+          balance: inv.amount,
           status,
+          sales_manager_name: inv.sales_manager_name || null,
           import_batch_id: batch.id,
           sales_rep_id: repId,
           commission_period_id: periodId,
         };
       }));
 
-      const { error: invError } = await supabase
-        .from('qbo_invoices')
-        .insert(toInsert);
-      if (invError) throw invError;
+      const CHUNK = 200;
+      let inserted = 0;
+      for (let i = 0; i < toUpsert.length; i += CHUNK) {
+        const chunk = toUpsert.slice(i, i + CHUNK);
+        const { error: invError } = await supabase
+          .from('qbo_invoices')
+          .upsert(chunk, {
+            onConflict: 'transaction_date,num,customer_name,product_service',
+            ignoreDuplicates: false,
+          });
+        if (invError) throw invError;
+        inserted += chunk.length;
+      }
 
-      setImportResult({ count: toInsert.length, filename: parsedData.filename });
+      setImportResult({ count: inserted, filename: parsedData.filename });
       setParsedData(null);
       await loadAll();
     } catch (err) {
@@ -382,7 +384,9 @@ export default function InvoicesTab() {
 
   const filtered = invoices.filter(inv => {
     if (search && !inv.customer_name?.toLowerCase().includes(search.toLowerCase()) &&
-        !inv.invoice_number?.toLowerCase().includes(search.toLowerCase())) return false;
+        !inv.num?.toLowerCase().includes(search.toLowerCase()) &&
+        !inv.rep_name?.toLowerCase().includes(search.toLowerCase()) &&
+        !inv.product_service?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterRep && inv.sales_rep_id !== filterRep) return false;
     if (filterStatus && inv.status !== filterStatus) return false;
     if (filterPeriod && inv.commission_period_id !== filterPeriod) return false;
@@ -392,8 +396,8 @@ export default function InvoicesTab() {
   const totalFiltered = filtered.reduce((s, i) => s + (i.total_amount ?? 0), 0);
   const unassigned = filtered.filter(i => !i.sales_rep_id).length;
 
-  const monthGroups = parsedData?.invoices
-    ? [...new Set(parsedData.invoices.map(i => i.month_group).filter(Boolean))]
+  const uniqueReps = parsedData?.invoices
+    ? [...new Set(parsedData.invoices.map(i => i.rep_name).filter(Boolean))]
     : [];
 
   return (
@@ -489,10 +493,7 @@ export default function InvoicesTab() {
                     <p className="text-white font-medium text-sm">{parsedData.filename}</p>
                     <p className="text-slate-500 text-xs">
                       {parsedData.invoices.length} line items
-                      {monthGroups.length > 0 && ` · ${monthGroups.length} month group${monthGroups.length !== 1 ? 's' : ''}`}
-                      {parsedData.cols?.rep !== -1
-                        ? ` · Rep col: "${parsedData.headers?.[parsedData.cols.rep]}"`
-                        : ' · Rep col: not detected'}
+                      {uniqueReps.length > 0 && ` · ${uniqueReps.length} rep${uniqueReps.length !== 1 ? 's' : ''}: ${uniqueReps.join(', ')}`}
                     </p>
                   </div>
                 </div>
@@ -501,11 +502,11 @@ export default function InvoicesTab() {
                 </button>
               </div>
 
-              {monthGroups.length > 0 && (
+              {uniqueReps.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {monthGroups.map(m => (
-                    <span key={m} className="px-2.5 py-1 bg-slate-700/50 border border-slate-600/50 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
-                      <Tag className="w-3 h-3 text-teal-400" />{m}
+                  {uniqueReps.map(r => (
+                    <span key={r} className="px-2.5 py-1 bg-slate-700/50 border border-slate-600/50 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+                      <Tag className="w-3 h-3 text-teal-400" />{r}
                     </span>
                   ))}
                 </div>
@@ -515,12 +516,12 @@ export default function InvoicesTab() {
                 <table className="w-full text-xs min-w-max">
                   <thead>
                     <tr className="bg-slate-700/50">
-                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Month</th>
-                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Date</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Txn Date</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">A/R Paid</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Rep</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Num</th>
                       <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Customer</th>
                       <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Product/Service</th>
-                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Rep</th>
-                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Type</th>
                       <th className="px-3 py-2.5 text-right text-slate-400 font-medium">Amount</th>
                       <th className="px-3 py-2.5 text-center text-slate-400 font-medium">Comm Paid</th>
                     </tr>
@@ -528,13 +529,17 @@ export default function InvoicesTab() {
                   <tbody>
                     {parsedData.invoices.slice(0, 10).map((inv, i) => (
                       <tr key={i} className="border-t border-slate-700/40 hover:bg-slate-700/20">
-                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{inv.month_group || '—'}</td>
-                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatDate(inv.invoice_date)}</td>
+                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatDate(inv.transaction_date)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${inv.ar_paid?.toLowerCase() === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                            {inv.ar_paid || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-teal-300 whitespace-nowrap font-medium">{inv.rep_name || '—'}</td>
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv.num || '—'}</td>
                         <td className="px-3 py-2 text-slate-200 whitespace-nowrap max-w-40 truncate">{inv.customer_name}</td>
                         <td className="px-3 py-2 text-slate-400 whitespace-nowrap max-w-40 truncate">{inv.product_service || '—'}</td>
-                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv.rep_name || '—'}</td>
-                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv.status}</td>
-                        <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${inv.total_amount < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</td>
+                        <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${inv.amount < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.amount)}</td>
                         <td className="px-3 py-2 text-center">
                           {inv.comm_paid ? <Check className="w-3.5 h-3.5 text-emerald-400 mx-auto" /> : <span className="text-slate-600">—</span>}
                         </td>
@@ -643,19 +648,26 @@ export default function InvoicesTab() {
                 onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
                 className="w-full px-5 py-4 flex items-center gap-4 text-left"
               >
-                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                  <div>
+                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
+                  <div className="col-span-2 md:col-span-1">
                     <p className="text-white font-medium text-sm truncate">{inv.customer_name}</p>
-                    <p className="text-slate-500 text-xs">{inv.invoice_number}</p>
+                    <p className="text-slate-500 text-xs">{inv.product_service || inv.num || '—'}</p>
                   </div>
                   <div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[inv.status] || STATUS_COLORS['Invoice']}`}>
-                      {inv.status || 'Invoice'}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[inv.ar_paid] || STATUS_COLORS[inv.status] || STATUS_COLORS['Invoice']}`}>
+                      {inv.ar_paid || inv.status || 'Invoice'}
                     </span>
+                    {inv.comm_paid && (
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded text-xs">Comm Paid</span>
+                    )}
                   </div>
                   <div>
                     <p className={`font-semibold text-sm ${(inv.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</p>
-                    <p className="text-slate-500 text-xs">{formatDate(inv.invoice_date)}</p>
+                    <p className="text-slate-500 text-xs">{formatDate(inv.transaction_date || inv.invoice_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">{inv.rep_name || '—'}</p>
+                    <p className="text-slate-600 text-xs">#{inv.num || '—'}</p>
                   </div>
                   <div>
                     {inv.sales_reps ? (
@@ -705,14 +717,22 @@ export default function InvoicesTab() {
                       <p className="text-sm text-slate-300 pt-2">{formatDate(inv.due_date)}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
                     <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Invoice Total</p>
+                      <p className="text-xs text-slate-500 uppercase">Amount</p>
                       <p className={`font-semibold mt-0.5 ${(inv.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Balance Due</p>
-                      <p className="text-white font-semibold mt-0.5">{fmt(inv.balance)}</p>
+                      <p className="text-xs text-slate-500 uppercase">Txn Date</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm">{formatDate(inv.transaction_date)}</p>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 uppercase">Due Date</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm">{formatDate(inv.due_date)}</p>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 uppercase">Sales Manager</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm truncate">{inv.sales_manager_name || '—'}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
                       <p className="text-xs text-slate-500 uppercase">Period</p>
