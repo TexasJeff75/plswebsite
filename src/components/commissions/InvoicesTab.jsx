@@ -350,10 +350,18 @@ export default function InvoicesTab() {
         };
       }));
 
+      const deduped = Object.values(
+        toUpsert.reduce((acc, row) => {
+          const key = `${row.transaction_date}|${row.num}|${row.customer_name}|${row.product_service}`;
+          acc[key] = row;
+          return acc;
+        }, {})
+      );
+
       const CHUNK = 200;
       let inserted = 0;
-      for (let i = 0; i < toUpsert.length; i += CHUNK) {
-        const chunk = toUpsert.slice(i, i + CHUNK);
+      for (let i = 0; i < deduped.length; i += CHUNK) {
+        const chunk = deduped.slice(i, i + CHUNK);
         const { error: invError } = await supabase
           .from('qbo_invoices')
           .upsert(chunk, {
@@ -364,7 +372,7 @@ export default function InvoicesTab() {
         inserted += chunk.length;
       }
 
-      setImportResult({ count: inserted, filename: parsedData.filename });
+      setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename });
       setParsedData(null);
       await loadAll();
     } catch (err) {
