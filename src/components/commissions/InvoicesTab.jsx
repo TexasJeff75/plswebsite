@@ -332,9 +332,9 @@ export default function InvoicesTab() {
 
         return {
           transaction_date: inv.transaction_date,
-          num: inv.num || null,
+          num: inv.num || '',
           customer_name: inv.customer_name,
-          product_service: inv.product_service || null,
+          product_service: inv.product_service || '',
           ar_paid: inv.ar_paid || null,
           rep_name: inv.rep_name || null,
           comm_paid: inv.comm_paid,
