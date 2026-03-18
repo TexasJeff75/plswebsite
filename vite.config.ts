@@ -22,7 +22,9 @@ export default defineConfig({
         compliance: 'compliance.html',
         services: 'services.html',
         'why-proximity': 'why-proximity.html',
-        'tracker': 'tracker.html'
+        'tracker': 'tracker.html',
+        'privacy-policy': 'privacy-policy.html',
+        'eula': 'eula.html'
       }
     }
   }

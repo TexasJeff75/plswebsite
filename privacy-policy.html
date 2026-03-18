@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — Proximity Deployment Tracker</title>
+    <meta name="description" content="Privacy Policy for the Proximity Deployment Tracker platform, governing collection, use, and protection of user data.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --midnight: #0B1426;
+            --midnight-light: #121e33;
+            --platinum: #E5E7EB;
+            --champagne: #D4AF37;
+            --electric: #00D4FF;
+            --teal: #0d9488;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--midnight);
+            color: var(--platinum);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(12px);
+            background: rgba(11, 20, 38, 0.92);
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+            padding: 16px 0;
+        }
+
+        .header-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo img { height: 56px; width: auto; }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(229, 231, 235, 0.6);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--champagne); }
+        .back-link svg { width: 16px; height: 16px; }
+
+        .hero {
+            padding: 64px 24px 48px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(13, 148, 136, 0.15);
+            border: 1px solid rgba(13, 148, 136, 0.3);
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2dd4bf;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: clamp(28px, 5vw, 42px);
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: rgba(229, 231, 235, 0.5);
+        }
+
+        .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 24px 96px;
+        }
+
+        .toc {
+            background: rgba(229, 231, 235, 0.04);
+            border: 1px solid rgba(229, 231, 235, 0.1);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-bottom: 48px;
+        }
+
+        .toc h2 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(229, 231, 235, 0.4);
+            margin-bottom: 16px;
+        }
+
+        .toc ol {
+            list-style: none;
+            counter-reset: toc;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 6px 32px;
+        }
+
+        .toc ol li { counter-increment: toc; }
+
+        .toc ol li a {
+            color: rgba(229, 231, 235, 0.65);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+        }
+
+        .toc ol li a::before {
+            content: counter(toc, decimal-leading-zero);
+            font-size: 11px;
+            color: var(--champagne);
+            font-weight: 600;
+            min-width: 20px;
+        }
+
+        .toc ol li a:hover { color: var(--champagne); }
+
+        section.policy-section {
+            margin-bottom: 48px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+        }
+
+        .section-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(212, 175, 55, 0.15);
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--champagne);
+            flex-shrink: 0;
+        }
+
+        .section-header h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        p {
+            color: rgba(229, 231, 235, 0.75);
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+
+        ul, ol {
+            padding-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        li {
+            color: rgba(229, 231, 235, 0.75);
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        strong { color: rgba(229, 231, 235, 0.95); font-weight: 600; }
+
+        .callout {
+            background: rgba(13, 148, 136, 0.08);
+            border-left: 3px solid var(--teal);
+            border-radius: 0 8px 8px 0;
+            padding: 16px 20px;
+            margin: 20px 0;
+        }
+
+        .callout p { margin-bottom: 0; color: rgba(229, 231, 235, 0.8); }
+
+        .callout strong { color: #2dd4bf; }
+
+        .contact-box {
+            background: rgba(229, 231, 235, 0.04);
+            border: 1px solid rgba(229, 231, 235, 0.1);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-top: 48px;
+        }
+
+        .contact-box h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .contact-box a {
+            color: var(--champagne);
+            text-decoration: none;
+        }
+        .contact-box a:hover { text-decoration: underline; }
+
+        footer {
+            border-top: 1px solid rgba(229, 231, 235, 0.08);
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        footer p {
+            color: rgba(229, 231, 235, 0.3);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        footer a { color: rgba(229, 231, 235, 0.5); text-decoration: none; }
+        footer a:hover { color: var(--champagne); }
+
+        @media (max-width: 640px) {
+            .toc ol { grid-template-columns: 1fr; }
+            .hero { padding: 40px 16px 32px; }
+            main { padding: 32px 16px 64px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">
+                <a href="/">
+                    <img src="/proximity_logo_updated_11-25-24.svg" alt="Proximity Lab Services" onerror="this.style.display='none'">
+                </a>
+            </div>
+            <a href="/tracker.html" class="back-link">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Back to Deployment Tracker
+            </a>
+        </div>
+    </header>
+
+    <div class="hero">
+        <div class="hero-badge">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Legal Document
+        </div>
+        <h1>Privacy Policy</h1>
+        <div class="hero-meta">
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                Proximity Lab Services, LLC
+            </span>
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Effective Date: March 18, 2026
+            </span>
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Last Revised: March 18, 2026
+            </span>
+        </div>
+    </div>
+
+    <main>
+        <nav class="toc">
+            <h2>Table of Contents</h2>
+            <ol>
+                <li><a href="#scope">Scope &amp; Application</a></li>
+                <li><a href="#information">Information We Collect</a></li>
+                <li><a href="#use">How We Use Your Information</a></li>
+                <li><a href="#sharing">Sharing &amp; Disclosure</a></li>
+                <li><a href="#security">Data Security</a></li>
+                <li><a href="#retention">Data Retention</a></li>
+                <li><a href="#rights">Your Rights</a></li>
+                <li><a href="#sso">Single Sign-On (SSO)</a></li>
+                <li><a href="#cookies">Cookies &amp; Tracking</a></li>
+                <li><a href="#children">Children's Privacy</a></li>
+                <li><a href="#changes">Policy Changes</a></li>
+                <li><a href="#contact">Contact Us</a></li>
+            </ol>
+        </nav>
+
+        <div class="callout">
+            <p><strong>Summary:</strong> The Proximity Deployment Tracker is an internal, access-controlled business platform. We collect only the information necessary to operate the platform, protect it, and fulfill contractual obligations. We do not sell your data.</p>
+        </div>
+
+        <section class="policy-section" id="scope">
+            <div class="section-header">
+                <div class="section-num">01</div>
+                <h2>Scope &amp; Application</h2>
+            </div>
+            <p>This Privacy Policy ("Policy") applies to the <strong>Proximity Deployment Tracker</strong> web application ("Platform") operated by <strong>Proximity Lab Services, LLC</strong> ("Company," "we," "us," or "our"). The Platform is a private, invitation-only business tool used to manage laboratory deployment projects, facility data, compliance tracking, and related operational workflows.</p>
+            <p>This Policy governs all personal information processed by the Platform, regardless of the device or location from which it is accessed. By accessing or using the Platform, you acknowledge that you have read and understood this Policy.</p>
+            <p>This Policy does not apply to third-party services linked from the Platform, including QuickBooks Online, Bill.com, or Microsoft Azure Active Directory, which have their own privacy policies.</p>
+        </section>
+
+        <section class="policy-section" id="information">
+            <div class="section-header">
+                <div class="section-num">02</div>
+                <h2>Information We Collect</h2>
+            </div>
+            <p>We collect information in the following categories:</p>
+            <p><strong>Account &amp; Identity Information</strong></p>
+            <ul>
+                <li>Name and email address (provided by your organization's identity provider via SSO)</li>
+                <li>User role and organizational assignment</li>
+                <li>Profile metadata supplied by Microsoft Azure Active Directory</li>
+            </ul>
+            <p><strong>Platform Usage Data</strong></p>
+            <ul>
+                <li>Records you create, edit, or view within the Platform (facility data, milestones, documents, contacts)</li>
+                <li>Activity log entries generated by your actions on the Platform</li>
+                <li>Timestamps of login events and significant actions</li>
+            </ul>
+            <p><strong>Technical &amp; Device Data</strong></p>
+            <ul>
+                <li>IP address and browser type (collected automatically for security purposes)</li>
+                <li>Session identifiers and authentication tokens</li>
+            </ul>
+            <p><strong>Communications</strong></p>
+            <ul>
+                <li>Support ticket messages and attachments submitted through the Platform</li>
+                <li>System-generated notifications and email confirmations</li>
+            </ul>
+        </section>
+
+        <section class="policy-section" id="use">
+            <div class="section-header">
+                <div class="section-num">03</div>
+                <h2>How We Use Your Information</h2>
+            </div>
+            <p>We use the information we collect exclusively for legitimate business purposes, including:</p>
+            <ul>
+                <li><strong>Platform operation:</strong> Authenticating users, managing access permissions, and providing Platform features</li>
+                <li><strong>Project management:</strong> Tracking facility deployments, milestones, compliance requirements, and related data</li>
+                <li><strong>Communication:</strong> Sending system notifications, support responses, and operational updates</li>
+                <li><strong>Security &amp; integrity:</strong> Detecting, preventing, and responding to unauthorized access or abuse</li>
+                <li><strong>Audit &amp; compliance:</strong> Maintaining records for internal auditing and regulatory compliance purposes</li>
+                <li><strong>Service improvement:</strong> Understanding how the Platform is used to improve functionality and user experience</li>
+            </ul>
+            <p>We do not use your information for advertising, profiling for commercial purposes, or any purpose inconsistent with the operation of this business Platform.</p>
+        </section>
+
+        <section class="policy-section" id="sharing">
+            <div class="section-header">
+                <div class="section-num">04</div>
+                <h2>Sharing &amp; Disclosure</h2>
+            </div>
+            <p>We do not sell, rent, or trade your personal information. We may share information in the following limited circumstances:</p>
+            <ul>
+                <li><strong>Service Providers:</strong> We use Supabase (database and authentication infrastructure) and Netlify (hosting) as sub-processors. These providers are contractually bound to protect your data and may not use it for their own purposes.</li>
+                <li><strong>Microsoft Azure AD:</strong> Authentication is delegated to your organization's Microsoft identity provider. We receive only the profile information that provider shares with us.</li>
+                <li><strong>Within your organization:</strong> Users within your organization may see data you contribute to shared projects within the Platform, consistent with their access role.</li>
+                <li><strong>Legal requirements:</strong> We may disclose information if required by law, court order, or governmental authority, or to protect the rights, safety, or property of the Company or others.</li>
+                <li><strong>Business transfers:</strong> In the event of a merger, acquisition, or sale of assets, user information may be transferred as part of the transaction, subject to equivalent privacy protections.</li>
+            </ul>
+        </section>
+
+        <section class="policy-section" id="security">
+            <div class="section-header">
+                <div class="section-num">05</div>
+                <h2>Data Security</h2>
+            </div>
+            <p>We implement industry-standard technical and organizational measures to protect your information, including:</p>
+            <ul>
+                <li>All data transmitted between your browser and our servers is encrypted using TLS (HTTPS)</li>
+                <li>Data at rest is encrypted in our Supabase-hosted PostgreSQL database</li>
+                <li>Row-Level Security (RLS) policies ensure users can only access data they are authorized to view</li>
+                <li>Authentication is delegated to Microsoft Azure Active Directory, which supports multi-factor authentication</li>
+                <li>Automatic session expiration after periods of inactivity</li>
+                <li>Privileged administrative actions are logged in an immutable audit trail</li>
+            </ul>
+            <p>No method of transmission over the Internet or electronic storage is 100% secure. While we strive to protect your information, we cannot guarantee absolute security. In the event of a security breach that affects your personal data, we will notify affected users as required by applicable law.</p>
+        </section>
+
+        <section class="policy-section" id="retention">
+            <div class="section-header">
+                <div class="section-num">06</div>
+                <h2>Data Retention</h2>
+            </div>
+            <p>We retain personal information and platform records for as long as necessary to:</p>
+            <ul>
+                <li>Maintain active user accounts and fulfill our contractual obligations</li>
+                <li>Comply with applicable legal, tax, and regulatory requirements</li>
+                <li>Resolve disputes and enforce our agreements</li>
+            </ul>
+            <p>When a user account is deactivated, identifying information associated with that account may be anonymized in activity logs rather than deleted, to preserve the integrity of project records. Upon written request, we will discuss retention practices specific to your account.</p>
+        </section>
+
+        <section class="policy-section" id="rights">
+            <div class="section-header">
+                <div class="section-num">07</div>
+                <h2>Your Rights</h2>
+            </div>
+            <p>Depending on your location and applicable law, you may have the following rights regarding your personal data:</p>
+            <ul>
+                <li><strong>Access:</strong> Request a copy of the personal information we hold about you</li>
+                <li><strong>Correction:</strong> Request correction of inaccurate or incomplete information</li>
+                <li><strong>Deletion:</strong> Request deletion of your personal information, subject to legal retention obligations</li>
+                <li><strong>Objection:</strong> Object to certain processing of your information</li>
+                <li><strong>Portability:</strong> Request a machine-readable export of your data where technically feasible</li>
+            </ul>
+            <p>To exercise any of these rights, please contact us at the address in Section 12. We will respond within 30 days. Note that certain rights may be limited where we have a legitimate legal basis for processing or a legal obligation to retain data.</p>
+        </section>
+
+        <section class="policy-section" id="sso">
+            <div class="section-header">
+                <div class="section-num">08</div>
+                <h2>Single Sign-On (SSO)</h2>
+            </div>
+            <p>The Platform uses Microsoft Azure Active Directory as the exclusive authentication provider. You cannot create a standalone Platform account with a username and password separate from your organization's identity provider.</p>
+            <p>When you authenticate via SSO, Microsoft provides us with your name, email address, and profile metadata. We do not receive or store your Microsoft password. Your organization controls which users are granted access to the Platform, and revoking access at the identity provider level will immediately prevent Platform access.</p>
+            <div class="callout">
+                <p><strong>Important:</strong> Your use of Microsoft Azure AD is governed by Microsoft's Privacy Policy and your organization's policies. Proximity Lab Services is not responsible for data processing performed by Microsoft as part of the authentication process.</p>
+            </div>
+        </section>
+
+        <section class="policy-section" id="cookies">
+            <div class="section-header">
+                <div class="section-num">09</div>
+                <h2>Cookies &amp; Tracking</h2>
+            </div>
+            <p>The Platform uses the following types of storage mechanisms:</p>
+            <ul>
+                <li><strong>Session tokens:</strong> Stored in your browser's local storage to maintain your authenticated session. These expire automatically and are required for Platform operation.</li>
+                <li><strong>Preferences:</strong> We may store non-identifying user preferences (such as sidebar state or selected organization) in your browser's local storage to improve usability.</li>
+            </ul>
+            <p>We do not use third-party advertising cookies, analytics tracking pixels, or any cross-site tracking technologies. We do not use Google Analytics or similar consumer analytics services on the Platform.</p>
+        </section>
+
+        <section class="policy-section" id="children">
+            <div class="section-header">
+                <div class="section-num">10</div>
+                <h2>Children's Privacy</h2>
+            </div>
+            <p>The Platform is a professional business tool intended exclusively for use by adults in a commercial context. We do not knowingly collect personal information from individuals under the age of 18. If we become aware that a minor has accessed the Platform, we will take steps to terminate that access.</p>
+        </section>
+
+        <section class="policy-section" id="changes">
+            <div class="section-header">
+                <div class="section-num">11</div>
+                <h2>Policy Changes</h2>
+            </div>
+            <p>We may update this Privacy Policy periodically to reflect changes in our practices, legal requirements, or Platform features. When we make material changes, we will update the "Last Revised" date at the top of this page and, where appropriate, notify users through the Platform.</p>
+            <p>Your continued use of the Platform after any changes to this Policy constitutes your acceptance of the updated terms. We encourage you to review this Policy periodically.</p>
+        </section>
+
+        <section class="policy-section" id="contact">
+            <div class="section-header">
+                <div class="section-num">12</div>
+                <h2>Contact Us</h2>
+            </div>
+            <p>If you have questions about this Privacy Policy, wish to exercise your data rights, or need to report a privacy concern, please contact us:</p>
+        </section>
+
+        <div class="contact-box">
+            <h3>Proximity Lab Services, LLC</h3>
+            <p style="margin-bottom:12px;">Privacy &amp; Data Protection Inquiries</p>
+            <p>
+                <strong>Email:</strong> <a href="mailto:privacy@proximitylabservices.com">privacy@proximitylabservices.com</a>
+            </p>
+            <p>
+                <strong>Website:</strong> <a href="https://proximitylabservices.com">proximitylabservices.com</a>
+            </p>
+            <p style="margin-top:16px;font-size:14px;color:rgba(229,231,235,0.5);">We aim to respond to all privacy inquiries within 30 days of receipt.</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Proximity Lab Services, LLC. All rights reserved.</p>
+        <p>
+            <a href="/privacy-policy.html">Privacy Policy</a> &nbsp;&middot;&nbsp;
+            <a href="/eula.html">End-User License Agreement</a> &nbsp;&middot;&nbsp;
+            <a href="/tracker.html">Deployment Tracker</a>
+        </p>
+    </footer>
+</body>
+</html>

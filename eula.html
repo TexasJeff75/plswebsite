@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End-User License Agreement — Proximity Deployment Tracker</title>
+    <meta name="description" content="End-User License Agreement (EULA) governing your use of the Proximity Deployment Tracker platform.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --midnight: #0B1426;
+            --platinum: #E5E7EB;
+            --champagne: #D4AF37;
+            --electric: #00D4FF;
+            --teal: #0d9488;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--midnight);
+            color: var(--platinum);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(12px);
+            background: rgba(11, 20, 38, 0.92);
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+            padding: 16px 0;
+        }
+
+        .header-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo img { height: 56px; width: auto; }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(229, 231, 235, 0.6);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--champagne); }
+        .back-link svg { width: 16px; height: 16px; }
+
+        .hero {
+            padding: 64px 24px 48px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(212, 175, 55, 0.12);
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--champagne);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: clamp(28px, 5vw, 42px);
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: rgba(229, 231, 235, 0.5);
+        }
+
+        .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 24px 96px;
+        }
+
+        .toc {
+            background: rgba(229, 231, 235, 0.04);
+            border: 1px solid rgba(229, 231, 235, 0.1);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-bottom: 48px;
+        }
+
+        .toc h2 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(229, 231, 235, 0.4);
+            margin-bottom: 16px;
+        }
+
+        .toc ol {
+            list-style: none;
+            counter-reset: toc;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 6px 32px;
+        }
+
+        .toc ol li { counter-increment: toc; }
+
+        .toc ol li a {
+            color: rgba(229, 231, 235, 0.65);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+        }
+
+        .toc ol li a::before {
+            content: counter(toc, decimal-leading-zero);
+            font-size: 11px;
+            color: var(--champagne);
+            font-weight: 600;
+            min-width: 20px;
+        }
+
+        .toc ol li a:hover { color: var(--champagne); }
+
+        section.policy-section {
+            margin-bottom: 48px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(229, 231, 235, 0.08);
+        }
+
+        .section-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(212, 175, 55, 0.15);
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--champagne);
+            flex-shrink: 0;
+        }
+
+        .section-header h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        p {
+            color: rgba(229, 231, 235, 0.75);
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+
+        ul, ol.body-list {
+            padding-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        li {
+            color: rgba(229, 231, 235, 0.75);
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        strong { color: rgba(229, 231, 235, 0.95); font-weight: 600; }
+
+        .callout {
+            background: rgba(13, 148, 136, 0.08);
+            border-left: 3px solid var(--teal);
+            border-radius: 0 8px 8px 0;
+            padding: 16px 20px;
+            margin: 20px 0;
+        }
+
+        .callout p { margin-bottom: 0; color: rgba(229, 231, 235, 0.8); }
+        .callout strong { color: #2dd4bf; }
+
+        .warning-callout {
+            background: rgba(245, 158, 11, 0.08);
+            border-left: 3px solid #f59e0b;
+            border-radius: 0 8px 8px 0;
+            padding: 16px 20px;
+            margin: 20px 0;
+        }
+
+        .warning-callout p { margin-bottom: 0; color: rgba(229, 231, 235, 0.8); }
+        .warning-callout strong { color: #fbbf24; }
+
+        .caps {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(229, 231, 235, 0.65);
+            line-height: 1.6;
+        }
+
+        .contact-box {
+            background: rgba(229, 231, 235, 0.04);
+            border: 1px solid rgba(229, 231, 235, 0.1);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-top: 48px;
+        }
+
+        .contact-box h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .contact-box a {
+            color: var(--champagne);
+            text-decoration: none;
+        }
+        .contact-box a:hover { text-decoration: underline; }
+
+        footer {
+            border-top: 1px solid rgba(229, 231, 235, 0.08);
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        footer p {
+            color: rgba(229, 231, 235, 0.3);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        footer a { color: rgba(229, 231, 235, 0.5); text-decoration: none; }
+        footer a:hover { color: var(--champagne); }
+
+        @media (max-width: 640px) {
+            .toc ol { grid-template-columns: 1fr; }
+            .hero { padding: 40px 16px 32px; }
+            main { padding: 32px 16px 64px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">
+                <a href="/">
+                    <img src="/proximity_logo_updated_11-25-24.svg" alt="Proximity Lab Services" onerror="this.style.display='none'">
+                </a>
+            </div>
+            <a href="/tracker.html" class="back-link">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Back to Deployment Tracker
+            </a>
+        </div>
+    </header>
+
+    <div class="hero">
+        <div class="hero-badge">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Legal Document
+        </div>
+        <h1>End-User License Agreement</h1>
+        <div class="hero-meta">
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                Proximity Lab Services, LLC
+            </span>
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Effective Date: March 18, 2026
+            </span>
+            <span>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Last Revised: March 18, 2026
+            </span>
+        </div>
+    </div>
+
+    <main>
+        <nav class="toc">
+            <h2>Table of Contents</h2>
+            <ol>
+                <li><a href="#acceptance">Acceptance of Terms</a></li>
+                <li><a href="#grant">License Grant</a></li>
+                <li><a href="#restrictions">Restrictions</a></li>
+                <li><a href="#access">Account &amp; Access</a></li>
+                <li><a href="#content">User Content</a></li>
+                <li><a href="#ip">Intellectual Property</a></li>
+                <li><a href="#confidentiality">Confidentiality</a></li>
+                <li><a href="#thirdparty">Third-Party Integrations</a></li>
+                <li><a href="#disclaimer">Disclaimer of Warranties</a></li>
+                <li><a href="#liability">Limitation of Liability</a></li>
+                <li><a href="#termination">Termination</a></li>
+                <li><a href="#governing">Governing Law</a></li>
+                <li><a href="#changes">Changes to Agreement</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ol>
+        </nav>
+
+        <div class="warning-callout">
+            <p><strong>Please read carefully.</strong> This End-User License Agreement ("Agreement") is a legally binding contract between you and Proximity Lab Services, LLC. By accessing or using the Deployment Tracker platform, you agree to be bound by this Agreement. If you do not agree, do not use the Platform.</p>
+        </div>
+
+        <section class="policy-section" id="acceptance">
+            <div class="section-header">
+                <div class="section-num">01</div>
+                <h2>Acceptance of Terms</h2>
+            </div>
+            <p>This End-User License Agreement ("Agreement" or "EULA") is entered into between you ("User," "you," or "your") and <strong>Proximity Lab Services, LLC</strong> ("Company," "we," "us," or "our") governing your use of the <strong>Proximity Deployment Tracker</strong> web application and all associated services, features, and content (collectively, the "Platform").</p>
+            <p>By logging into, accessing, or using the Platform in any manner, you represent that:</p>
+            <ul>
+                <li>You have read and understood this Agreement in its entirety</li>
+                <li>You are authorized by your employing organization or client to access the Platform</li>
+                <li>You are at least 18 years of age and have the legal capacity to enter into a binding agreement</li>
+                <li>Your use of the Platform is subject to this Agreement and any additional policies referenced herein</li>
+            </ul>
+        </section>
+
+        <section class="policy-section" id="grant">
+            <div class="section-header">
+                <div class="section-num">02</div>
+                <h2>License Grant</h2>
+            </div>
+            <p>Subject to your compliance with this Agreement, Proximity Lab Services, LLC grants you a <strong>limited, non-exclusive, non-transferable, revocable license</strong> to access and use the Platform solely for:</p>
+            <ul>
+                <li>Internal business purposes related to laboratory deployment project management</li>
+                <li>Viewing, creating, and managing data within the scope of your assigned organizational role</li>
+                <li>Communicating with Proximity Lab Services staff through Platform features</li>
+            </ul>
+            <p>This license does not include any right to sublicense, resell, or transfer access to any third party. The Platform is made available as a service and is not sold to you.</p>
+        </section>
+
+        <section class="policy-section" id="restrictions">
+            <div class="section-header">
+                <div class="section-num">03</div>
+                <h2>Restrictions</h2>
+            </div>
+            <p>You agree that you will not, and will not permit any third party to:</p>
+            <ul>
+                <li>Access the Platform using any automated means, scraper, bot, or crawler without our prior written permission</li>
+                <li>Attempt to probe, scan, or test the vulnerability of the Platform or circumvent any security or authentication measures</li>
+                <li>Copy, modify, adapt, translate, reverse-engineer, disassemble, or create derivative works of the Platform or any underlying software</li>
+                <li>Share, sell, transfer, or provide access to your account credentials or Platform session to any unauthorized person</li>
+                <li>Use the Platform to store, transmit, or display any content that is unlawful, harmful, defamatory, or violates any third party's rights</li>
+                <li>Interfere with or disrupt the integrity, performance, or availability of the Platform or its underlying infrastructure</li>
+                <li>Access any portion of the Platform that you are not authorized to access based on your assigned role</li>
+                <li>Export or extract Platform data in bulk without prior written authorization from Proximity Lab Services</li>
+                <li>Use the Platform in any manner that violates applicable local, state, federal, or international law or regulation</li>
+            </ul>
+        </section>
+
+        <section class="policy-section" id="access">
+            <div class="section-header">
+                <div class="section-num">04</div>
+                <h2>Account &amp; Access</h2>
+            </div>
+            <p>Access to the Platform is granted on an invitation-only basis. The Company determines, in its sole discretion, which individuals and organizations are permitted to use the Platform.</p>
+            <p>Authentication is handled exclusively through <strong>Microsoft Azure Active Directory Single Sign-On (SSO)</strong>. You are responsible for maintaining the security of your Microsoft account credentials. You agree to notify the Company immediately at <a href="mailto:support@proximitylabservices.com" style="color:var(--champagne)">support@proximitylabservices.com</a> if you suspect any unauthorized access to your account.</p>
+            <p>Your access role (e.g., Proximity Admin, Proximity Staff, Account Manager, Customer Admin, Customer Viewer) determines what data and features you may access. You agree not to attempt to access data or features beyond your assigned role permissions.</p>
+            <div class="callout">
+                <p><strong>Automatic Session Expiration:</strong> For security, the Platform automatically terminates your session after a period of inactivity. You are responsible for saving any unsaved work before leaving the Platform idle.</p>
+            </div>
+        </section>
+
+        <section class="policy-section" id="content">
+            <div class="section-header">
+                <div class="section-num">05</div>
+                <h2>User Content</h2>
+            </div>
+            <p>You retain ownership of any data, records, and content that you or your organization submits to the Platform ("User Content"). By submitting User Content, you grant Proximity Lab Services, LLC a limited license to store, process, and display that content solely as necessary to operate the Platform and deliver services to you.</p>
+            <p>You represent and warrant that:</p>
+            <ul>
+                <li>You have all necessary rights to submit the User Content to the Platform</li>
+                <li>Your User Content does not violate any applicable law, regulation, or third-party right</li>
+                <li>Your User Content does not contain malicious code, viruses, or any other harmful component</li>
+            </ul>
+            <p>The Company reserves the right to remove any User Content that, in its reasonable judgment, violates this Agreement or applicable law, with or without prior notice.</p>
+        </section>
+
+        <section class="policy-section" id="ip">
+            <div class="section-header">
+                <div class="section-num">06</div>
+                <h2>Intellectual Property</h2>
+            </div>
+            <p>The Platform, including all software, design, code, text, graphics, logos, and features (excluding User Content), is the exclusive intellectual property of Proximity Lab Services, LLC and is protected by applicable copyright, trademark, patent, trade secret, and other intellectual property laws.</p>
+            <p>The "Proximity Lab Services" name, logo, and "Deployment Tracker" branding are trademarks of Proximity Lab Services, LLC. Nothing in this Agreement grants you any right to use these marks without our prior written consent.</p>
+            <p>All rights not expressly granted to you under this Agreement are reserved by Proximity Lab Services, LLC.</p>
+        </section>
+
+        <section class="policy-section" id="confidentiality">
+            <div class="section-header">
+                <div class="section-num">07</div>
+                <h2>Confidentiality</h2>
+            </div>
+            <p>The Platform contains confidential business information belonging to Proximity Lab Services, LLC and its clients, including but not limited to facility data, deployment timelines, financial information, commission records, customer data, and system configurations ("Confidential Information").</p>
+            <p>You agree to:</p>
+            <ul>
+                <li>Hold all Confidential Information in strict confidence</li>
+                <li>Not disclose Confidential Information to any third party without prior written authorization</li>
+                <li>Use Confidential Information only as necessary to fulfill your role and responsibilities</li>
+                <li>Promptly notify the Company of any actual or suspected unauthorized disclosure</li>
+            </ul>
+            <p>These confidentiality obligations survive the termination of your access to the Platform.</p>
+        </section>
+
+        <section class="policy-section" id="thirdparty">
+            <div class="section-header">
+                <div class="section-num">08</div>
+                <h2>Third-Party Integrations</h2>
+            </div>
+            <p>The Platform integrates with third-party services including, without limitation:</p>
+            <ul>
+                <li><strong>Microsoft Azure Active Directory</strong> — identity and authentication</li>
+                <li><strong>Supabase</strong> — database and backend infrastructure</li>
+                <li><strong>Netlify</strong> — hosting and content delivery</li>
+                <li><strong>QuickBooks Online</strong> — financial data synchronization via N8N</li>
+                <li><strong>Bill.com</strong> — payables processing</li>
+                <li><strong>Resend / Email Providers</strong> — transactional email delivery</li>
+            </ul>
+            <p>Your use of these third-party services is subject to their respective terms of service and privacy policies. Proximity Lab Services, LLC is not responsible for the practices, availability, or content of third-party services. We do not endorse any third-party service and are not liable for any loss or damage arising from your use of them.</p>
+        </section>
+
+        <section class="policy-section" id="disclaimer">
+            <div class="section-header">
+                <div class="section-num">09</div>
+                <h2>Disclaimer of Warranties</h2>
+            </div>
+            <p class="caps">THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, PROXIMITY LAB SERVICES, LLC DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.</p>
+            <p class="caps">WE DO NOT WARRANT THAT THE PLATFORM WILL BE UNINTERRUPTED, ERROR-FREE, SECURE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS. WE DO NOT WARRANT THE ACCURACY, COMPLETENESS, OR RELIABILITY OF ANY CONTENT OR DATA AVAILABLE THROUGH THE PLATFORM.</p>
+            <p>Some jurisdictions do not allow the exclusion of certain warranties. In such jurisdictions, the foregoing exclusions apply to the maximum extent permitted by law.</p>
+        </section>
+
+        <section class="policy-section" id="liability">
+            <div class="section-header">
+                <div class="section-num">10</div>
+                <h2>Limitation of Liability</h2>
+            </div>
+            <p class="caps">TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL PROXIMITY LAB SERVICES, LLC, ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES, INCLUDING WITHOUT LIMITATION LOSS OF PROFITS, REVENUE, DATA, GOODWILL, OR BUSINESS INTERRUPTION, ARISING FROM OR RELATING TO YOUR USE OF OR INABILITY TO USE THE PLATFORM, EVEN IF THE COMPANY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</p>
+            <p class="caps">IN NO EVENT SHALL OUR AGGREGATE LIABILITY TO YOU FOR ALL CLAIMS ARISING FROM OR RELATING TO THIS AGREEMENT OR THE PLATFORM EXCEED THE GREATER OF (A) THE TOTAL AMOUNTS PAID BY YOUR ORGANIZATION TO THE COMPANY IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM, OR (B) ONE HUNDRED DOLLARS ($100).</p>
+            <p>The limitations in this section apply regardless of the theory of liability (contract, tort, strict liability, or otherwise) and survive any failure of essential purpose of any limited remedy.</p>
+        </section>
+
+        <section class="policy-section" id="termination">
+            <div class="section-header">
+                <div class="section-num">11</div>
+                <h2>Termination</h2>
+            </div>
+            <p>This Agreement and your license to use the Platform are effective until terminated. The Company may terminate or suspend your access immediately, without prior notice or liability, if:</p>
+            <ul>
+                <li>You breach any term of this Agreement</li>
+                <li>Your employing organization's relationship with Proximity Lab Services ends</li>
+                <li>Your access is revoked by your organization's identity provider</li>
+                <li>The Company discontinues the Platform or a portion thereof</li>
+                <li>Required by applicable law or regulatory authority</li>
+            </ul>
+            <p>Upon termination, your right to access and use the Platform immediately ceases. Sections 6 (Intellectual Property), 7 (Confidentiality), 9 (Disclaimer of Warranties), 10 (Limitation of Liability), and 12 (Governing Law) shall survive termination of this Agreement.</p>
+        </section>
+
+        <section class="policy-section" id="governing">
+            <div class="section-header">
+                <div class="section-num">12</div>
+                <h2>Governing Law &amp; Dispute Resolution</h2>
+            </div>
+            <p>This Agreement shall be governed by and construed in accordance with the laws of the <strong>State of Texas</strong>, without regard to its conflict of law principles. You hereby submit to the exclusive jurisdiction of the state and federal courts located in Texas for any disputes arising from this Agreement or your use of the Platform.</p>
+            <p>Before initiating any formal legal proceeding, you agree to first attempt to resolve any dispute informally by contacting us at the address in Section 14. We will attempt to resolve disputes within 30 days of receiving written notice.</p>
+            <p>Any legal action or proceeding arising under this Agreement must be brought within one (1) year after the cause of action arises, or it shall be permanently barred.</p>
+        </section>
+
+        <section class="policy-section" id="changes">
+            <div class="section-header">
+                <div class="section-num">13</div>
+                <h2>Changes to this Agreement</h2>
+            </div>
+            <p>We reserve the right to modify this Agreement at any time. When we make material changes, we will update the "Last Revised" date and may notify users through the Platform or by email. Your continued use of the Platform after any modification constitutes your acceptance of the revised Agreement.</p>
+            <p>If you do not agree to the revised Agreement, you must immediately discontinue use of the Platform and contact us to close your account.</p>
+        </section>
+
+        <section class="policy-section" id="contact">
+            <div class="section-header">
+                <div class="section-num">14</div>
+                <h2>Contact</h2>
+            </div>
+            <p>For questions about this Agreement, to report a violation, or for general legal inquiries:</p>
+        </section>
+
+        <div class="contact-box">
+            <h3>Proximity Lab Services, LLC</h3>
+            <p style="margin-bottom:12px;">Legal &amp; Compliance</p>
+            <p>
+                <strong>Email:</strong> <a href="mailto:legal@proximitylabservices.com">legal@proximitylabservices.com</a>
+            </p>
+            <p>
+                <strong>Support:</strong> <a href="mailto:support@proximitylabservices.com">support@proximitylabservices.com</a>
+            </p>
+            <p>
+                <strong>Website:</strong> <a href="https://proximitylabservices.com">proximitylabservices.com</a>
+            </p>
+            <p style="margin-top:16px;font-size:14px;color:rgba(229,231,235,0.5);">This Agreement constitutes the entire agreement between you and Proximity Lab Services, LLC with respect to the Platform and supersedes all prior agreements and understandings.</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Proximity Lab Services, LLC. All rights reserved.</p>
+        <p>
+            <a href="/privacy-policy.html">Privacy Policy</a> &nbsp;&middot;&nbsp;
+            <a href="/eula.html">End-User License Agreement</a> &nbsp;&middot;&nbsp;
+            <a href="/tracker.html">Deployment Tracker</a>
+        </p>
+    </footer>
+</body>
+</html>
