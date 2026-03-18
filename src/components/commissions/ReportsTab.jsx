@@ -1,0 +1,415 @@
+import React, { useState, useEffect } from 'react';
+import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download } from 'lucide-react';
+import {
+  commissionReportsService,
+  salesRepsService,
+  commissionPeriodsService,
+  commissionCalculationsService,
+  qboInvoicesService,
+  commissionRulesService
+} from '../../services/commissionsService';
+import { useAuth } from '../../contexts/AuthContext';
+import CommissionPDFGenerator from './CommissionPDFGenerator';
+
+const STATUS_COLORS = {
+  'Draft': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  'Pending Approval': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  'Approved': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  'Rejected': 'bg-red-500/20 text-red-400 border-red-500/30',
+  'Paid': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  'Emailed': 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+};
+
+function fmt(n) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n ?? 0);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export default function ReportsTab() {
+  const { user } = useAuth();
+  const [reports, setReports] = useState([]);
+  const [reps, setReps] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [detailReport, setDetailReport] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterRep, setFilterRep] = useState('');
+  const [generateModal, setGenerateModal] = useState(false);
+  const [genForm, setGenForm] = useState({ sales_rep_id: '', period_id: '' });
+  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [pdfReport, setPdfReport] = useState(null);
+  const [actionLoading, setActionLoading] = useState({});
+
+  useEffect(() => { loadAll(); }, []);
+
+  async function loadAll() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [r, rp, p] = await Promise.all([
+        commissionReportsService.getAll(),
+        salesRepsService.getAll(),
+        commissionPeriodsService.getAll()
+      ]);
+      setReports(r);
+      setReps(rp);
+      setPeriods(p);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerate() {
+    if (!genForm.sales_rep_id || !genForm.period_id) {
+      setError('Please select both a sales rep and a period.');
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      const [invoices, rules, rep] = await Promise.all([
+        qboInvoicesService.getAll({ salesRepId: genForm.sales_rep_id, periodId: genForm.period_id }),
+        commissionRulesService.getAll(genForm.sales_rep_id),
+        salesRepsService.getById(genForm.sales_rep_id)
+      ]);
+
+      if (invoices.length === 0) {
+        setError('No invoices found for this rep and period.');
+        setGenerating(false);
+        return;
+      }
+
+      const calculations = await Promise.all(invoices.map(async inv => {
+        const calc = await commissionCalculationsService.calculateForInvoice(inv, rep, rules);
+        return commissionCalculationsService.saveCalculation(calc);
+      }));
+
+      const calcsWithInvoices = calculations.map((c, i) => ({
+        ...c,
+        qbo_invoices: invoices[i],
+        commission_periods: periods.find(p => p.id === genForm.period_id)
+      }));
+
+      await commissionReportsService.generateReport(genForm.sales_rep_id, genForm.period_id, calcsWithInvoices);
+      setGenerateModal(false);
+      setGenForm({ sales_rep_id: '', period_id: '' });
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleApprove(report) {
+    setActionLoading(prev => ({ ...prev, [report.id]: 'approving' }));
+    try {
+      await commissionReportsService.approve(report.id, user?.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [report.id]: null }));
+    }
+  }
+
+  async function handleReject() {
+    if (!rejectReason.trim()) return;
+    setActionLoading(prev => ({ ...prev, [rejectModal.id]: 'rejecting' }));
+    try {
+      await commissionReportsService.reject(rejectModal.id, rejectReason);
+      setRejectModal(null);
+      setRejectReason('');
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [rejectModal?.id]: null }));
+    }
+  }
+
+  async function handleEmailSend(report) {
+    setActionLoading(prev => ({ ...prev, [report.id]: 'emailing' }));
+    try {
+      await commissionReportsService.markEmailed(report.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [report.id]: null }));
+    }
+  }
+
+  async function loadDetail(report) {
+    try {
+      const detail = await commissionReportsService.getById(report.id);
+      setDetailReport(detail);
+      setExpandedId(report.id);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const filtered = reports.filter(r => {
+    if (filterStatus && r.status !== filterStatus) return false;
+    if (filterRep && r.sales_rep_id !== filterRep) return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Commission Reports</h2>
+          <p className="text-sm text-slate-400">{filtered.length} report{filtered.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button
+          onClick={() => setGenerateModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          <FilePlus className="w-4 h-4" />
+          Generate Report
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
+          <button onClick={() => setError(null)} className="ml-auto text-slate-500 hover:text-slate-300">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+          <option value="">All Statuses</option>
+          {Object.keys(STATUS_COLORS).map(s => <option key={s}>{s}</option>)}
+        </select>
+        <select value={filterRep} onChange={e => setFilterRep(e.target.value)}
+          className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+          <option value="">All Reps</option>
+          {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-base font-medium">No reports yet</p>
+          <p className="text-sm">Generate a report for a sales rep and period to begin.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(report => (
+            <div key={report.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden hover:border-slate-600/60 transition-colors">
+              <div className="px-5 py-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
+                  <div>
+                    <p className="text-white font-semibold text-sm">{report.report_number}</p>
+                    <p className="text-slate-500 text-xs">{formatDate(report.created_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-300 text-sm truncate">{report.sales_reps?.name}</p>
+                    <p className="text-slate-500 text-xs">{report.commission_periods?.name || `${formatDate(report.period_start)} – ${formatDate(report.period_end)}`}</p>
+                  </div>
+                  <div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[report.status]}`}>
+                      {report.status}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Commission</p>
+                    <p className="text-teal-400 font-semibold">{fmt(report.total_commission_amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Invoices</p>
+                    <p className="text-white font-medium">{report.total_invoices} · {fmt(report.total_invoice_amount)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {report.status === 'Draft' && (
+                    <button
+                      onClick={() => handleApprove(report)}
+                      disabled={actionLoading[report.id]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {actionLoading[report.id] === 'approving' ? 'Approving...' : 'Approve'}
+                    </button>
+                  )}
+                  {report.status === 'Draft' && (
+                    <button
+                      onClick={() => setRejectModal(report)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      Reject
+                    </button>
+                  )}
+                  {report.status === 'Approved' && (
+                    <button
+                      onClick={() => handleEmailSend(report)}
+                      disabled={actionLoading[report.id]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {actionLoading[report.id] === 'emailing' ? 'Sending...' : 'Send Email'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setPdfReport(report)}
+                    className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                    title="Preview PDF"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => expandedId === report.id ? setExpandedId(null) : loadDetail(report)}
+                    className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                  >
+                    {expandedId === report.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {expandedId === report.id && detailReport?.id === report.id && (
+                <div className="px-5 pb-5 border-t border-slate-700/60 pt-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-slate-700/30 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Total Invoices</p>
+                      <p className="text-white font-semibold mt-0.5">{fmt(detailReport.total_invoice_amount)}</p>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Commissionable</p>
+                      <p className="text-white font-semibold mt-0.5">{fmt(detailReport.total_commissionable_amount)}</p>
+                    </div>
+                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3">
+                      <p className="text-xs text-teal-500">Commission Owed</p>
+                      <p className="text-teal-400 font-bold mt-0.5 text-lg">{fmt(detailReport.total_commission_amount)}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Invoice Breakdown</p>
+                    {detailReport.commission_report_items?.map(item => (
+                      <div key={item.id} className="flex items-center justify-between py-2 px-3 bg-slate-700/20 rounded-lg text-sm">
+                        <div>
+                          <span className="text-white">{item.qbo_invoices?.customer_name}</span>
+                          <span className="text-slate-500 ml-2 text-xs">#{item.qbo_invoices?.invoice_number}</span>
+                          <span className="text-slate-500 ml-2 text-xs">{formatDate(item.qbo_invoices?.invoice_date)}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-right">
+                          <span className="text-slate-400">{fmt(item.commissionable_amount)}</span>
+                          <span className="text-slate-500 text-xs">×{(item.commission_rate * 100).toFixed(1)}%</span>
+                          <span className="text-teal-400 font-semibold min-w-20 text-right">{fmt(item.commission_amount)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {detailReport.rejection_reason && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-300">
+                      <span className="font-medium">Rejection Reason:</span> {detailReport.rejection_reason}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {generateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <h3 className="text-lg font-semibold text-white">Generate Commission Report</h3>
+              <button onClick={() => { setGenerateModal(false); setError(null); }} className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"><AlertCircle className="w-4 h-4" />{error}</div>}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Sales Representative *</label>
+                <select value={genForm.sales_rep_id} onChange={e => setGenForm(f => ({ ...f, sales_rep_id: e.target.value }))}
+                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+                  <option value="">-- Select Rep --</option>
+                  {reps.filter(r => r.status === 'Active').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Commission Period *</label>
+                <select value={genForm.period_id} onChange={e => setGenForm(f => ({ ...f, period_id: e.target.value }))}
+                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+                  <option value="">-- Select Period --</option>
+                  {periods.map(p => <option key={p.id} value={p.id}>{p.name} ({formatDate(p.start_date)} – {formatDate(p.end_date)})</option>)}
+                </select>
+              </div>
+              <div className="bg-slate-700/30 rounded-lg p-3 text-sm text-slate-400">
+                This will calculate commissions for all invoices assigned to this rep in the selected period.
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700">
+              <button onClick={() => { setGenerateModal(false); setError(null); }} className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <FilePlus className="w-4 h-4" />
+                {generating ? 'Generating...' : 'Generate Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-white font-semibold text-lg mb-2">Reject Report</h3>
+              <p className="text-slate-400 text-sm mb-4">Please provide a reason for rejecting report <strong className="text-white">{rejectModal.report_number}</strong>.</p>
+              <textarea
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                rows={3}
+                placeholder="Enter rejection reason..."
+                className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors resize-none"
+              />
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => { setRejectModal(null); setRejectReason(''); }} className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
+              <button
+                onClick={handleReject}
+                disabled={!rejectReason.trim()}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Reject Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pdfReport && (
+        <CommissionPDFGenerator report={pdfReport} onClose={() => setPdfReport(null)} />
+      )}
+    </div>
+  );
+}

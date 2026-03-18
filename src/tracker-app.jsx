@@ -26,6 +26,7 @@ import StratusMappingSettings from './components/StratusMappingSettings';
 import StratusAPIViewer from './components/StratusAPIViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
+import Commissions from './components/Commissions';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -107,6 +108,11 @@ function App() {
                 <Route path="support/:id" element={<TicketDetail />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="tasks-report" element={<TasksReport />} />
+                <Route path="commissions" element={
+                  <ProtectedRoute requireAdmin>
+                    <Commissions />
+                  </ProtectedRoute>
+                } />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
                 <Route path="documents" element={
