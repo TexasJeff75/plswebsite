@@ -161,15 +161,6 @@ export const qboInvoicesService = {
     return data;
   },
 
-  async upsertFromN8N(invoices) {
-    const { data, error } = await supabase
-      .from('qbo_invoices')
-      .upsert(invoices, { onConflict: 'qbo_invoice_id' })
-      .select();
-    if (error) throw error;
-    return data;
-  },
-
   async assignSalesRep(invoiceId, salesRepId) {
     const { data, error } = await supabase
       .from('qbo_invoices')
@@ -363,29 +354,13 @@ export const commissionReportsService = {
   }
 };
 
-export const webhookLogsService = {
+export const importBatchesService = {
   async getAll() {
     const { data, error } = await supabase
-      .from('n8n_webhook_logs')
-      .select('*')
+      .from('qb_import_batches')
+      .select('*, auth_user:imported_by(email)')
       .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    return data;
-  },
-
-  async log(type, payload, recordsProcessed, status, errorMessage = null) {
-    const { data, error } = await supabase
-      .from('n8n_webhook_logs')
-      .insert({
-        webhook_type: type,
-        payload,
-        records_processed: recordsProcessed,
-        status,
-        error_message: errorMessage
-      })
-      .select()
-      .single();
+      .limit(50);
     if (error) throw error;
     return data;
   }
