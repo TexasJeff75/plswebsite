@@ -291,18 +291,25 @@ export default function InvoicesTab() {
         .single();
       if (batchError) throw batchError;
 
-      const toInsert = parsedData.invoices.map((inv, i) => ({
-        qbo_invoice_id: `${batch.id}-${i}-${inv.invoice_number}`,
-        invoice_number: inv.invoice_number,
-        customer_name: inv.customer_name,
-        customer_email: null,
-        invoice_date: inv.invoice_date,
-        due_date: inv.due_date,
-        total_amount: inv.total_amount,
-        balance: inv.balance,
-        status: inv.status || 'Invoice',
-        import_batch_id: batch.id,
-      }));
+      const VALID_STATUSES = ['Paid', 'Unpaid', 'Partially Paid', 'Overdue', 'Voided'];
+      const toInsert = parsedData.invoices.map((inv, i) => {
+        const rawStatus = inv.status || '';
+        const status = VALID_STATUSES.includes(rawStatus)
+          ? rawStatus
+          : inv.comm_paid ? 'Paid' : 'Unpaid';
+        return {
+          qbo_invoice_id: `${batch.id}-${i}-${inv.invoice_number}`,
+          invoice_number: inv.invoice_number,
+          customer_name: inv.customer_name,
+          customer_email: null,
+          invoice_date: inv.invoice_date,
+          due_date: inv.due_date,
+          total_amount: inv.total_amount,
+          balance: inv.balance,
+          status,
+          import_batch_id: batch.id,
+        };
+      });
 
       const { error: invError } = await supabase
         .from('qbo_invoices')
