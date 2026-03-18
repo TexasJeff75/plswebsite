@@ -289,40 +289,109 @@ export default function ReportsTab() {
               </div>
 
               {expandedId === report.id && detailReport?.id === report.id && (
-                <div className="px-5 pb-5 border-t border-slate-700/60 pt-4 space-y-3">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500">Total Invoices</p>
+                <div className="border-t border-slate-700/60">
+                  <div className="px-5 pt-4 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <p className="text-xs text-slate-500 uppercase">Line Items</p>
+                      <p className="text-white font-semibold mt-0.5">{detailReport.commission_report_items?.length ?? 0}</p>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <p className="text-xs text-slate-500 uppercase">Total Amount</p>
                       <p className="text-white font-semibold mt-0.5">{fmt(detailReport.total_invoice_amount)}</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500">Commissionable</p>
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <p className="text-xs text-slate-500 uppercase">Commissionable</p>
                       <p className="text-white font-semibold mt-0.5">{fmt(detailReport.total_commissionable_amount)}</p>
                     </div>
-                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3">
-                      <p className="text-xs text-teal-500">Commission Owed</p>
+                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-teal-500 uppercase">Commission Owed</p>
                       <p className="text-teal-400 font-bold mt-0.5 text-lg">{fmt(detailReport.total_commission_amount)}</p>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">Invoice Breakdown</p>
-                    {detailReport.commission_report_items?.map(item => (
-                      <div key={item.id} className="flex items-center justify-between py-2 px-3 bg-slate-700/20 rounded-lg text-sm">
-                        <div>
-                          <span className="text-white">{item.qbo_invoices?.customer_name}</span>
-                          <span className="text-slate-500 ml-2 text-xs">#{item.qbo_invoices?.invoice_number}</span>
-                          <span className="text-slate-500 ml-2 text-xs">{formatDate(item.qbo_invoices?.invoice_date)}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-right">
-                          <span className="text-slate-400">{fmt(item.commissionable_amount)}</span>
-                          <span className="text-slate-500 text-xs">×{(item.commission_rate * 100).toFixed(1)}%</span>
-                          <span className="text-teal-400 font-semibold min-w-20 text-right">{fmt(item.commission_amount)}</span>
-                        </div>
-                      </div>
-                    ))}
+
+                  <div className="px-5 pb-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Invoice Line Items</p>
+                    <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+                      <table className="w-full text-xs min-w-max">
+                        <thead>
+                          <tr className="bg-slate-700/50">
+                            <th className="px-3 py-2.5 text-left text-slate-400 font-semibold">Txn Date</th>
+                            <th className="px-3 py-2.5 text-left text-slate-400 font-semibold">Num</th>
+                            <th className="px-3 py-2.5 text-left text-slate-400 font-semibold">Customer</th>
+                            <th className="px-3 py-2.5 text-left text-slate-400 font-semibold">Product / Service</th>
+                            <th className="px-3 py-2.5 text-left text-slate-400 font-semibold">A/R Paid</th>
+                            <th className="px-3 py-2.5 text-right text-slate-400 font-semibold">Amount</th>
+                            <th className="px-3 py-2.5 text-right text-slate-400 font-semibold">Rate</th>
+                            <th className="px-3 py-2.5 text-right text-slate-400 font-semibold">Commission</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailReport.commission_report_items?.map((item, idx) => {
+                            const inv = item.qbo_invoices;
+                            return (
+                              <tr key={item.id} className={`border-t border-slate-700/40 ${idx % 2 === 0 ? '' : 'bg-slate-700/10'}`}>
+                                <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatDate(inv?.transaction_date || inv?.invoice_date)}</td>
+                                <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv?.num || inv?.invoice_number || '—'}</td>
+                                <td className="px-3 py-2 text-slate-200 whitespace-nowrap max-w-48 truncate">{inv?.customer_name || '—'}</td>
+                                <td className="px-3 py-2 text-slate-400 whitespace-nowrap max-w-48 truncate">{inv?.product_service || '—'}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {inv?.ar_paid ? (
+                                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${inv.ar_paid.toLowerCase() === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                      {inv.ar_paid}
+                                    </span>
+                                  ) : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-right text-white font-medium whitespace-nowrap">{fmt(item.commissionable_amount)}</td>
+                                <td className="px-3 py-2 text-right text-slate-400 whitespace-nowrap">{((item.commission_rate || 0) * 100).toFixed(1)}%</td>
+                                <td className="px-3 py-2 text-right text-teal-400 font-semibold whitespace-nowrap">{fmt(item.commission_amount)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-slate-600 bg-slate-700/30">
+                            <td colSpan={5} className="px-3 py-2.5 text-slate-400 font-semibold text-xs uppercase">Total</td>
+                            <td className="px-3 py-2.5 text-right text-white font-bold">{fmt(detailReport.total_commissionable_amount)}</td>
+                            <td className="px-3 py-2.5"></td>
+                            <td className="px-3 py-2.5 text-right text-teal-400 font-bold text-sm">{fmt(detailReport.total_commission_amount)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
+
+                  <div className="px-5 pb-5 pt-3">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Commission Summary</p>
+                    <div className="bg-slate-700/20 border border-slate-700/60 rounded-xl overflow-hidden">
+                      {(() => {
+                        const byCustomer = {};
+                        (detailReport.commission_report_items || []).forEach(item => {
+                          const key = item.qbo_invoices?.customer_name || 'Unknown';
+                          if (!byCustomer[key]) byCustomer[key] = { amount: 0, commission: 0, count: 0 };
+                          byCustomer[key].amount += item.commissionable_amount || 0;
+                          byCustomer[key].commission += item.commission_amount || 0;
+                          byCustomer[key].count += 1;
+                        });
+                        return Object.entries(byCustomer)
+                          .sort((a, b) => b[1].commission - a[1].commission)
+                          .map(([customer, totals], i, arr) => (
+                            <div key={customer} className={`flex items-center justify-between px-4 py-3 text-sm ${i < arr.length - 1 ? 'border-b border-slate-700/40' : ''}`}>
+                              <div>
+                                <p className="text-slate-200 font-medium">{customer}</p>
+                                <p className="text-slate-500 text-xs">{totals.count} line item{totals.count !== 1 ? 's' : ''} · {fmt(totals.amount)} total</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-teal-400 font-semibold">{fmt(totals.commission)}</p>
+                                <p className="text-slate-500 text-xs">{totals.amount > 0 ? ((totals.commission / totals.amount) * 100).toFixed(1) : '0.0'}% effective rate</p>
+                              </div>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+
                   {detailReport.rejection_reason && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-300">
+                    <div className="mx-5 mb-5 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-300">
                       <span className="font-medium">Rejection Reason:</span> {detailReport.rejection_reason}
                     </div>
                   )}
