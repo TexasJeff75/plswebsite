@@ -91,10 +91,10 @@ function parseQBXlsx(workbook) {
   };
 
   const cols = {
-    txn_date: colIdx(['transaction date', 'txn date', 'date']),
-    rep: colIdx(['1099 rep', 'rep original', 'sales rep', 'rep']),
+    txn_date: colIdx(['transaction date', 'txn date']),
+    rep: colIdx(['1099 rep original', '1099 rep', 'rep original', 'sales rep', 'rep']),
     num: colIdx(['num', 'invoice num', 'invoice no', 'number']),
-    comm_paid: colIdx(['comm paid', 'comm', 'paid']),
+    comm_paid: colIdx(['comm paid']),
     date: colIdx(['date']),
     due_date: colIdx(['due date']),
     txn_type: colIdx(['transaction type', 'type']),
@@ -104,7 +104,8 @@ function parseQBXlsx(workbook) {
     sales_manager: colIdx(['sales manager', 'manager']),
   };
 
-  if (cols.txn_date === -1 && cols.date === -1) {
+  if (cols.txn_date === -1) cols.txn_date = cols.date;
+  if (cols.txn_date === -1) {
     return { error: 'Could not find a date column in the report.' };
   }
   if (cols.amount === -1) {
@@ -489,6 +490,9 @@ export default function InvoicesTab() {
                     <p className="text-slate-500 text-xs">
                       {parsedData.invoices.length} line items
                       {monthGroups.length > 0 && ` · ${monthGroups.length} month group${monthGroups.length !== 1 ? 's' : ''}`}
+                      {parsedData.cols?.rep !== -1
+                        ? ` · Rep col: "${parsedData.headers?.[parsedData.cols.rep]}"`
+                        : ' · Rep col: not detected'}
                     </p>
                   </div>
                 </div>
