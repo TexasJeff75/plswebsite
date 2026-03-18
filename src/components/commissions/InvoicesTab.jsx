@@ -285,25 +285,17 @@ export default function InvoicesTab() {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
 
-    const { data: existing } = await supabase
+    const { data: upserted, error } = await supabase
       .from('commission_periods')
-      .select('id')
-      .eq('start_date', startDate)
-      .maybeSingle();
-
-    if (existing) {
-      periodCache[key] = existing.id;
-      return existing.id;
-    }
-
-    const { data: created, error } = await supabase
-      .from('commission_periods')
-      .insert({ name, start_date: startDate, end_date: endDate })
+      .upsert(
+        { name, start_date: startDate, end_date: endDate },
+        { onConflict: 'start_date', ignoreDuplicates: false }
+      )
       .select('id')
       .single();
     if (error) throw error;
-    periodCache[key] = created.id;
-    return created.id;
+    periodCache[key] = upserted.id;
+    return upserted.id;
   }
 
   async function handleImport() {
