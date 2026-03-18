@@ -271,12 +271,55 @@ export default function InvoicesTab() {
     reader.readAsArrayBuffer(file);
   }
 
+  async function resolveOrCreatePeriod(isoDate, periodCache) {
+    if (!isoDate) return null;
+    const d = new Date(isoDate + 'T00:00:00');
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const key = `${year}-${month}`;
+    if (periodCache[key]) return periodCache[key];
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const name = `${monthNames[month]} ${year}`;
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
+
+    const { data: existing } = await supabase
+      .from('commission_periods')
+      .select('id')
+      .eq('start_date', startDate)
+      .maybeSingle();
+
+    if (existing) {
+      periodCache[key] = existing.id;
+      return existing.id;
+    }
+
+    const { data: created, error } = await supabase
+      .from('commission_periods')
+      .insert({ name, start_date: startDate, end_date: endDate })
+      .select('id')
+      .single();
+    if (error) throw error;
+    periodCache[key] = created.id;
+    return created.id;
+  }
+
   async function handleImport() {
     if (!parsedData?.invoices?.length) return;
     setImporting(true);
     setParseError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: allReps } = await supabase.from('sales_reps').select('id, name');
+      const repByName = {};
+      (allReps || []).forEach(r => {
+        repByName[r.name.trim().toLowerCase()] = r.id;
+      });
+
+      const periodCache = {};
 
       const { data: batch, error: batchError } = await supabase
         .from('qb_import_batches')
@@ -292,11 +335,19 @@ export default function InvoicesTab() {
       if (batchError) throw batchError;
 
       const VALID_STATUSES = ['Paid', 'Unpaid', 'Partially Paid', 'Overdue', 'Voided'];
-      const toInsert = parsedData.invoices.map((inv, i) => {
+
+      const toInsert = await Promise.all(parsedData.invoices.map(async (inv, i) => {
         const rawStatus = inv.status || '';
         const status = VALID_STATUSES.includes(rawStatus)
           ? rawStatus
           : inv.comm_paid ? 'Paid' : 'Unpaid';
+
+        const repId = inv.rep_name
+          ? (repByName[inv.rep_name.trim().toLowerCase()] ?? null)
+          : null;
+
+        const periodId = await resolveOrCreatePeriod(inv.invoice_date, periodCache);
+
         return {
           qbo_invoice_id: `${batch.id}-${i}-${inv.invoice_number}`,
           invoice_number: inv.invoice_number,
@@ -308,8 +359,10 @@ export default function InvoicesTab() {
           balance: inv.balance,
           status,
           import_batch_id: batch.id,
+          sales_rep_id: repId,
+          commission_period_id: periodId,
         };
-      });
+      }));
 
       const { error: invError } = await supabase
         .from('qbo_invoices')
