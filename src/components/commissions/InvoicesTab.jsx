@@ -1,5 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Search, ChevronDown, ChevronRight, FileText, DollarSign, CircleAlert as AlertCircle, X, Check, RefreshCw, Download, Trash2, ArrowRight, FileSpreadsheet, Info, CircleCheck as CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Upload, Search, ChevronDown, ChevronRight, FileText,
+  CircleAlert as AlertCircle, X, Check, RefreshCw,
+  ArrowRight, FileSpreadsheet, Info, CircleCheck as CheckCircle2,
+  Tag
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { qboInvoicesService, salesRepsService, commissionPeriodsService } from '../../services/commissionsService';
 import { supabase } from '../../lib/supabase';
 
@@ -9,22 +15,8 @@ const STATUS_COLORS = {
   'Partially Paid': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   'Overdue': 'bg-red-500/20 text-red-400 border-red-500/30',
   'Voided': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  'Invoice': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
 };
-
-const QBO_FIELD_OPTIONS = [
-  { value: '', label: '— Skip this column —' },
-  { value: 'invoice_number', label: 'Invoice Number *', required: true },
-  { value: 'customer_name', label: 'Customer Name *', required: true },
-  { value: 'invoice_date', label: 'Invoice Date *', required: true },
-  { value: 'total_amount', label: 'Total Amount *', required: true },
-  { value: 'balance', label: 'Balance Due' },
-  { value: 'due_date', label: 'Due Date' },
-  { value: 'status', label: 'Status' },
-  { value: 'customer_email', label: 'Customer Email' },
-  { value: 'qbo_invoice_id', label: 'QB Invoice ID / Ref' },
-];
-
-const REQUIRED_FIELDS = ['invoice_number', 'customer_name', 'invoice_date', 'total_amount'];
 
 function fmt(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n ?? 0);
@@ -32,67 +24,149 @@ function fmt(n) {
 
 function formatDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function parseAmount(str) {
-  if (str == null || str === '') return 0;
-  const cleaned = String(str).replace(/[$,\s]/g, '');
+function parseAmount(val) {
+  if (val == null || val === '') return 0;
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/[$,\s]/g, '');
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
 }
 
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return { headers: [], rows: [] };
-  const parseRow = (line) => {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else { inQuotes = !inQuotes; }
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
+function excelDateToISO(val) {
+  if (!val) return null;
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val);
+    if (!d) return null;
+    const month = String(d.m).padStart(2, '0');
+    const day = String(d.d).padStart(2, '0');
+    return `${d.y}-${month}-${day}`;
+  }
+  if (typeof val === 'string' && val.trim()) {
+    const parts = val.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (parts) {
+      const [, m, d, y] = parts;
+      const year = y.length === 2 ? `20${y}` : y;
+      return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     }
-    result.push(current.trim());
-    return result;
-  };
-  const headers = parseRow(lines[0]);
-  const rows = lines.slice(1).map(parseRow);
-  return { headers, rows };
+    return val;
+  }
+  return null;
 }
 
-function autoMapColumns(headers) {
-  const mapping = {};
-  const matchers = {
-    invoice_number: [/invoice.*(no|num|number|#)/i, /^invoice$/i, /^inv.*(no|#)/i],
-    customer_name: [/customer.*(name)?/i, /client.*(name)?/i, /^name$/i],
-    invoice_date: [/invoice.*date/i, /^date$/i, /^inv.*date/i],
-    total_amount: [/total.*(amount)?/i, /amount.*(total)?/i, /^amount$/i, /^total$/i],
-    balance: [/balance/i, /amount.*(due|owed)/i],
-    due_date: [/due.*date/i],
-    status: [/^status$/i, /payment.*status/i],
-    customer_email: [/email/i],
-    qbo_invoice_id: [/qbo.*id/i, /quickbooks.*id/i, /ref.*no/i],
+function parseQBXlsx(workbook) {
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+
+  let headerRowIdx = -1;
+  const headerPatterns = ['transaction date', 'date', 'customer', 'amount'];
+
+  for (let i = 0; i < Math.min(raw.length, 15); i++) {
+    const row = raw[i];
+    if (!row) continue;
+    const cells = row.map(c => String(c ?? '').toLowerCase().trim());
+    const matched = headerPatterns.filter(p => cells.some(c => c.includes(p)));
+    if (matched.length >= 3) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1) {
+    return { error: 'Could not detect the header row. Make sure this is a QuickBooks Sales Rep report.' };
+  }
+
+  const headers = raw[headerRowIdx].map(h => String(h ?? '').trim());
+
+  const colIdx = (patterns) => {
+    for (const p of patterns) {
+      const idx = headers.findIndex(h => h.toLowerCase().includes(p.toLowerCase()));
+      if (idx !== -1) return idx;
+    }
+    return -1;
   };
 
-  headers.forEach((header, idx) => {
-    for (const [field, patterns] of Object.entries(matchers)) {
-      if (patterns.some(p => p.test(header)) && !Object.values(mapping).includes(field)) {
-        mapping[idx] = field;
-        break;
-      }
+  const cols = {
+    txn_date: colIdx(['transaction date', 'txn date', 'date']),
+    rep: colIdx(['1099 rep', 'rep original', 'sales rep', 'rep']),
+    num: colIdx(['num', 'invoice num', 'invoice no', 'number']),
+    comm_paid: colIdx(['comm paid', 'comm', 'paid']),
+    date: colIdx(['date']),
+    due_date: colIdx(['due date']),
+    txn_type: colIdx(['transaction type', 'type']),
+    customer: colIdx(['customer']),
+    product: colIdx(['product/service', 'product', 'service', 'item']),
+    amount: colIdx(['amount']),
+    sales_manager: colIdx(['sales manager', 'manager']),
+  };
+
+  if (cols.txn_date === -1 && cols.date === -1) {
+    return { error: 'Could not find a date column in the report.' };
+  }
+  if (cols.amount === -1) {
+    return { error: 'Could not find an Amount column in the report.' };
+  }
+  if (cols.customer === -1) {
+    return { error: 'Could not find a Customer column in the report.' };
+  }
+
+  const dataRows = raw.slice(headerRowIdx + 1);
+  const invoices = [];
+  let currentMonth = null;
+
+  for (const row of dataRows) {
+    if (!row || row.every(c => c == null || String(c).trim() === '')) continue;
+
+    const firstCell = String(row[0] ?? '').trim();
+    const secondCell = String(row[1] ?? '').trim();
+
+    if (firstCell && !secondCell && row.slice(1).every(c => c == null || String(c).trim() === '')) {
+      currentMonth = firstCell;
+      continue;
     }
-    if (mapping[idx] == null) mapping[idx] = '';
-  });
-  return mapping;
+    if (firstCell.toLowerCase().startsWith('total for') || firstCell.toLowerCase().startsWith('paid')) {
+      continue;
+    }
+
+    const amount = parseAmount(cols.amount !== -1 ? row[cols.amount] : null);
+    const customer = cols.customer !== -1 ? String(row[cols.customer] ?? '').trim() : '';
+    const txnDate = cols.txn_date !== -1 ? row[cols.txn_date] : (cols.date !== -1 ? row[cols.date] : null);
+
+    if (!customer && amount === 0) continue;
+    if (!customer) continue;
+
+    const invoiceDateISO = excelDateToISO(txnDate);
+    const dueDateISO = cols.due_date !== -1 ? excelDateToISO(row[cols.due_date]) : null;
+    const commDateISO = cols.date !== -1 && cols.date !== cols.txn_date ? excelDateToISO(row[cols.date]) : null;
+
+    const num = cols.num !== -1 ? String(row[cols.num] ?? '').trim() : '';
+    const rep = cols.rep !== -1 ? String(row[cols.rep] ?? '').trim() : '';
+    const txnType = cols.txn_type !== -1 ? String(row[cols.txn_type] ?? '').trim() : 'Invoice';
+    const product = cols.product !== -1 ? String(row[cols.product] ?? '').trim() : '';
+    const salesManager = cols.sales_manager !== -1 ? String(row[cols.sales_manager] ?? '').trim() : '';
+    const commPaid = cols.comm_paid !== -1 ? String(row[cols.comm_paid] ?? '').toLowerCase().trim() : '';
+
+    invoices.push({
+      invoice_number: num || `${customer}-${invoiceDateISO}`,
+      customer_name: customer,
+      invoice_date: invoiceDateISO,
+      due_date: dueDateISO,
+      total_amount: amount,
+      balance: amount,
+      status: txnType || 'Invoice',
+      month_group: currentMonth,
+      rep_name: rep,
+      product_service: product,
+      sales_manager: salesManager,
+      comm_paid: commPaid === 'yes',
+    });
+  }
+
+  return { invoices, headers, cols };
 }
 
 export default function InvoicesTab() {
@@ -110,10 +184,10 @@ export default function InvoicesTab() {
 
   const [showUpload, setShowUpload] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [parsedFile, setParsedFile] = useState(null);
-  const [columnMapping, setColumnMapping] = useState({});
+  const [parsedData, setParsedData] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [parseError, setParseError] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -171,87 +245,84 @@ export default function InvoicesTab() {
 
   function processFile(file) {
     setImportResult(null);
+    setParseError(null);
     setError(null);
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target.result;
-      const { headers, rows } = parseCSV(text);
-      if (!headers.length) {
-        setError('Could not parse the file. Make sure it is a valid CSV with headers.');
-        return;
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const result = parseQBXlsx(workbook);
+
+        if (result.error) {
+          setParseError(result.error);
+          return;
+        }
+        if (!result.invoices.length) {
+          setParseError('No invoice rows found in the file. Make sure this is a 1099 Sales Rep Report exported from QuickBooks.');
+          return;
+        }
+        setParsedData({ filename: file.name, ...result });
+      } catch (err) {
+        setParseError(`Failed to read file: ${err.message}`);
       }
-      const mapping = autoMapColumns(headers);
-      setParsedFile({ filename: file.name, headers, rows, preview: rows.slice(0, 5) });
-      setColumnMapping(mapping);
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
-
-  function getMappedValue(row, fieldName) {
-    const colIdx = Object.entries(columnMapping).find(([, f]) => f === fieldName)?.[0];
-    return colIdx != null ? row[parseInt(colIdx)] : undefined;
-  }
-
-  const mappedRequiredFields = REQUIRED_FIELDS.filter(f =>
-    Object.values(columnMapping).includes(f)
-  );
-  const missingRequired = REQUIRED_FIELDS.filter(f => !Object.values(columnMapping).includes(f));
-  const canImport = missingRequired.length === 0 && parsedFile?.rows?.length > 0;
 
   async function handleImport() {
-    if (!canImport) return;
+    if (!parsedData?.invoices?.length) return;
     setImporting(true);
-    setError(null);
+    setParseError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { data: batch, error: batchError } = await supabase
         .from('qb_import_batches')
         .insert({
-          filename: parsedFile.filename,
+          filename: parsedData.filename,
           imported_by: user?.id,
-          row_count: parsedFile.rows.length,
+          row_count: parsedData.invoices.length,
           status: 'Success',
+          notes: `QB 1099 Sales Rep Report — ${parsedData.invoices.length} line items`,
         })
         .select()
         .single();
       if (batchError) throw batchError;
 
-      const invoicesToInsert = parsedFile.rows
-        .filter(row => row.some(cell => cell?.trim()))
-        .map(row => ({
-          qbo_invoice_id: getMappedValue(row, 'qbo_invoice_id') || `import-${batch.id}-${Math.random().toString(36).slice(2)}`,
-          invoice_number: getMappedValue(row, 'invoice_number') || '',
-          customer_name: getMappedValue(row, 'customer_name') || '',
-          customer_email: getMappedValue(row, 'customer_email') || null,
-          invoice_date: getMappedValue(row, 'invoice_date') || null,
-          total_amount: parseAmount(getMappedValue(row, 'total_amount')),
-          balance: parseAmount(getMappedValue(row, 'balance')),
-          due_date: getMappedValue(row, 'due_date') || null,
-          status: getMappedValue(row, 'status') || 'Unpaid',
-          import_batch_id: batch.id,
-        }));
+      const toInsert = parsedData.invoices.map((inv, i) => ({
+        qbo_invoice_id: `${batch.id}-${i}-${inv.invoice_number}`,
+        invoice_number: inv.invoice_number,
+        customer_name: inv.customer_name,
+        customer_email: null,
+        invoice_date: inv.invoice_date,
+        due_date: inv.due_date,
+        total_amount: inv.total_amount,
+        balance: inv.balance,
+        status: inv.status || 'Invoice',
+        import_batch_id: batch.id,
+      }));
 
       const { error: invError } = await supabase
         .from('qbo_invoices')
-        .upsert(invoicesToInsert, { onConflict: 'qbo_invoice_id' });
+        .insert(toInsert);
       if (invError) throw invError;
 
-      setImportResult({ count: invoicesToInsert.length, batchId: batch.id });
-      setParsedFile(null);
-      setColumnMapping({});
+      setImportResult({ count: toInsert.length, filename: parsedData.filename });
+      setParsedData(null);
       await loadAll();
     } catch (err) {
-      setError(err.message);
+      setParseError(err.message);
     } finally {
       setImporting(false);
     }
   }
 
   function resetUpload() {
-    setParsedFile(null);
-    setColumnMapping({});
+    setParsedData(null);
     setImportResult(null);
+    setParseError(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -268,6 +339,10 @@ export default function InvoicesTab() {
   const totalFiltered = filtered.reduce((s, i) => s + (i.total_amount ?? 0), 0);
   const unassigned = filtered.filter(i => !i.sales_rep_id).length;
 
+  const monthGroups = parsedData?.invoices
+    ? [...new Set(parsedData.invoices.map(i => i.month_group).filter(Boolean))]
+    : [];
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -277,7 +352,7 @@ export default function InvoicesTab() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setShowUpload(v => !v); setImportResult(null); }}
+            onClick={() => { setShowUpload(v => !v); resetUpload(); }}
             className="flex items-center gap-2 px-3 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Upload className="w-4 h-4" />
@@ -298,7 +373,7 @@ export default function InvoicesTab() {
           <div className="flex items-center justify-between">
             <h3 className="text-white font-semibold flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-teal-400" />
-              Import QuickBooks Report
+              Import QuickBooks 1099 Sales Rep Report
             </h3>
             <button onClick={() => { setShowUpload(false); resetUpload(); }} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
               <X className="w-4 h-4" />
@@ -308,7 +383,7 @@ export default function InvoicesTab() {
           <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300">
             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div>
-              Export an <strong>Invoice</strong> report from QuickBooks (CSV format) and upload it here. The system will auto-detect column headers and let you map them before importing.
+              In QuickBooks, run the <strong>1099 Sales Rep Report</strong> and export it as <strong>Excel (.xlsx)</strong>. Upload the file here — the system will automatically detect the grouped rows, skip subtotals, and import each line item.
             </div>
           </div>
 
@@ -319,7 +394,9 @@ export default function InvoicesTab() {
               </div>
               <div>
                 <p className="text-white font-semibold text-lg">Import Successful</p>
-                <p className="text-slate-400 text-sm mt-1">{importResult.count} invoices imported from <span className="text-teal-400">{parsedFile?.filename || 'report'}</span></p>
+                <p className="text-slate-400 text-sm mt-1">
+                  <span className="text-teal-400 font-medium">{importResult.count}</span> line items imported from <span className="text-slate-300">{importResult.filename}</span>
+                </p>
               </div>
               <button
                 onClick={() => { resetUpload(); setShowUpload(false); }}
@@ -328,31 +405,39 @@ export default function InvoicesTab() {
                 Done
               </button>
             </div>
-          ) : !parsedFile ? (
+          ) : !parsedData ? (
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleFileDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
                 dragOver ? 'border-teal-400 bg-teal-500/10' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-700/30'
               }`}
             >
-              <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileDrop} />
-              <Upload className="w-10 h-10 mx-auto mb-3 text-slate-500" />
-              <p className="text-white font-medium mb-1">Drop your QB report CSV here</p>
-              <p className="text-slate-500 text-sm">or click to browse — CSV files only</p>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileDrop} />
+              <FileSpreadsheet className="w-10 h-10 mx-auto mb-3 text-slate-500" />
+              <p className="text-white font-medium mb-1">Drop your QB Excel report here</p>
+              <p className="text-slate-500 text-sm">or click to browse — .xlsx files only</p>
+              {parseError && (
+                <div className="mt-4 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-left">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />{parseError}
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-teal-400" />
+                    <FileSpreadsheet className="w-5 h-5 text-teal-400" />
                   </div>
                   <div>
-                    <p className="text-white font-medium text-sm">{parsedFile.filename}</p>
-                    <p className="text-slate-500 text-xs">{parsedFile.rows.length} rows · {parsedFile.headers.length} columns detected</p>
+                    <p className="text-white font-medium text-sm">{parsedData.filename}</p>
+                    <p className="text-slate-500 text-xs">
+                      {parsedData.invoices.length} line items
+                      {monthGroups.length > 0 && ` · ${monthGroups.length} month group${monthGroups.length !== 1 ? 's' : ''}`}
+                    </p>
                   </div>
                 </div>
                 <button onClick={resetUpload} className="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition-colors">
@@ -360,86 +445,78 @@ export default function InvoicesTab() {
                 </button>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-slate-300">Map Columns</p>
-                  {missingRequired.length > 0 ? (
-                    <span className="text-xs text-amber-400 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Missing: {missingRequired.map(f => QBO_FIELD_OPTIONS.find(o => o.value === f)?.label.replace(' *', '')).join(', ')}
+              {monthGroups.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {monthGroups.map(m => (
+                    <span key={m} className="px-2.5 py-1 bg-slate-700/50 border border-slate-600/50 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+                      <Tag className="w-3 h-3 text-teal-400" />{m}
                     </span>
-                  ) : (
-                    <span className="text-xs text-emerald-400 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> All required fields mapped
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {parsedFile.headers.map((header, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2.5 bg-slate-700/40 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-slate-400 truncate font-mono">{header}</p>
-                        {parsedFile.preview[0]?.[idx] && (
-                          <p className="text-xs text-slate-600 truncate mt-0.5 italic">{parsedFile.preview[0][idx]}</p>
-                        )}
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                      <select
-                        value={columnMapping[idx] ?? ''}
-                        onChange={e => setColumnMapping(prev => ({ ...prev, [idx]: e.target.value }))}
-                        className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-teal-500 transition-colors w-52 flex-shrink-0"
-                      >
-                        {QBO_FIELD_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
                   ))}
                 </div>
+              )}
+
+              <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+                <table className="w-full text-xs min-w-max">
+                  <thead>
+                    <tr className="bg-slate-700/50">
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Month</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Date</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Customer</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Product/Service</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Rep</th>
+                      <th className="px-3 py-2.5 text-left text-slate-400 font-medium">Type</th>
+                      <th className="px-3 py-2.5 text-right text-slate-400 font-medium">Amount</th>
+                      <th className="px-3 py-2.5 text-center text-slate-400 font-medium">Comm Paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedData.invoices.slice(0, 10).map((inv, i) => (
+                      <tr key={i} className="border-t border-slate-700/40 hover:bg-slate-700/20">
+                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{inv.month_group || '—'}</td>
+                        <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatDate(inv.invoice_date)}</td>
+                        <td className="px-3 py-2 text-slate-200 whitespace-nowrap max-w-40 truncate">{inv.customer_name}</td>
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap max-w-40 truncate">{inv.product_service || '—'}</td>
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv.rep_name || '—'}</td>
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{inv.status}</td>
+                        <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${inv.total_amount < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</td>
+                        <td className="px-3 py-2 text-center">
+                          {inv.comm_paid ? <Check className="w-3.5 h-3.5 text-emerald-400 mx-auto" /> : <span className="text-slate-600">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                    {parsedData.invoices.length > 10 && (
+                      <tr className="border-t border-slate-700/40">
+                        <td colSpan={8} className="px-3 py-2 text-center text-slate-500 italic">
+                          ... and {parsedData.invoices.length - 10} more rows
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              {parsedFile.preview.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Preview (first {parsedFile.preview.length} rows)</p>
-                  <div className="overflow-x-auto rounded-lg border border-slate-700/60">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-700/50">
-                          {parsedFile.headers.map((h, i) => (
-                            <th key={i} className="px-3 py-2 text-left text-slate-400 font-medium whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parsedFile.preview.map((row, ri) => (
-                          <tr key={ri} className="border-t border-slate-700/40 hover:bg-slate-700/20">
-                            {row.map((cell, ci) => (
-                              <td key={ci} className="px-3 py-2 text-slate-300 whitespace-nowrap max-w-32 truncate">{cell}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {error && (
+              {parseError && (
                 <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />{parseError}
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-700">
-                <button onClick={resetUpload} className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
-                <button
-                  onClick={handleImport}
-                  disabled={!canImport || importing}
-                  className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {importing ? 'Importing...' : `Import ${parsedFile.rows.length} Invoices`}
-                </button>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                <p className="text-sm text-slate-400">
+                  <span className="text-white font-medium">{parsedData.invoices.length}</span> line items will be imported.
+                  You can assign sales reps and commission periods after import.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button onClick={resetUpload} className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
+                  <button
+                    onClick={handleImport}
+                    disabled={importing}
+                    className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {importing ? 'Importing...' : `Import ${parsedData.invoices.length} Items`}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -477,7 +554,7 @@ export default function InvoicesTab() {
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
           <option value="">All Statuses</option>
-          {['Paid', 'Unpaid', 'Partially Paid', 'Overdue', 'Voided'].map(s => <option key={s}>{s}</option>)}
+          {['Invoice', 'Paid', 'Unpaid', 'Partially Paid', 'Overdue', 'Voided'].map(s => <option key={s}>{s}</option>)}
         </select>
         <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}
           className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
@@ -494,10 +571,10 @@ export default function InvoicesTab() {
         <div className="text-center py-16 text-slate-500">
           <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-base font-medium">No invoices found</p>
-          <p className="text-sm mt-1">Import a QuickBooks report to get started.</p>
+          <p className="text-sm mt-1">Import a QuickBooks 1099 Sales Rep Report to get started.</p>
           <button
             onClick={() => setShowUpload(true)}
-            className="mt-4 flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors mx-auto"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Upload className="w-4 h-4" /> Import QB Report
           </button>
@@ -513,15 +590,15 @@ export default function InvoicesTab() {
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
                   <div>
                     <p className="text-white font-medium text-sm truncate">{inv.customer_name}</p>
-                    <p className="text-slate-500 text-xs">{inv.invoice_number || inv.qbo_invoice_id}</p>
+                    <p className="text-slate-500 text-xs">{inv.invoice_number}</p>
                   </div>
-                  <div className="text-sm">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[inv.status] || STATUS_COLORS['Unpaid']}`}>
-                      {inv.status || 'Unpaid'}
+                  <div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[inv.status] || STATUS_COLORS['Invoice']}`}>
+                      {inv.status || 'Invoice'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-white font-semibold text-sm">{fmt(inv.total_amount)}</p>
+                    <p className={`font-semibold text-sm ${(inv.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</p>
                     <p className="text-slate-500 text-xs">{formatDate(inv.invoice_date)}</p>
                   </div>
                   <div>
@@ -568,22 +645,22 @@ export default function InvoicesTab() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Customer Email</label>
-                      <p className="text-sm text-slate-300 pt-2">{inv.customer_email || '—'}</p>
+                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Due Date</label>
+                      <p className="text-sm text-slate-300 pt-2">{formatDate(inv.due_date)}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="bg-slate-700/30 rounded-lg p-3">
                       <p className="text-xs text-slate-500 uppercase">Invoice Total</p>
-                      <p className="text-white font-semibold mt-0.5">{fmt(inv.total_amount)}</p>
+                      <p className={`font-semibold mt-0.5 ${(inv.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
                       <p className="text-xs text-slate-500 uppercase">Balance Due</p>
                       <p className="text-white font-semibold mt-0.5">{fmt(inv.balance)}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Due Date</p>
-                      <p className="text-white font-semibold mt-0.5">{formatDate(inv.due_date)}</p>
+                      <p className="text-xs text-slate-500 uppercase">Period</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm truncate">{inv.commission_periods?.name || '—'}</p>
                     </div>
                   </div>
                 </div>
