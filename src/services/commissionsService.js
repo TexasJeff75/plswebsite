@@ -261,7 +261,7 @@ export const commissionReportsService = {
         commission_periods(*),
         commission_report_items(
           *,
-          qbo_invoices(invoice_number, customer_name, invoice_date, total_amount, status)
+          qbo_invoices(invoice_number, num, customer_name, invoice_date, transaction_date, total_amount, status, ar_paid, product_service)
         )
       `)
       .eq('id', id)
