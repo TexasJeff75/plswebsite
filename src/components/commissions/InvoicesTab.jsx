@@ -352,7 +352,7 @@ export default function InvoicesTab() {
 
       const deduped = Object.values(
         toUpsert.reduce((acc, row) => {
-          const key = `${row.transaction_date}|${row.num}|${row.customer_name}|${row.product_service}`;
+          const key = `${row.transaction_date}|${row.num}|${row.customer_name}|${row.product_service}|${row.amount}`;
           acc[key] = row;
           return acc;
         }, {})
@@ -365,7 +365,7 @@ export default function InvoicesTab() {
         const { error: invError } = await supabase
           .from('qbo_invoices')
           .upsert(chunk, {
-            onConflict: 'transaction_date,num,customer_name,product_service',
+            onConflict: 'transaction_date,num,customer_name,product_service,total_amount',
             ignoreDuplicates: false,
           });
         if (invError) throw invError;
