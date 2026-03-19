@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Printer, Loader } from 'lucide-react';
+import { X, Printer, Loader, Send } from 'lucide-react';
 import { commissionReportsService } from '../../services/commissionsService';
 
 
@@ -288,7 +288,7 @@ ${r.notes ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radi
 </html>`;
 }
 
-export default function CommissionPDFGenerator({ report, onClose }) {
+export default function CommissionPDFGenerator({ report, onClose, onSend, sendLabel }) {
   const frameRef = useRef(null);
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(true);
@@ -330,11 +330,21 @@ export default function CommissionPDFGenerator({ report, onClose }) {
           <button
             onClick={handlePrint}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Printer className="w-4 h-4" />
             Print / Save PDF
           </button>
+          {onSend && (
+            <button
+              onClick={onSend}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Send className="w-4 h-4" />
+              {sendLabel || 'Confirm & Send'}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"

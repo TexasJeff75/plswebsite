@@ -46,6 +46,7 @@ export default function ReportsTab() {
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [pdfReport, setPdfReport] = useState(null);
+  const [emailPreviewReport, setEmailPreviewReport] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
   const [repHistory, setRepHistory] = useState(null);
 
@@ -140,7 +141,12 @@ export default function ReportsTab() {
   }
 
   async function handleEmailSend(report) {
+    setEmailPreviewReport(report);
+  }
+
+  async function handleConfirmSend(report) {
     setActionLoading(prev => ({ ...prev, [report.id]: 'emailing' }));
+    setEmailPreviewReport(null);
     try {
       await commissionReportsService.markEmailed(report.id);
       await loadAll();
@@ -538,6 +544,15 @@ export default function ReportsTab() {
 
       {pdfReport && (
         <CommissionPDFGenerator report={pdfReport} onClose={() => setPdfReport(null)} />
+      )}
+
+      {emailPreviewReport && (
+        <CommissionPDFGenerator
+          report={emailPreviewReport}
+          onClose={() => setEmailPreviewReport(null)}
+          onSend={() => handleConfirmSend(emailPreviewReport)}
+          sendLabel="Confirm & Mark Sent"
+        />
       )}
     </div>
   );
