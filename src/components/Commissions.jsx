@@ -10,6 +10,7 @@ import ReportsTab from './commissions/ReportsTab';
 import PeriodsTab from './commissions/PeriodsTab';
 import RulesTab from './commissions/RulesTab';
 import BillComTab from './commissions/BillComTab';
+import CommissionSettingsTab from './commissions/CommissionSettingsTab';
 
 const TABS = [
   { id: 'reports', label: 'Reports', icon: FileText, desc: 'Generate & approve commission reports' },
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'periods', label: 'Periods', icon: Calendar, desc: 'Commission billing periods' },
   { id: 'rules', label: 'Rules', icon: Settings, desc: 'Commission rate rules' },
   { id: 'billcom', label: 'Bill.com', icon: Building2, desc: 'Create & track payables' },
+  { id: 'settings', label: 'Settings', icon: Settings, desc: 'Commission email & configuration settings' },
 ];
 
 export default function Commissions() {
@@ -86,6 +88,7 @@ export default function Commissions() {
         {activeTab === 'periods' && <PeriodsTab />}
         {activeTab === 'rules' && <RulesTab />}
         {activeTab === 'billcom' && <BillComTab />}
+        {activeTab === 'settings' && <CommissionSettingsTab />}
       </div>
     </div>
   );
