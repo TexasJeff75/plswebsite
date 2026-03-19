@@ -1,4 +1,3 @@
-const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -27,6 +26,15 @@ exports.handler = async (event, context) => {
         statusCode: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Unauthorized' }),
+      };
+    }
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Email service not configured', details: 'RESEND_API_KEY is not set.' }),
       };
     }
 
@@ -79,11 +87,18 @@ exports.handler = async (event, context) => {
       .eq('id', reportId)
       .maybeSingle();
 
-    if (reportError || !report) {
+    if (reportError) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Report query failed', details: reportError.message }),
+      };
+    }
+    if (!report) {
       return {
         statusCode: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Report not found', details: reportError?.message }),
+        body: JSON.stringify({ error: 'Report not found', details: `No report found with id: ${reportId}` }),
       };
     }
 
@@ -123,54 +138,45 @@ exports.handler = async (event, context) => {
     const emailText = buildEmailText(report);
     const pdfHtml = buildPdfHtml(report);
 
-    const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
-    const SMTP_USER = process.env.SMTP_USER;
-    const SMTP_PASS = process.env.SMTP_PASS;
-    const SMTP_FROM = process.env.SMTP_FROM || 'noreply@proximitylabservices.com';
+    const fromEmail = process.env.EMAIL_FROM || 'Proximity Lab Services <noreply@proximitylabservices.com>';
 
-    if (!SMTP_USER || !SMTP_PASS) {
-      console.log('SMTP not configured — would send commission report to:', repEmail);
-      return {
-        statusCode: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: true,
-          message: 'Email service not configured — report created but email not sent',
-          sentTo: repEmail,
-          subject,
-        }),
-      };
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
-
-    const mailOptions = {
-      from: `"Proximity Lab Services" <${SMTP_FROM}>`,
-      to: repEmail,
+    const emailPayload = {
+      from: fromEmail,
+      to: [repEmail],
       subject,
-      text: emailText,
       html: emailHtml,
-      replyTo: 'info@proximitylabservices.com',
+      text: emailText,
+      reply_to: 'info@proximitylabservices.com',
       attachments: [
         {
           filename: `Commission_Report_${report.report_number}_${repName.replace(/\s+/g, '_')}.html`,
-          content: pdfHtml,
-          contentType: 'text/html',
+          content: Buffer.from(pdfHtml).toString('base64'),
+          content_type: 'text/html',
         },
       ],
     };
 
     if (ccEmails.length > 0) {
-      mailOptions.cc = ccEmails.join(', ');
+      emailPayload.cc = ccEmails;
     }
 
-    await transporter.sendMail(mailOptions);
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailPayload),
+    });
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json();
+      console.error('Resend API error:', errorData);
+      throw new Error(errorData.message || 'Failed to send email via Resend');
+    }
+
+    const result = await resendResponse.json();
+    console.log('Commission report email sent:', result.id);
 
     await supabase
       .from('commission_reports')
@@ -181,14 +187,13 @@ exports.handler = async (event, context) => {
       })
       .eq('id', reportId);
 
-    console.log('Commission report email sent to:', repEmail);
-
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
         message: 'Commission report emailed successfully',
+        emailId: result.id,
         sentTo: repEmail,
         cc: ccEmails,
         subject,
