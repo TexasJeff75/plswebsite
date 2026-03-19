@@ -407,8 +407,52 @@ export default function InvoicesTab() {
     return true;
   });
 
-  const totalFiltered = filtered.reduce((s, i) => s + (i.total_amount ?? 0), 0);
-  const unassigned = filtered.filter(i => !i.sales_rep_id).length;
+  const groupedInvoices = Object.values(
+    filtered.reduce((acc, inv) => {
+      const key = `${inv.num}|${inv.customer_name}|${inv.invoice_date}`;
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          num: inv.num,
+          customer_name: inv.customer_name,
+          invoice_date: inv.invoice_date,
+          transaction_date: inv.transaction_date,
+          due_date: inv.due_date,
+          ar_paid: inv.ar_paid,
+          status: inv.status,
+          rep_name: inv.rep_name,
+          sales_rep_id: inv.sales_rep_id,
+          sales_reps: inv.sales_reps,
+          sales_manager_name: inv.sales_manager_name,
+          comm_paid: inv.comm_paid,
+          commission_period_id: inv.commission_period_id,
+          commission_periods: inv.commission_periods,
+          mixed_periods: false,
+          line_items: [],
+          total_amount: 0,
+          representative_id: inv.id,
+        };
+      }
+      acc[key].line_items.push(inv);
+      acc[key].total_amount += (inv.total_amount ?? 0);
+      if (acc[key].commission_period_id && inv.commission_period_id &&
+          acc[key].commission_period_id !== inv.commission_period_id) {
+        acc[key].mixed_periods = true;
+      }
+      if (!acc[key].commission_period_id && inv.commission_period_id) {
+        acc[key].commission_period_id = inv.commission_period_id;
+        acc[key].commission_periods = inv.commission_periods;
+      }
+      if (!acc[key].sales_rep_id && inv.sales_rep_id) {
+        acc[key].sales_rep_id = inv.sales_rep_id;
+        acc[key].sales_reps = inv.sales_reps;
+      }
+      return acc;
+    }, {})
+  );
+
+  const totalFiltered = groupedInvoices.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const unassigned = groupedInvoices.filter(i => !i.sales_rep_id).length;
 
   const uniqueReps = parsedData?.invoices
     ? [...new Set(parsedData.invoices.map(i => i.rep_name).filter(Boolean))]
@@ -419,7 +463,7 @@ export default function InvoicesTab() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold text-white">QB Invoices</h2>
-          <p className="text-sm text-slate-400">{filtered.length} invoices · {fmt(totalFiltered)} total</p>
+          <p className="text-sm text-slate-400">{groupedInvoices.length} invoices · {fmt(totalFiltered)} total</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -674,23 +718,29 @@ export default function InvoicesTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(inv => (
-            <div key={inv.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden hover:border-slate-600/60 transition-colors">
+          {groupedInvoices.map(inv => (
+            <div key={inv.key} className="bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden hover:border-slate-600/60 transition-colors">
               <button
-                onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+                onClick={() => setExpandedId(expandedId === inv.key ? null : inv.key)}
                 className="w-full px-5 py-4 flex items-center gap-4 text-left"
               >
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
                   <div className="col-span-2 md:col-span-1">
                     <p className="text-white font-medium text-sm truncate">{inv.customer_name}</p>
-                    <p className="text-slate-500 text-xs">{inv.product_service || inv.num || '—'}</p>
+                    <p className="text-slate-500 text-xs">
+                      #{inv.num || '—'}
+                      {inv.line_items.length > 1 && <span className="ml-1.5 text-slate-600">· {inv.line_items.length} line items</span>}
+                    </p>
                   </div>
-                  <div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[inv.ar_paid] || STATUS_COLORS[inv.status] || STATUS_COLORS['Invoice']}`}>
+                  <div className="flex flex-col gap-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border w-fit ${STATUS_COLORS[inv.ar_paid] || STATUS_COLORS[inv.status] || STATUS_COLORS['Invoice']}`}>
                       {inv.ar_paid || inv.status || 'Invoice'}
                     </span>
+                    {inv.mixed_periods && (
+                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-xs w-fit">Mixed Periods</span>
+                    )}
                     {inv.comm_paid && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded text-xs">Comm Paid</span>
+                      <span className="px-1.5 py-0.5 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded text-xs w-fit">Comm Paid</span>
                     )}
                   </div>
                   <div>
@@ -699,7 +749,7 @@ export default function InvoicesTab() {
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs">{inv.rep_name || '—'}</p>
-                    <p className="text-slate-600 text-xs">#{inv.num || '—'}</p>
+                    <p className="text-slate-500 text-xs">{inv.commission_periods?.name || (inv.mixed_periods ? 'Multiple' : '—')}</p>
                   </div>
                   <div>
                     {inv.sales_reps ? (
@@ -714,18 +764,28 @@ export default function InvoicesTab() {
                     )}
                   </div>
                 </div>
-                {expandedId === inv.id ? <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-500 flex-shrink-0" />}
+                {expandedId === inv.key ? <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-500 flex-shrink-0" />}
               </button>
 
-              {expandedId === inv.id && (
+              {expandedId === inv.key && (
                 <div className="px-5 pb-5 border-t border-slate-700/60 pt-4 space-y-4">
+                  {inv.mixed_periods && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-300">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Invoice spans multiple periods</p>
+                        <p className="text-amber-400/70 text-xs mt-0.5">Line items from this invoice are assigned to different commission periods. Use the per-line controls below to reassign them.</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Assign Sales Rep</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Assign Sales Rep (all lines)</label>
                       <select
                         value={inv.sales_rep_id || ''}
-                        onChange={e => handleAssignRep(inv.id, e.target.value)}
-                        disabled={assigning[`rep_${inv.id}`]}
+                        onChange={e => Promise.all(inv.line_items.map(li => handleAssignRep(li.id, e.target.value)))}
+                        disabled={inv.line_items.some(li => assigning[`rep_${li.id}`])}
                         className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors"
                       >
                         <option value="">-- None --</option>
@@ -733,14 +793,14 @@ export default function InvoicesTab() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Commission Period</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Commission Period (all lines)</label>
                       <select
-                        value={inv.commission_period_id || ''}
-                        onChange={e => handleAssignPeriod(inv.id, e.target.value)}
-                        disabled={assigning[`period_${inv.id}`]}
+                        value={inv.mixed_periods ? '' : (inv.commission_period_id || '')}
+                        onChange={e => Promise.all(inv.line_items.map(li => handleAssignPeriod(li.id, e.target.value)))}
+                        disabled={inv.line_items.some(li => assigning[`period_${li.id}`])}
                         className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors"
                       >
-                        <option value="">-- None --</option>
+                        <option value="">{inv.mixed_periods ? '-- Mixed (select to unify) --' : '-- None --'}</option>
                         {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                     </div>
@@ -749,14 +809,60 @@ export default function InvoicesTab() {
                       <p className="text-sm text-slate-300 pt-2">{formatDate(inv.due_date)}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
-                    <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Amount</p>
-                      <p className={`font-semibold mt-0.5 ${(inv.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(inv.total_amount)}</p>
+
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase mb-2">Line Items</p>
+                    <div className="rounded-lg border border-slate-700/60 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-700/40">
+                            <th className="px-3 py-2 text-left text-slate-400 font-medium">Product / Service</th>
+                            <th className="px-3 py-2 text-right text-slate-400 font-medium">Amount</th>
+                            <th className="px-3 py-2 text-left text-slate-400 font-medium">Txn Date</th>
+                            <th className="px-3 py-2 text-left text-slate-400 font-medium">Period</th>
+                            <th className="px-3 py-2 text-left text-slate-400 font-medium">Reassign Period</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inv.line_items.map(li => (
+                            <tr key={li.id} className="border-t border-slate-700/40 hover:bg-slate-700/20">
+                              <td className="px-3 py-2 text-slate-200">{li.product_service || '—'}</td>
+                              <td className={`px-3 py-2 text-right font-medium ${(li.total_amount ?? 0) < 0 ? 'text-red-400' : 'text-white'}`}>{fmt(li.total_amount)}</td>
+                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{formatDate(li.transaction_date)}</td>
+                              <td className="px-3 py-2">
+                                {li.commission_periods?.name ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 text-xs">{li.commission_periods.name}</span>
+                                ) : <span className="text-slate-600">—</span>}
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  value={li.commission_period_id || ''}
+                                  onChange={e => handleAssignPeriod(li.id, e.target.value)}
+                                  disabled={assigning[`period_${li.id}`]}
+                                  className="bg-slate-700/50 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-teal-500 transition-colors"
+                                >
+                                  <option value="">-- None --</option>
+                                  {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-slate-600/60 bg-slate-700/30">
+                            <td className="px-3 py-2 text-slate-400 font-medium">Total</td>
+                            <td className="px-3 py-2 text-right text-white font-semibold">{fmt(inv.total_amount)}</td>
+                            <td colSpan={3} />
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
                     <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Txn Date</p>
-                      <p className="text-white font-semibold mt-0.5 text-sm">{formatDate(inv.transaction_date)}</p>
+                      <p className="text-xs text-slate-500 uppercase">Invoice Date</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm">{formatDate(inv.invoice_date)}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
                       <p className="text-xs text-slate-500 uppercase">Due Date</p>
@@ -767,8 +873,8 @@ export default function InvoicesTab() {
                       <p className="text-white font-semibold mt-0.5 text-sm truncate">{inv.sales_manager_name || '—'}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 uppercase">Period</p>
-                      <p className="text-white font-semibold mt-0.5 text-sm truncate">{inv.commission_periods?.name || '—'}</p>
+                      <p className="text-xs text-slate-500 uppercase">Line Items</p>
+                      <p className="text-white font-semibold mt-0.5 text-sm">{inv.line_items.length}</p>
                     </div>
                   </div>
                 </div>
