@@ -234,6 +234,20 @@ export const commissionCalculationsService = {
 };
 
 export const commissionReportsService = {
+  async getHistoryForRep(salesRepId) {
+    const { data, error } = await supabase
+      .from('commission_reports')
+      .select(`
+        id, report_number, status, created_at, approved_at, period_start, period_end,
+        total_invoices, total_invoice_amount, total_commission_amount, rejection_reason,
+        commission_periods(id, name)
+      `)
+      .eq('sales_rep_id', salesRepId)
+      .order('period_start', { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+
   async getAll(filters = {}) {
     let query = supabase
       .from('commission_reports')

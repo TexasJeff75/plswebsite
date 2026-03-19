@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download } from 'lucide-react';
+import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download, Clock } from 'lucide-react';
 import {
   commissionReportsService,
   salesRepsService,
@@ -47,6 +47,7 @@ export default function ReportsTab() {
   const [rejectReason, setRejectReason] = useState('');
   const [pdfReport, setPdfReport] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
+  const [repHistory, setRepHistory] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -152,8 +153,12 @@ export default function ReportsTab() {
 
   async function loadDetail(report) {
     try {
-      const detail = await commissionReportsService.getById(report.id);
+      const [detail, history] = await Promise.all([
+        commissionReportsService.getById(report.id),
+        commissionReportsService.getHistoryForRep(report.sales_rep_id)
+      ]);
       setDetailReport(detail);
+      setRepHistory(history);
       setExpandedId(report.id);
     } catch (err) {
       setError(err.message);
@@ -280,7 +285,7 @@ export default function ReportsTab() {
                     <Printer className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => expandedId === report.id ? setExpandedId(null) : loadDetail(report)}
+                    onClick={() => { if (expandedId === report.id) { setExpandedId(null); setRepHistory(null); } else { loadDetail(report); } }}
                     className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                   >
                     {expandedId === report.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -389,6 +394,61 @@ export default function ReportsTab() {
                       })()}
                     </div>
                   </div>
+
+                  {repHistory && repHistory.length > 0 && (
+                    <div className="px-5 pb-5 pt-1">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        Report History — {detailReport.sales_reps?.name}
+                      </p>
+                      <div className="relative">
+                        <div className="absolute left-[11px] top-0 bottom-0 w-px bg-slate-700/60" />
+                        <div className="space-y-0">
+                          {repHistory.map((hist, idx) => {
+                            const isCurrent = hist.id === detailReport.id;
+                            const statusDot = {
+                              'Draft': 'bg-slate-500',
+                              'Pending Approval': 'bg-amber-400',
+                              'Approved': 'bg-emerald-400',
+                              'Rejected': 'bg-red-400',
+                              'Paid': 'bg-blue-400',
+                              'Emailed': 'bg-teal-400',
+                            }[hist.status] || 'bg-slate-500';
+                            const statusText = {
+                              'Draft': 'text-slate-400 border-slate-500/30 bg-slate-500/10',
+                              'Pending Approval': 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+                              'Approved': 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+                              'Rejected': 'text-red-400 border-red-500/30 bg-red-500/10',
+                              'Paid': 'text-blue-400 border-blue-500/30 bg-blue-500/10',
+                              'Emailed': 'text-teal-400 border-teal-500/30 bg-teal-500/10',
+                            }[hist.status] || 'text-slate-400 border-slate-500/30 bg-slate-500/10';
+                            return (
+                              <div key={hist.id} className={`relative flex items-start gap-4 pl-7 py-3 rounded-lg transition-colors ${isCurrent ? 'bg-teal-500/5 border border-teal-500/15' : 'hover:bg-slate-700/20'}`}>
+                                <div className={`absolute left-[7px] top-[18px] w-2 h-2 rounded-full border-2 border-slate-900 ${statusDot} ${isCurrent ? 'w-2.5 h-2.5 left-[5.5px]' : ''}`} />
+                                <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-medium text-slate-200">{hist.commission_periods?.name || `${formatDate(hist.period_start)} – ${formatDate(hist.period_end)}`}</span>
+                                      {isCurrent && <span className="px-1.5 py-0.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 rounded text-xs font-medium">Current</span>}
+                                      <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${statusText}`}>{hist.status}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-0.5">{hist.report_number} · Generated {formatDate(hist.created_at)} · {hist.total_invoices} invoice{hist.total_invoices !== 1 ? 's' : ''}</p>
+                                    {hist.rejection_reason && (
+                                      <p className="text-xs text-red-400 mt-0.5 italic">Rejected: {hist.rejection_reason}</p>
+                                    )}
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <p className="text-sm font-semibold text-teal-400">{fmt(hist.total_commission_amount)}</p>
+                                    <p className="text-xs text-slate-500">{fmt(hist.total_invoice_amount)} invoiced</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {detailReport.rejection_reason && (
                     <div className="mx-5 mb-5 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-300">
