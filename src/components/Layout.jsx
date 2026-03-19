@@ -76,7 +76,7 @@ export default function Layout() {
     )},
   ];
 
-  const isAdmin = ['Proximity Admin', 'Proximity Staff', 'Customer Admin'].includes(profile?.role);
+  const isAdmin = ['Proximity Admin', 'Super Admin', 'Proximity Staff', 'Customer Admin'].includes(profile?.role);
 
   if (isAdmin) {
     navItems.push({
@@ -121,7 +121,7 @@ export default function Layout() {
     });
   }
 
-  if (['Proximity Admin', 'Proximity Staff'].includes(profile?.role)) {
+  if (['Proximity Admin', 'Super Admin', 'Proximity Staff'].includes(profile?.role)) {
     navItems.push({
       path: '/commissions',
       label: 'Commissions',

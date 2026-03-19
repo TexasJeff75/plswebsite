@@ -231,7 +231,7 @@ export const AuthProvider = ({ children }) => {
 
   const startImpersonation = async (targetUserId) => {
     try {
-      if (!profile || profile.role !== 'Proximity Admin') {
+      if (!profile || !['Proximity Admin', 'Super Admin'].includes(profile.role)) {
         throw new Error('Only Proximity Admins can impersonate users');
       }
 
@@ -244,7 +244,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
       if (!targetUserProfile) throw new Error('User not found');
 
-      if (targetUserProfile.role === 'Proximity Admin') {
+      if (['Proximity Admin', 'Super Admin'].includes(targetUserProfile.role)) {
         throw new Error('Cannot impersonate other admins');
       }
 
@@ -293,8 +293,9 @@ export const AuthProvider = ({ children }) => {
   const activeProfile = impersonatedProfile || profile;
   const isImpersonating = !!impersonatedUser;
 
-  const isProximityAdmin = activeProfile?.role === 'Proximity Admin';
-  const isProximityStaff = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(activeProfile?.role);
+  const isSuperAdmin = activeProfile?.role === 'Super Admin';
+  const isProximityAdmin = activeProfile?.role === 'Proximity Admin' || isSuperAdmin;
+  const isProximityStaff = ['Proximity Admin', 'Super Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(activeProfile?.role);
   const isCustomerAdmin = activeProfile?.role === 'Customer Admin';
   const isCustomerViewer = activeProfile?.role === 'Customer Viewer';
   const canEdit = isProximityStaff || isCustomerAdmin;
