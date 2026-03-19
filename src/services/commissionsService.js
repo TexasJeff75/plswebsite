@@ -380,8 +380,7 @@ export const commissionReportsService = {
 
   async sendEmail(reportId) {
     const { data: { session } } = await supabase.auth.getSession();
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const response = await fetch(`${supabaseUrl}/functions/v1/send-commission-report`, {
+    const response = await fetch('/.netlify/functions/send-commission-report', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session?.access_token}`,
