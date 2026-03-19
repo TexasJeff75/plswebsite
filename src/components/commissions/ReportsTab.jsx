@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download, Clock, RotateCcw } from 'lucide-react';
+import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download, Clock, RotateCcw, Trash2 } from 'lucide-react';
 import {
   commissionReportsService,
   salesRepsService,
@@ -53,6 +53,8 @@ export default function ReportsTab() {
   const [emailPreviewReport, setEmailPreviewReport] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
   const [repHistory, setRepHistory] = useState(null);
+  const [removingRejected, setRemovingRejected] = useState(false);
+  const [confirmRemoveRejected, setConfirmRemoveRejected] = useState(false);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -173,6 +175,19 @@ export default function ReportsTab() {
     }
   }
 
+  async function handleRemoveRejected() {
+    setRemovingRejected(true);
+    setConfirmRemoveRejected(false);
+    try {
+      await commissionReportsService.deleteRejected();
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRemovingRejected(false);
+    }
+  }
+
   async function loadDetail(report) {
     try {
       const [detail, history] = await Promise.all([
@@ -200,13 +215,25 @@ export default function ReportsTab() {
           <h2 className="text-lg font-semibold text-white">Commission Reports</h2>
           <p className="text-sm text-slate-400">{filtered.length} report{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={() => setGenerateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <FilePlus className="w-4 h-4" />
-          Generate Report
-        </button>
+        <div className="flex items-center gap-2">
+          {reports.some(r => r.status === 'Rejected') && (
+            <button
+              onClick={() => setConfirmRemoveRejected(true)}
+              disabled={removingRejected}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              {removingRejected ? 'Removing...' : 'Remove Rejected'}
+            </button>
+          )}
+          <button
+            onClick={() => setGenerateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <FilePlus className="w-4 h-4" />
+            Generate Report
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -579,6 +606,35 @@ export default function ReportsTab() {
           onSend={() => handleConfirmSend(emailPreviewReport)}
           sendLabel="Confirm & Mark Sent"
         />
+      )}
+
+      {confirmRemoveRejected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                </div>
+                <h3 className="text-white font-semibold text-lg">Remove Rejected Reports</h3>
+              </div>
+              <p className="text-slate-400 text-sm">
+                This will permanently delete all <span className="text-red-400 font-medium">{reports.filter(r => r.status === 'Rejected').length} rejected report{reports.filter(r => r.status === 'Rejected').length !== 1 ? 's' : ''}</span> and their line items. This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setConfirmRemoveRejected(false)} className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveRejected}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete All Rejected
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

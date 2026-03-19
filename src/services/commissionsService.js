@@ -384,6 +384,27 @@ export const commissionReportsService = {
     });
   },
 
+  async deleteRejected() {
+    const { data: rejected, error: fetchError } = await supabase
+      .from('commission_reports')
+      .select('id')
+      .eq('status', 'Rejected');
+    if (fetchError) throw fetchError;
+    if (!rejected || rejected.length === 0) return 0;
+    const ids = rejected.map(r => r.id);
+    const { error: itemsError } = await supabase
+      .from('commission_report_items')
+      .delete()
+      .in('report_id', ids);
+    if (itemsError) throw itemsError;
+    const { error: reportsError } = await supabase
+      .from('commission_reports')
+      .delete()
+      .in('id', ids);
+    if (reportsError) throw reportsError;
+    return ids.length;
+  },
+
   async markPaid(id, payableId) {
     const { data: items, error: itemsError } = await supabase
       .from('commission_report_items')
