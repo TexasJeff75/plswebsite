@@ -7,20 +7,28 @@ function fmt(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n ?? 0);
 }
 
+const TZ = 'America/Chicago';
+
+function toChicago(d) {
+  if (!d) return null;
+  const s = String(d);
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s.substring(0, 10)) && s.length === 10;
+  const dt = isDateOnly ? new Date(`${s}T12:00:00Z`) : new Date(d);
+  if (isNaN(dt)) return null;
+  return dt;
+}
+
 function fmtDate(d) {
-  if (!d) return '—';
-  const s = String(d).substring(0, 10);
-  const [y, m, day] = s.split('-').map(Number);
-  if (!y) return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dt = toChicago(d);
+  if (!dt) return '—';
+  return dt.toLocaleDateString('en-US', { timeZone: TZ, month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 function fmtDateShort(d) {
-  if (!d) return '—';
-  const s = String(d).substring(0, 10);
-  const [y, m, day] = s.split('-').map(Number);
-  if (!y) return '—';
-  return `${m}/${day}/${String(y).slice(-2)}`;
+  const dt = toChicago(d);
+  if (!dt) return '—';
+  const parts = dt.toLocaleDateString('en-US', { timeZone: TZ, month: 'numeric', day: 'numeric', year: '2-digit' }).split('/');
+  return parts.join('/');
 }
 
 function buildHtml(r, history = []) {

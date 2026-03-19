@@ -243,6 +243,8 @@ export const commissionReportsService = {
         commission_periods(id, name)
       `)
       .eq('sales_rep_id', salesRepId)
+      .neq('status', 'rejected')
+      .neq('status', 'Rejected')
       .order('period_start', { ascending: true });
     if (error) throw error;
     return data;
