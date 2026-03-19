@@ -438,7 +438,7 @@ export default function ReportsTab() {
                                       {isCurrent && <span className="px-1.5 py-0.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 rounded text-xs font-medium">Current</span>}
                                       <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${statusText}`}>{hist.status}</span>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-0.5">{hist.report_number} · Generated {formatDate(hist.created_at)} · {hist.total_invoices} invoice{hist.total_invoices !== 1 ? 's' : ''}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{hist.report_number} · Generated {formatDate(hist.created_at)} · {hist.unique_invoice_count ?? hist.total_invoices} invoice{(hist.unique_invoice_count ?? hist.total_invoices) !== 1 ? 's' : ''}</p>
                                     {hist.rejection_reason && (
                                       <p className="text-xs text-red-400 mt-0.5 italic">Rejected: {hist.rejection_reason}</p>
                                     )}

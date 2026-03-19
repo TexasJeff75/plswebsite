@@ -240,14 +240,18 @@ export const commissionReportsService = {
       .select(`
         id, report_number, status, created_at, approved_at, period_start, period_end,
         total_invoices, total_invoice_amount, total_commission_amount, rejection_reason,
-        commission_periods(id, name)
+        commission_periods(id, name),
+        commission_report_items(invoice_id)
       `)
       .eq('sales_rep_id', salesRepId)
       .neq('status', 'rejected')
       .neq('status', 'Rejected')
       .order('period_start', { ascending: true });
     if (error) throw error;
-    return data;
+    return (data || []).map(r => ({
+      ...r,
+      unique_invoice_count: new Set((r.commission_report_items || []).map(i => i.invoice_id).filter(Boolean)).size
+    }));
   },
 
   async getAll(filters = {}) {
