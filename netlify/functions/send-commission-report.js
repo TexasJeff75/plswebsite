@@ -38,17 +38,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zvilymqimdorwuxhcfqi.supabase.co';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2aWx5bXFpbWRvcnd1eGhjZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzA4NzAsImV4cCI6MjA4NTA0Njg3MH0.qLSbcHyParMWjuRGlPj7dehNGDO78yzQo-4iELzouJ8';
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Supabase not configured' }),
-      };
-    }
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -71,7 +63,11 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+    const supabase = supabaseServiceKey
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
 
     const { data: report, error: reportError } = await supabase
       .from('commission_reports')
