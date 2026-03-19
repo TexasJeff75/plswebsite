@@ -378,6 +378,24 @@ export const commissionReportsService = {
     });
   },
 
+  async sendEmail(reportId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-commission-report`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reportId }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.details || result.error || 'Failed to send email');
+    }
+    return result;
+  },
+
   async updateBillComPayable(id, payableId) {
     return commissionReportsService.updateStatus(id, 'Paid', {
       billcom_payable_id: payableId

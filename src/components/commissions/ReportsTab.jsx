@@ -166,7 +166,19 @@ export default function ReportsTab() {
     setActionLoading(prev => ({ ...prev, [report.id]: 'emailing' }));
     setEmailPreviewReport(null);
     try {
-      await commissionReportsService.markEmailed(report.id);
+      await commissionReportsService.sendEmail(report.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [report.id]: null }));
+    }
+  }
+
+  async function handleResendEmail(report) {
+    setActionLoading(prev => ({ ...prev, [report.id]: 'resending' }));
+    try {
+      await commissionReportsService.sendEmail(report.id);
       await loadAll();
     } catch (err) {
       setError(err.message);
@@ -324,6 +336,16 @@ export default function ReportsTab() {
                     >
                       <Send className="w-3.5 h-3.5" />
                       {actionLoading[report.id] === 'emailing' ? 'Sending...' : 'Send Email'}
+                    </button>
+                  )}
+                  {['Emailed', 'Paid'].includes(report.status) && (
+                    <button
+                      onClick={() => handleResendEmail(report)}
+                      disabled={actionLoading[report.id]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      {actionLoading[report.id] === 'resending' ? 'Sending...' : 'Resend Email'}
                     </button>
                   )}
                   {['Approved', 'Emailed', 'Rejected'].includes(report.status) && (
