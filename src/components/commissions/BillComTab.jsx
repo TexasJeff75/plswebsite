@@ -11,6 +11,10 @@ function fmt(n) {
 
 function formatDate(d) {
   if (!d) return '—';
+  const [y, m, day] = String(d).split('T')[0].split('-').map(Number);
+  if (y && m && day) {
+    return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

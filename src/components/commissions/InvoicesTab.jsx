@@ -6,7 +6,7 @@ import {
   Tag
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { qboInvoicesService, salesRepsService, commissionPeriodsService } from '../../services/commissionsService';
+import { qboInvoicesService, salesRepsService, commissionPeriodsService, commissionCalculationsService, commissionReportsService, commissionRulesService } from '../../services/commissionsService';
 import { supabase } from '../../lib/supabase';
 
 const STATUS_COLORS = {
@@ -24,6 +24,10 @@ function fmt(n) {
 
 function formatDate(d) {
   if (!d) return '—';
+  const [y, m, day] = String(d).split('T')[0].split('-').map(Number);
+  if (y && m && day) {
+    return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -292,6 +296,67 @@ export default function InvoicesTab() {
     return upserted.id;
   }
 
+  async function autoGenerateReports() {
+    try {
+      const { data: paidInvoices } = await supabase
+        .from('qbo_invoices')
+        .select('*, sales_reps(id, name, email, default_commission_rate), commission_periods(id, name, start_date, end_date)')
+        .eq('ar_paid', 'Paid')
+        .not('sales_rep_id', 'is', null)
+        .not('commission_period_id', 'is', null);
+
+      if (!paidInvoices?.length) return { created: 0, skipped: 0 };
+
+      const rules = await commissionRulesService.getAll();
+
+      const groups = {};
+      for (const inv of paidInvoices) {
+        const key = `${inv.sales_rep_id}|${inv.commission_period_id}`;
+        if (!groups[key]) groups[key] = { rep: inv.sales_reps, period: inv.commission_periods, invoices: [] };
+        groups[key].invoices.push(inv);
+      }
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const { rep, period, invoices } of Object.values(groups)) {
+        if (!rep || !period) continue;
+
+        const { data: existing } = await supabase
+          .from('commission_reports')
+          .select('id, status')
+          .eq('sales_rep_id', rep.id)
+          .eq('commission_period_id', period.id)
+          .not('status', 'in', '("Rejected")')
+          .maybeSingle();
+
+        if (existing) { skipped++; continue; }
+
+        const calculations = await Promise.all(invoices.map(inv =>
+          commissionCalculationsService.calculateForInvoice(inv, rep, rules)
+        ));
+
+        const savedCalcs = await Promise.all(calculations.map(c =>
+          commissionCalculationsService.saveCalculation(c)
+        ));
+
+        const calcsWithDetails = savedCalcs.map((c, i) => ({
+          ...c,
+          qbo_invoices: invoices[i],
+          commission_periods: period,
+        }));
+
+        await commissionReportsService.generateReport(rep.id, period.id, calcsWithDetails);
+        created++;
+      }
+
+      return { created, skipped };
+    } catch (err) {
+      console.error('Auto-report generation failed:', err);
+      return { created: 0, skipped: 0, error: err.message };
+    }
+  }
+
   async function handleImport() {
     if (!parsedData?.invoices?.length) return;
     setImporting(true);
@@ -378,7 +443,9 @@ export default function InvoicesTab() {
           .map(inv => inv.rep_name.trim())
       )];
 
-      setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename, unmatchedReps });
+      const autoReportResult = await autoGenerateReports();
+
+      setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename, unmatchedReps, autoReports: autoReportResult });
       setParsedData(null);
       await loadAll();
     } catch (err) {
@@ -512,6 +579,16 @@ export default function InvoicesTab() {
                 <p className="text-slate-400 text-sm mt-1">
                   <span className="text-teal-400 font-medium">{importResult.count}</span> line items imported from <span className="text-slate-300">{importResult.filename}</span>
                 </p>
+                {importResult.autoReports && (importResult.autoReports.created > 0 || importResult.autoReports.skipped > 0) && (
+                  <p className="text-slate-500 text-xs mt-1">
+                    {importResult.autoReports.created > 0 && (
+                      <span className="text-teal-400">{importResult.autoReports.created} commission report{importResult.autoReports.created !== 1 ? 's' : ''} auto-generated. </span>
+                    )}
+                    {importResult.autoReports.skipped > 0 && (
+                      <span>{importResult.autoReports.skipped} already existed and were skipped.</span>
+                    )}
+                  </p>
+                )}
               </div>
               {importResult.unmatchedReps?.length > 0 && (
                 <div className="w-full max-w-md text-left p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
