@@ -352,7 +352,7 @@ export default function InvoicesTab() {
 
       const deduped = Object.values(
         toUpsert.reduce((acc, row) => {
-          const key = `${row.transaction_date}|${row.num}|${row.customer_name}|${row.product_service}|${row.amount}`;
+          const key = `${row.transaction_date}|${row.num}|${row.customer_name}|${row.product_service}|${row.total_amount}`;
           acc[key] = row;
           return acc;
         }, {})
