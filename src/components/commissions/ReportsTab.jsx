@@ -78,7 +78,7 @@ export default function ReportsTab() {
     setError(null);
     try {
       const [invoices, rules, rep] = await Promise.all([
-        qboInvoicesService.getAll({ salesRepId: genForm.sales_rep_id, periodId: genForm.period_id }),
+        qboInvoicesService.getAll({ salesRepId: genForm.sales_rep_id, periodId: genForm.period_id, paidOnly: true }),
         commissionRulesService.getAll(genForm.sales_rep_id),
         salesRepsService.getById(genForm.sales_rep_id)
       ]);
@@ -430,7 +430,7 @@ export default function ReportsTab() {
                 </select>
               </div>
               <div className="bg-slate-700/30 rounded-lg p-3 text-sm text-slate-400">
-                This will calculate commissions for all invoices assigned to this rep in the selected period.
+                Commission is calculated only on <span className="text-emerald-400 font-medium">paid invoices</span> (A/R Paid = Paid) assigned to this rep in the selected period.
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700">

@@ -372,7 +372,13 @@ export default function InvoicesTab() {
         inserted += chunk.length;
       }
 
-      setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename });
+      const unmatchedReps = [...new Set(
+        parsedData.invoices
+          .filter(inv => inv.rep_name && !repByName[inv.rep_name.trim().toLowerCase()])
+          .map(inv => inv.rep_name.trim())
+      )];
+
+      setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename, unmatchedReps });
       setParsedData(null);
       await loadAll();
     } catch (err) {
@@ -453,7 +459,7 @@ export default function InvoicesTab() {
           </div>
 
           {importResult ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
                 <CheckCircle2 className="w-8 h-8 text-emerald-400" />
               </div>
@@ -463,6 +469,24 @@ export default function InvoicesTab() {
                   <span className="text-teal-400 font-medium">{importResult.count}</span> line items imported from <span className="text-slate-300">{importResult.filename}</span>
                 </p>
               </div>
+              {importResult.unmatchedReps?.length > 0 && (
+                <div className="w-full max-w-md text-left p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-amber-300 text-sm font-medium">Unmatched Rep Names</p>
+                      <p className="text-amber-400/80 text-xs mt-0.5 mb-1.5">
+                        The following rep names from your QB file did not match any sales rep in the system. Their invoices were imported but left unassigned. Add these reps in the Sales Reps tab, then reassign the invoices.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {importResult.unmatchedReps.map(name => (
+                          <span key={name} className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded text-amber-300 text-xs font-medium">{name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => { resetUpload(); setShowUpload(false); }}
                 className="mt-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"

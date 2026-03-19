@@ -138,6 +138,7 @@ export const qboInvoicesService = {
     if (filters.salesRepId) query = query.eq('sales_rep_id', filters.salesRepId);
     if (filters.periodId) query = query.eq('commission_period_id', filters.periodId);
     if (filters.status) query = query.eq('status', filters.status);
+    if (filters.paidOnly) query = query.eq('ar_paid', 'Paid');
     if (filters.dateFrom) query = query.gte('invoice_date', filters.dateFrom);
     if (filters.dateTo) query = query.lte('invoice_date', filters.dateTo);
 
