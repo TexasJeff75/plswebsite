@@ -284,6 +284,16 @@ export const commissionReportsService = {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
+    if (data?.commission_report_items) {
+      data.commission_report_items = data.commission_report_items.slice().sort((a, b) => {
+        const dateA = new Date(a.qbo_invoices?.transaction_date || a.qbo_invoices?.invoice_date || 0).getTime();
+        const dateB = new Date(b.qbo_invoices?.transaction_date || b.qbo_invoices?.invoice_date || 0).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        const numA = (a.qbo_invoices?.num || a.qbo_invoices?.invoice_number || '').toLowerCase();
+        const numB = (b.qbo_invoices?.num || b.qbo_invoices?.invoice_number || '').toLowerCase();
+        return numA.localeCompare(numB, undefined, { numeric: true });
+      });
+    }
     return data;
   },
 
