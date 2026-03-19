@@ -91,7 +91,7 @@ function buildHtml(r, history = []) {
       <td>${h.report_number}</td>
       <td>${fmtDateShort(h.created_at)}</td>
       <td><span style="padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;${bs}">${h.status}</span></td>
-      <td style="text-align:center">${h.total_invoices ?? 0}</td>
+      <td style="text-align:center">${h.unique_invoice_count ?? h.total_invoices ?? 0}</td>
       <td style="text-align:right">${fmt(h.total_invoice_amount)}</td>
       <td style="text-align:right;font-weight:700;color:#16a34a">${fmt(h.total_commission_amount)}</td>
     </tr>`;
@@ -180,7 +180,7 @@ function buildHtml(r, history = []) {
   <div class="sc">
     <div class="sl">Line Items</div>
     <div class="sv">${items.length}</div>
-    <div class="ss">${r.total_invoices} invoice${r.total_invoices !== 1 ? 's' : ''}</div>
+    <div class="ss">${r.unique_invoice_count ?? r.total_invoices} invoice${(r.unique_invoice_count ?? r.total_invoices) !== 1 ? 's' : ''}</div>
   </div>
   <div class="sc">
     <div class="sl">Total Invoiced</div>
