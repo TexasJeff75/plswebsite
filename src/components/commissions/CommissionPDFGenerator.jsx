@@ -2,21 +2,28 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Printer, Loader } from 'lucide-react';
 import { commissionReportsService } from '../../services/commissionsService';
 
+
 function fmt(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n ?? 0);
 }
 
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const s = String(d).substring(0, 10);
+  const [y, m, day] = s.split('-').map(Number);
+  if (!y) return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 function fmtDateShort(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const s = String(d).substring(0, 10);
+  const [y, m, day] = s.split('-').map(Number);
+  if (!y) return '—';
+  return `${m}/${day}/${String(y).slice(-2)}`;
 }
 
-function buildHtml(r) {
+function buildHtml(r, history = []) {
   const items = r.commission_report_items || [];
 
   const byCustomer = {};
@@ -57,6 +64,30 @@ function buildHtml(r) {
       <td style="text-align:right">${t.amount > 0 ? ((t.commission / t.amount) * 100).toFixed(1) : '0.0'}%</td>
       <td style="text-align:right;font-weight:700;color:#16a34a">${fmt(t.commission)}</td>
     </tr>`).join('');
+
+  const historyRows = history.map((h, idx) => {
+    const isCurrent = h.id === r.id;
+    const sc = (h.status || 'draft').toLowerCase().replace(/\s+/g, '-');
+    const badgeColors = {
+      'approved': 'background:#dcfce7;color:#16a34a',
+      'draft': 'background:#f1f5f9;color:#64748b',
+      'pending-approval': 'background:#fef9c3;color:#ca8a04',
+      'emailed': 'background:#ccfbf1;color:#0d9488',
+      'paid': 'background:#dbeafe;color:#2563eb',
+      'rejected': 'background:#fee2e2;color:#dc2626',
+    };
+    const bs = badgeColors[sc] || 'background:#f1f5f9;color:#64748b';
+    return `<tr style="${isCurrent ? 'background:#f0fdf4;font-weight:600' : (idx % 2 !== 0 ? 'background:#f8fafc' : '')}">
+      <td>${h.commission_periods?.name || `${fmtDateShort(h.period_start)} – ${fmtDateShort(h.period_end)}`}${isCurrent ? ' <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:#dcfce7;color:#16a34a;margin-left:4px">Current</span>' : ''}</td>
+      <td>${fmtDateShort(h.period_start)} – ${fmtDateShort(h.period_end)}</td>
+      <td>${h.report_number}</td>
+      <td>${fmtDateShort(h.created_at)}</td>
+      <td><span style="padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;${bs}">${h.status}</span></td>
+      <td style="text-align:center">${h.total_invoices ?? 0}</td>
+      <td style="text-align:right">${fmt(h.total_invoice_amount)}</td>
+      <td style="text-align:right;font-weight:700;color:#16a34a">${fmt(h.total_commission_amount)}</td>
+    </tr>`;
+  }).join('');
 
   const statusClass = (r.status || 'draft').toLowerCase().replace(/\s+/g, '-');
 
@@ -209,6 +240,31 @@ function buildHtml(r) {
   </tfoot>
 </table>
 
+${history.length > 0 ? `
+<div class="section-title" style="margin-top:8px">Commission Payment History — ${r.sales_reps?.name || ''}</div>
+<table>
+  <thead>
+    <tr>
+      <th>Period</th>
+      <th>Date Range</th>
+      <th>Report #</th>
+      <th>Generated</th>
+      <th>Status</th>
+      <th style="text-align:center">Invoices</th>
+      <th style="text-align:right">Invoiced</th>
+      <th style="text-align:right">Commission</th>
+    </tr>
+  </thead>
+  <tbody>${historyRows}</tbody>
+  <tfoot>
+    <tr>
+      <td colspan="7">All-Time Total</td>
+      <td style="text-align:right">${fmt(history.reduce((s, h) => s + (h.total_commission_amount || 0), 0))}</td>
+    </tr>
+  </tfoot>
+</table>
+` : ''}
+
 ${r.notes ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:28px;font-size:12px;color:#475569"><strong>Notes:</strong> ${r.notes}</div>` : ''}
 
 <div class="footer">
@@ -232,16 +288,19 @@ export default function CommissionPDFGenerator({ report, onClose }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    commissionReportsService.getById(report.id)
-      .then(detail => {
+    Promise.all([
+      commissionReportsService.getById(report.id),
+      commissionReportsService.getHistoryForRep(report.sales_rep_id)
+    ])
+      .then(([detail, history]) => {
         if (!cancelled) {
-          setHtml(buildHtml(detail));
+          setHtml(buildHtml(detail, history || []));
           setLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setHtml(buildHtml(report));
+          setHtml(buildHtml(report, []));
           setLoading(false);
         }
       });
