@@ -418,9 +418,16 @@ Deno.serve(async (req: Request) => {
       .eq("id", reportId)
       .maybeSingle();
 
-    if (reportError || !report) {
+    if (reportError) {
+      console.error("Report query error:", JSON.stringify(reportError));
       return new Response(
-        JSON.stringify({ error: "Report not found", details: reportError?.message }),
+        JSON.stringify({ error: "Report query failed", details: reportError.message, hint: reportError.hint, code: reportError.code }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!report) {
+      return new Response(
+        JSON.stringify({ error: "Report not found", details: `No report found with id: ${reportId}` }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
