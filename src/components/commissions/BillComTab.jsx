@@ -45,7 +45,7 @@ export default function BillComTab() {
     setSaving(true);
     setError(null);
     try {
-      await commissionReportsService.updateBillComPayable(report.id, payableId.trim() || `MANUAL-${Date.now()}`);
+      await commissionReportsService.markPaid(report.id, payableId.trim() || `MANUAL-${Date.now()}`);
       setPayModal(null);
       setPayableId('');
       await load();

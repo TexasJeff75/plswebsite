@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download, Clock } from 'lucide-react';
+import { FilePlus, FileText, CircleCheck as CheckCircle, Circle as XCircle, Mail, DollarSign, Eye, ChevronDown, ChevronRight, CircleAlert as AlertCircle, Printer, Send, Building2, Download, Clock, RotateCcw } from 'lucide-react';
 import {
   commissionReportsService,
   salesRepsService,
@@ -117,6 +117,18 @@ export default function ReportsTab() {
     setActionLoading(prev => ({ ...prev, [report.id]: 'approving' }));
     try {
       await commissionReportsService.approve(report.id, user?.id);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [report.id]: null }));
+    }
+  }
+
+  async function handleRevertToDraft(report) {
+    setActionLoading(prev => ({ ...prev, [report.id]: 'reverting' }));
+    try {
+      await commissionReportsService.updateStatus(report.id, 'Draft');
       await loadAll();
     } catch (err) {
       setError(err.message);
@@ -281,6 +293,16 @@ export default function ReportsTab() {
                     >
                       <Send className="w-3.5 h-3.5" />
                       {actionLoading[report.id] === 'emailing' ? 'Sending...' : 'Send Email'}
+                    </button>
+                  )}
+                  {['Approved', 'Emailed', 'Rejected'].includes(report.status) && (
+                    <button
+                      onClick={() => handleRevertToDraft(report)}
+                      disabled={actionLoading[report.id]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-600/40 hover:bg-slate-600/70 border border-slate-500/40 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {actionLoading[report.id] === 'reverting' ? 'Reverting...' : 'Revert to Draft'}
                     </button>
                   )}
                   <button

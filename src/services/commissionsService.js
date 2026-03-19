@@ -382,6 +382,28 @@ export const commissionReportsService = {
     return commissionReportsService.updateStatus(id, 'Paid', {
       billcom_payable_id: payableId
     });
+  },
+
+  async markPaid(id, payableId) {
+    const { data: items, error: itemsError } = await supabase
+      .from('commission_report_items')
+      .select('invoice_id')
+      .eq('report_id', id);
+    if (itemsError) throw itemsError;
+
+    const invoiceIds = [...new Set(items.map(i => i.invoice_id).filter(Boolean))];
+
+    if (invoiceIds.length > 0) {
+      const { error: invError } = await supabase
+        .from('qbo_invoices')
+        .update({ comm_paid: 'Yes' })
+        .in('id', invoiceIds);
+      if (invError) throw invError;
+    }
+
+    return commissionReportsService.updateStatus(id, 'Paid', {
+      billcom_payable_id: payableId
+    });
   }
 };
 
