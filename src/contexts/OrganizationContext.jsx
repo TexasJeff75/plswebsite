@@ -17,7 +17,7 @@ export function OrganizationProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userOrgAssignments, setUserOrgAssignments] = useState([]);
 
-  const internalRoles = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
+  const internalRoles = ['Super Admin', 'Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
 
   useEffect(() => {
     if (user && profile) {
