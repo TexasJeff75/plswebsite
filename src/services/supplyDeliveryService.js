@@ -60,7 +60,7 @@ export const supplyDeliveryService = {
   async create(deliveryData) {
     const { data, error } = await supabase
       .from('supply_deliveries')
-      .insert(deliveryData)
+      .upsert(deliveryData, { onConflict: 'order_id' })
       .select()
       .single();
 
