@@ -70,7 +70,7 @@ export const supplyOrdersService = {
         created_at,
         updated_at,
         facility:facilities(id, name, address, city, state, zip),
-        organization:organizations(id, name),
+        organization:organizations(id, name, logo_storage_path),
         requester:user_roles!fk_supply_orders_requester_user_roles(id, display_name, email),
         approver:user_roles!fk_supply_orders_approver_user_roles(id, display_name, email),
         items:supply_order_items(id, catalog_item_id, free_form_description, quantity_requested, quantity_fulfilled, notes, catalog_item:supply_catalog(id, name, unit, category)),
