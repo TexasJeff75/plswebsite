@@ -32,136 +32,163 @@ function PackingSlip({ order, token }) {
   const deliveryUrl = `${window.location.origin}/tracker#/delivery/${token}`;
   const courier = order.delivery?.courier;
   const requester = order.requester;
+  const qrCanvasRef = useRef(null);
+
+  function printPackingSlip() {
+    const qrDataUrl = qrCanvasRef.current ? qrCanvasRef.current.querySelector('canvas')?.toDataURL('image/png') : '';
+
+    const statusLabel = (order.status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const printDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const submittedDate = new Date(order.created_at).toLocaleDateString();
+    const estDelivery = order.delivery?.estimated_delivery_date
+      ? new Date(order.delivery.estimated_delivery_date + 'T00:00:00').toLocaleDateString()
+      : null;
+
+    const itemRows = (order.items || []).map((item, idx) => `
+      <tr style="background:${idx % 2 === 0 ? '#f9fafb' : '#fff'};border-bottom:1px solid #e5e7eb;">
+        <td style="padding:10px 12px;font-size:13px;">${item.catalog_item?.name || item.free_form_description || '—'}</td>
+        <td style="padding:10px 12px;font-size:12px;color:#555;">${item.catalog_item?.category || 'Custom'}</td>
+        <td style="padding:10px 12px;font-size:13px;text-align:center;">${item.quantity_requested}${item.catalog_item?.unit ? ' ' + item.catalog_item.unit : ''}</td>
+        <td style="padding:10px 12px;font-size:13px;text-align:center;color:#555;">${item.quantity_fulfilled ?? '—'}</td>
+        <td style="padding:10px 12px;text-align:center;"><div style="width:16px;height:16px;border:1.5px solid #999;border-radius:3px;display:inline-block;"></div></td>
+      </tr>
+    `).join('');
+
+    const notesSection = order.notes ? `
+      <div style="margin-bottom:24px;padding:12px;border:1px solid #e5e7eb;border-radius:6px;background:#fffbeb;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;margin-bottom:4px;">Order Notes</div>
+        <div style="font-size:12px;color:#444;">${order.notes}</div>
+      </div>
+    ` : '';
+
+    const logoUrl = `${window.location.origin}/proximity_logo_updated_11-25-24.svg`;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Packing Slip — ${order.order_number}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 32px; }
+    @media print {
+      body { padding: 20px; }
+      @page { margin: 0.5in; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f766e;padding-bottom:20px;margin-bottom:24px;">
+    <div>
+      <img src="${logoUrl}" alt="Proximity Lab Services" style="height:48px;margin-bottom:6px;" />
+      <div style="font-size:11px;color:#555;">Proximity Lab Services</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:22px;font-weight:700;color:#0f766e;">PACKING SLIP</div>
+      <div style="font-size:16px;font-weight:600;margin-top:4px;">${order.order_number}</div>
+      <div style="font-size:11px;color:#555;margin-top:4px;">Printed: ${printDate}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:24px;">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0f766e;margin-bottom:6px;">Deliver To</div>
+      <div style="font-size:13px;font-weight:600;">${order.facility?.name || '—'}</div>
+      ${order.facility?.address ? `<div style="font-size:12px;color:#444;margin-top:2px;">${order.facility.address}</div>` : ''}
+      ${order.facility?.city ? `<div style="font-size:12px;color:#444;">${order.facility.city}, ${order.facility.state} ${order.facility.zip || ''}</div>` : ''}
+      ${order.organization?.name ? `<div style="font-size:12px;color:#666;margin-top:4px;">${order.organization.name}</div>` : ''}
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0f766e;margin-bottom:6px;">Requested By</div>
+      <div style="font-size:13px;font-weight:600;">${requester?.display_name || requester?.email || '—'}</div>
+      ${requester?.email && requester?.display_name ? `<div style="font-size:12px;color:#444;margin-top:2px;">${requester.email}</div>` : ''}
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0f766e;margin-bottom:6px;margin-top:14px;">Courier</div>
+      <div style="font-size:13px;font-weight:600;">${courier?.display_name || courier?.email || '—'}</div>
+      ${courier?.email && courier?.display_name ? `<div style="font-size:12px;color:#444;margin-top:2px;">${courier.email}</div>` : ''}
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0f766e;margin-bottom:6px;">Order Details</div>
+      <div style="font-size:12px;margin-bottom:3px;"><span style="color:#555;">Status: </span><strong>${statusLabel}</strong></div>
+      <div style="font-size:12px;margin-bottom:3px;"><span style="color:#555;">Submitted: </span>${submittedDate}</div>
+      ${order.delivery?.tracking_number ? `<div style="font-size:12px;margin-bottom:3px;"><span style="color:#555;">Tracking #: </span>${order.delivery.tracking_number}</div>` : ''}
+      ${estDelivery ? `<div style="font-size:12px;margin-bottom:3px;"><span style="color:#555;">Est. Delivery: </span>${estDelivery}</div>` : ''}
+    </div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+    <thead>
+      <tr style="background:#0f766e;color:#fff;">
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Item Description</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Category</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Qty Requested</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Qty Fulfilled</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Received</th>
+      </tr>
+    </thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+
+  ${notesSection}
+
+  <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;">
+    <div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#555;margin-bottom:8px;">Received By (Print Name)</div>
+          <div style="border-bottom:1px solid #999;height:28px;"></div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#555;margin-bottom:8px;">Signature</div>
+          <div style="border-bottom:1px solid #999;height:28px;"></div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#555;margin-bottom:8px;">Date Received</div>
+          <div style="border-bottom:1px solid #999;height:28px;"></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#aaa;border-top:1px solid #e5e7eb;padding-top:12px;">
+        Proximity Lab Services &bull; proximitylabservices.com &bull; Scan QR code to confirm delivery electronically
+      </div>
+    </div>
+    <div style="text-align:center;">
+      ${qrDataUrl ? `<img src="${qrDataUrl}" style="width:110px;height:110px;border:1px solid #e5e7eb;border-radius:8px;padding:6px;" />` : ''}
+      <div style="font-size:9px;color:#888;margin-top:4px;max-width:122px;">Scan to confirm delivery</div>
+    </div>
+  </div>
+
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  }
 
   return (
-    <>
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #packing-slip-print { display: block !important; }
-          #packing-slip-print { position: fixed; top: 0; left: 0; width: 100%; }
-        }
-        #packing-slip-print { display: none; }
-      `}</style>
-
-      <div id="packing-slip-print" style={{ fontFamily: 'Arial, sans-serif', color: '#111', background: '#fff', padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f766e', paddingBottom: '20px', marginBottom: '24px' }}>
-          <div>
-            <img src="/proximity_logo_updated_11-25-24.svg" alt="Proximity Lab Services" style={{ height: '48px', marginBottom: '8px' }} />
-            <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>Proximity Lab Services</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '22px', fontWeight: '700', color: '#0f766e' }}>PACKING SLIP</div>
-            <div style={{ fontSize: '16px', fontWeight: '600', marginTop: '4px' }}>{order.order_number}</div>
-            <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>Printed: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-          </div>
+    <div className="space-y-4">
+      <div ref={qrCanvasRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <QRCodeCanvas value={deliveryUrl} size={110} level="H" />
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="bg-white p-4 rounded-xl inline-block">
+          <QRCodeCanvas value={deliveryUrl} size={160} level="H" />
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f766e', marginBottom: '6px' }}>Deliver To</div>
-            <div style={{ fontSize: '13px', fontWeight: '600' }}>{order.facility?.name || '—'}</div>
-            {order.facility?.address && <div style={{ fontSize: '12px', color: '#444', marginTop: '2px' }}>{order.facility.address}</div>}
-            {order.facility?.city && <div style={{ fontSize: '12px', color: '#444' }}>{order.facility.city}, {order.facility.state} {order.facility.zip}</div>}
-            {order.organization?.name && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>{order.organization.name}</div>}
-          </div>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f766e', marginBottom: '6px' }}>Requested By</div>
-            <div style={{ fontSize: '13px', fontWeight: '600' }}>{requester?.display_name || requester?.email || '—'}</div>
-            {requester?.email && requester?.display_name && <div style={{ fontSize: '12px', color: '#444', marginTop: '2px' }}>{requester.email}</div>}
-            <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f766e', marginBottom: '6px', marginTop: '14px' }}>Courier</div>
-            <div style={{ fontSize: '13px', fontWeight: '600' }}>{courier?.display_name || courier?.email || '—'}</div>
-            {courier?.email && courier?.display_name && <div style={{ fontSize: '12px', color: '#444', marginTop: '2px' }}>{courier.email}</div>}
-          </div>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f766e', marginBottom: '6px' }}>Order Details</div>
-            <div style={{ fontSize: '12px', marginBottom: '3px' }}><span style={{ color: '#555' }}>Status: </span><strong>{order.status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</strong></div>
-            <div style={{ fontSize: '12px', marginBottom: '3px' }}><span style={{ color: '#555' }}>Submitted: </span>{new Date(order.created_at).toLocaleDateString()}</div>
-            {order.delivery?.tracking_number && <div style={{ fontSize: '12px', marginBottom: '3px' }}><span style={{ color: '#555' }}>Tracking #: </span>{order.delivery.tracking_number}</div>}
-            {order.delivery?.estimated_delivery_date && <div style={{ fontSize: '12px', marginBottom: '3px' }}><span style={{ color: '#555' }}>Est. Delivery: </span>{new Date(order.delivery.estimated_delivery_date + 'T00:00:00').toLocaleDateString()}</div>}
-          </div>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#0f766e', color: '#fff' }}>
-              <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Description</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qty Requested</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qty Fulfilled</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Received</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items?.map((item, idx) => (
-              <tr key={item.id} style={{ backgroundColor: idx % 2 === 0 ? '#f9f9f9' : '#fff', borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '10px 12px', fontSize: '13px' }}>{item.catalog_item?.name || item.free_form_description || '—'}</td>
-                <td style={{ padding: '10px 12px', fontSize: '12px', color: '#555' }}>{item.catalog_item?.category || 'Custom'}</td>
-                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'center' }}>{item.quantity_requested} {item.catalog_item?.unit || ''}</td>
-                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'center', color: '#555' }}>{item.quantity_fulfilled ?? '—'}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  <div style={{ width: '16px', height: '16px', border: '1.5px solid #999', borderRadius: '3px', display: 'inline-block' }} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {order.notes && (
-          <div style={{ marginBottom: '24px', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', backgroundColor: '#fffbeb' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#92400e', marginBottom: '4px' }}>Order Notes</div>
-            <div style={{ fontSize: '12px', color: '#444' }}>{order.notes}</div>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '24px', alignItems: 'start' }}>
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#555', marginBottom: '8px' }}>Received By (Print Name)</div>
-                <div style={{ borderBottom: '1px solid #999', paddingBottom: '2px', height: '28px' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#555', marginBottom: '8px' }}>Signature</div>
-                <div style={{ borderBottom: '1px solid #999', paddingBottom: '2px', height: '28px' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#555', marginBottom: '8px' }}>Date Received</div>
-                <div style={{ borderBottom: '1px solid #999', paddingBottom: '2px', height: '28px' }} />
-              </div>
-            </div>
-            <div style={{ fontSize: '10px', color: '#aaa', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-              Proximity Lab Services &bull; proximitylabservices.com &bull; Scan QR code to confirm delivery electronically
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ padding: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', display: 'inline-block' }}>
-              <QRCodeCanvas value={deliveryUrl} size={100} level="H" />
-            </div>
-            <div style={{ fontSize: '9px', color: '#888', marginTop: '4px', maxWidth: '116px' }}>Scan to confirm delivery</div>
-          </div>
+        <div className="space-y-2">
+          <p className="text-slate-400 text-sm">Delivery URL:</p>
+          <code className="block text-xs text-teal-400 bg-slate-800 px-3 py-2 rounded-lg break-all">{deliveryUrl}</code>
         </div>
       </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-white p-4 rounded-xl inline-block">
-            <QRCodeCanvas value={deliveryUrl} size={160} level="H" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-slate-400 text-sm">Delivery URL:</p>
-            <code className="block text-xs text-teal-400 bg-slate-800 px-3 py-2 rounded-lg break-all">{deliveryUrl}</code>
-          </div>
-        </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-medium"
-        >
-          <Printer className="w-4 h-4" />
-          Print Packing Slip
-        </button>
-      </div>
-    </>
+      <button
+        onClick={printPackingSlip}
+        className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-medium"
+      >
+        <Printer className="w-4 h-4" />
+        Print Packing Slip
+      </button>
+    </div>
   );
 }
 
