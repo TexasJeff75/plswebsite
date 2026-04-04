@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, QrCode, Activity, CircleAlert as AlertCircle, Check, X, Printer, Clock } from 'lucide-react';
+import { ArrowLeft, Package, Truck, QrCode, Activity, CircleAlert as AlertCircle, Check, X, Printer, Clock, FileText, MapPin, User, PenLine, CalendarCheck } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { supplyOrdersService } from '../services/supplyOrdersService';
 import { supplyDeliveryService } from '../services/supplyDeliveryService';
@@ -27,6 +27,154 @@ const NEXT_LABELS = {
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || { label: status, color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' };
   return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${cfg.color}`}>{cfg.label}</span>;
+}
+
+function SignatureBlock({ label, sigBase64, name, timestamp, icon: Icon }) {
+  return (
+    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-teal-400" />
+        <h4 className="text-white font-semibold text-sm">{label}</h4>
+      </div>
+      {name && (
+        <div className="flex items-center gap-2 text-sm">
+          <User className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-slate-400">Name:</span>
+          <span className="text-white font-medium">{name}</span>
+        </div>
+      )}
+      {timestamp && (
+        <div className="flex items-center gap-2 text-sm">
+          <CalendarCheck className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-slate-400">Time:</span>
+          <span className="text-white">{new Date(timestamp).toLocaleString()}</span>
+        </div>
+      )}
+      {sigBase64 ? (
+        <div>
+          <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-medium">Signature</p>
+          <div className="bg-white rounded-lg p-3 inline-block">
+            <img
+              src={sigBase64}
+              alt={`${label} signature`}
+              className="block max-w-full"
+              style={{ maxHeight: '120px', imageRendering: 'auto' }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 p-3 bg-slate-700/50 rounded-lg text-slate-500 text-sm">
+          <PenLine className="w-4 h-4" />
+          No signature captured
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManifestTab({ delivery, order }) {
+  if (!delivery) {
+    return (
+      <div className="text-center py-16 bg-slate-800 rounded-xl border border-slate-700">
+        <FileText className="w-12 h-12 mx-auto text-slate-700 mb-3" />
+        <p className="text-slate-400 font-medium">No delivery record yet</p>
+        <p className="text-slate-500 text-sm mt-1">Dispatch the order to generate a delivery manifest.</p>
+      </div>
+    );
+  }
+
+  const hasPickup = !!delivery.picked_up_at;
+  const hasDelivery = !!delivery.delivered_at;
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+          <p className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">Courier</p>
+          <p className="text-white font-medium">{delivery.courier?.display_name || delivery.courier?.email || '—'}</p>
+        </div>
+        {delivery.tracking_number && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">Tracking #</p>
+            <p className="text-white font-medium">{delivery.tracking_number}</p>
+          </div>
+        )}
+        {delivery.estimated_delivery_date && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">Est. Delivery</p>
+            <p className="text-white font-medium">{new Date(delivery.estimated_delivery_date + 'T00:00:00').toLocaleDateString()}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${hasPickup ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-slate-700/50 border-slate-600 text-slate-500'}`}>
+          {hasPickup ? <Check className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+          Pick-up {hasPickup ? 'Confirmed' : 'Pending'}
+        </div>
+        <div className="flex-1 h-px bg-slate-700" />
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${hasDelivery ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-slate-700/50 border-slate-600 text-slate-500'}`}>
+          {hasDelivery ? <Check className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+          Delivery {hasDelivery ? 'Confirmed' : 'Pending'}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SignatureBlock
+          label="Pick-up Confirmation"
+          sigBase64={delivery.picked_up_signature}
+          name={delivery.courier_typed_name_at_pickup}
+          timestamp={delivery.picked_up_at}
+          icon={Truck}
+        />
+        <SignatureBlock
+          label="Delivery Confirmation"
+          sigBase64={delivery.recipient_signature}
+          name={delivery.recipient_typed_name}
+          timestamp={delivery.delivered_at}
+          icon={Package}
+        />
+      </div>
+
+      {(delivery.delivery_latitude || delivery.delivery_local_timestamp || delivery.courier_typed_name) && (
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-3">
+          <h4 className="text-white font-semibold text-sm flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-teal-400" />
+            Delivery Details
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {delivery.courier_typed_name && (
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-0.5">Courier (at delivery)</p>
+                <p className="text-white">{delivery.courier_typed_name}</p>
+              </div>
+            )}
+            {delivery.delivery_local_timestamp && (
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-0.5">Local Timestamp</p>
+                <p className="text-white">{delivery.delivery_local_timestamp}</p>
+                {delivery.delivery_timezone && <p className="text-slate-500 text-xs">{delivery.delivery_timezone}</p>}
+              </div>
+            )}
+            {delivery.delivery_latitude && delivery.delivery_longitude && (
+              <div className="sm:col-span-2">
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-0.5">GPS Coordinates</p>
+                <a
+                  href={`https://www.google.com/maps?q=${delivery.delivery_latitude},${delivery.delivery_longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  {Number(delivery.delivery_latitude).toFixed(6)}, {Number(delivery.delivery_longitude).toFixed(6)}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PackingSlip({ order, token }) {
@@ -436,6 +584,7 @@ export default function SupplyOrderDetail() {
             { id: 'overview', label: 'Overview', icon: Package },
             { id: 'dispatch', label: 'Dispatch', icon: Truck },
             { id: 'qr', label: 'QR / Print', icon: QrCode },
+            { id: 'manifest', label: 'Manifest', icon: FileText },
             { id: 'activity', label: 'Activity', icon: Activity },
           ].map(tab => {
             const Icon = tab.icon;
@@ -670,6 +819,10 @@ export default function SupplyOrderDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'manifest' && (
+        <ManifestTab delivery={order.delivery} order={order} />
       )}
 
       {activeTab === 'activity' && (
