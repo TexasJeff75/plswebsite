@@ -1,28 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Users as UsersIcon,
-  Pencil,
-  Trash2,
-  Shield,
-  Building2,
-  Plus,
-  X,
-  Check,
-  Mail,
-  Send,
-  Clock,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Search,
-  ChevronDown,
-  ChevronsUpDown,
-  ChevronUp,
-  AlertCircle,
-  Copy,
-  Link2,
-  Eye
-} from 'lucide-react';
+import { Users as UsersIcon, Pencil, Trash2, Shield, Building2, Plus, X, Check, Mail, Send, Clock, CircleCheck as CheckCircle, Circle as XCircle, RefreshCw, Search, ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert as AlertCircle, Copy, Link2, Eye } from 'lucide-react';
 import { usersService } from '../services/usersService';
 import { organizationsService } from '../services/organizationsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
@@ -91,11 +68,15 @@ export default function Users() {
   async function loadUserAssignments(userId) {
     try {
       const assignments = await organizationAssignmentsService.getAssignmentsForUser(userId);
-      setUserOrgAssignments(assignments.map(a => ({
+      const mapped = assignments.map(a => ({
         organization_id: a.organization_id,
         role: a.role,
         is_primary: a.is_primary
-      })));
+      }));
+      if (mapped.length > 0 && !mapped.some(a => a.is_primary)) {
+        mapped[0].is_primary = true;
+      }
+      setUserOrgAssignments(mapped);
     } catch (error) {
       console.error('Error loading user assignments:', error);
       setUserOrgAssignments([]);

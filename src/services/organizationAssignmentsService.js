@@ -6,8 +6,7 @@ export const organizationAssignmentsService = {
       .from('user_organization_assignments')
       .select(`
         *,
-        organization:organizations(id, name),
-        assigned_by_user:assigned_by(id, email, raw_user_meta_data)
+        organization:organizations(id, name)
       `)
       .eq('user_id', userId)
       .order('is_primary', { ascending: false });
