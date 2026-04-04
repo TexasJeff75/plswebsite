@@ -1,9 +1,10 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProtectedRoute({ children, requireAdmin = false, requireEditor = false }) {
   const { user, profile, loading, isAdmin, isEditor } = useAuth();
+  const location = useLocation();
 
   console.log('ProtectedRoute:', { loading, hasUser: !!user, role: profile?.role, isAdmin, isEditor });
 
@@ -20,6 +21,10 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
 
   if (!user || !profile) {
     console.log('No user or profile found, redirecting to login');
+    const currentPath = location.pathname + location.search;
+    if (currentPath && currentPath !== '/' && currentPath !== '/login') {
+      localStorage.setItem('postLoginRedirect', currentPath);
+    }
     return <Navigate to="/login" replace />;
   }
 

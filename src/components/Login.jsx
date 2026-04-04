@@ -12,8 +12,13 @@ export default function Login() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      console.log('User already logged in, redirecting to tracker');
-      navigate('/tracker', { replace: true });
+      const intended = localStorage.getItem('postLoginRedirect');
+      if (intended) {
+        localStorage.removeItem('postLoginRedirect');
+        navigate(intended, { replace: true });
+      } else {
+        navigate('/tracker', { replace: true });
+      }
     }
   }, [user, authLoading, navigate]);
 

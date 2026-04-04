@@ -75,13 +75,16 @@ function PackingSlip({ order, token }) {
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>Packing Slip — ${order.order_number}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 28px 32px; max-width: 680px; margin: 0 auto; }
+    html, body { zoom: 1 !important; }
+    body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 28px 32px; max-width: 680px; margin: 0 auto; font-size: 13px; }
     @media print {
+      html, body { zoom: 1 !important; transform: none !important; }
       body { padding: 0; max-width: 100%; }
-      @page { size: portrait; margin: 0.5in; }
+      @page { size: A4 portrait; margin: 0.5in; }
     }
   </style>
 </head>
