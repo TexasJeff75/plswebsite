@@ -107,15 +107,20 @@ export const courierAssignmentService = {
 
     let customerUsers = [];
     if (facility?.organization_id) {
-      const { data } = await supabase
+      const { data: assignments } = await supabase
         .from('user_organization_assignments')
-        .select('user_id, user_roles!fk_user_org_assignments_user_roles(id, user_id, display_name, email, role)')
+        .select('user_id')
         .eq('organization_id', facility.organization_id);
 
-      if (data) {
-        customerUsers = data
-          .filter(row => row.user_roles && ['Customer Admin', 'Customer Viewer'].includes(row.user_roles.role))
-          .map(row => row.user_roles);
+      if (assignments && assignments.length > 0) {
+        const userIds = assignments.map(a => a.user_id);
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('id, user_id, display_name, email, role')
+          .in('user_id', userIds)
+          .in('role', ['Customer Admin', 'Customer Viewer']);
+
+        customerUsers = roles || [];
       }
     }
 
