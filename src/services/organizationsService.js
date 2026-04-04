@@ -1,6 +1,48 @@
 import { supabase } from '../lib/supabase';
 
+const LOGO_BUCKET = 'organization-logos';
+
 export const organizationsService = {
+  getLogoPublicUrl(storagePath) {
+    if (!storagePath) return null;
+    const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(storagePath);
+    return data?.publicUrl || null;
+  },
+
+  async uploadLogo(organizationId, file) {
+    const ext = file.name.split('.').pop();
+    const path = `${organizationId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(LOGO_BUCKET)
+      .upload(path, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { error: updateError } = await supabase
+      .from('organizations')
+      .update({ logo_storage_path: path, updated_at: new Date().toISOString() })
+      .eq('id', organizationId);
+
+    if (updateError) throw updateError;
+
+    return path;
+  },
+
+  async removeLogo(organizationId, storagePath) {
+    if (storagePath) {
+      await supabase.storage.from(LOGO_BUCKET).remove([storagePath]);
+    }
+
+    const { error } = await supabase
+      .from('organizations')
+      .update({ logo_storage_path: null, updated_at: new Date().toISOString() })
+      .eq('id', organizationId);
+
+    if (error) throw error;
+  },
+
+
   async getAll() {
     const { data, error } = await supabase
       .from('organizations')

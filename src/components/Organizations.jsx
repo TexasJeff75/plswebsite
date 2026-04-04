@@ -1,12 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  Plus, Search, Building2, Users, DollarSign, Filter,
-  MoreVertical, Eye, Pencil, Archive, X, ChevronDown,
-  ChevronsUpDown, ChevronUp
-} from 'lucide-react';
+import { Plus, Search, Building2, Users, DollarSign, ListFilter as Filter, MoveVertical as MoreVertical, Eye, Pencil, Archive, X, ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 
 export default function Organizations() {
   const { isProximityAdmin } = useAuth();
@@ -348,13 +344,22 @@ export default function Organizations() {
                     .join('')
                     .toUpperCase()
                     .slice(0, 3);
+                  const logoUrl = organizationsService.getLogoPublicUrl(org.logo_storage_path);
 
                   return (
                     <tr key={org.id} className="hover:bg-slate-700/30 transition-colors">
                       <td className="px-6 py-4">
                         <Link to={`/organizations/${org.id}`} className="flex items-center gap-3 group">
-                          <div className={`w-10 h-10 ${typeBadge.color} rounded-lg flex items-center justify-center text-white font-bold text-sm`}>
-                            {initials}
+                          <div className={`w-10 h-10 ${!logoUrl ? typeBadge.color : ''} rounded-lg flex items-center justify-center text-white font-bold text-sm overflow-hidden border border-slate-700 flex-shrink-0`}>
+                            {logoUrl ? (
+                              <img
+                                src={logoUrl}
+                                alt={`${org.name} logo`}
+                                className="w-full h-full object-contain bg-white"
+                              />
+                            ) : (
+                              initials
+                            )}
                           </div>
                           <div>
                             <div className="text-white font-medium group-hover:text-teal-400 transition-colors">{org.name}</div>

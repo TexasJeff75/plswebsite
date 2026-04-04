@@ -170,6 +170,31 @@ export const invitationService = {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+    let organizationName = null;
+    let organizationLogoUrl = null;
+
+    const orgAssignments = invitation.organization_assignments || [];
+    if (orgAssignments.length > 0) {
+      const firstOrgId = orgAssignments[0]?.organization_id || orgAssignments[0];
+      if (firstOrgId) {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, logo_storage_path')
+          .eq('id', firstOrgId)
+          .maybeSingle();
+
+        if (org) {
+          organizationName = org.name;
+          if (org.logo_storage_path) {
+            const { data: urlData } = supabase.storage
+              .from('organization-logos')
+              .getPublicUrl(org.logo_storage_path);
+            organizationLogoUrl = urlData?.publicUrl || null;
+          }
+        }
+      }
+    }
+
     const response = await fetch(`${supabaseUrl}/functions/v1/send-invitation-email`, {
       method: 'POST',
       headers: {
@@ -181,6 +206,8 @@ export const invitationService = {
         role: invitation.role,
         inviteUrl: inviteUrl,
         expiresAt: invitation.expires_at,
+        organizationName,
+        organizationLogoUrl,
       }),
     });
 

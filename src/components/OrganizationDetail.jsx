@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
@@ -6,23 +6,21 @@ import { projectsService } from '../services/projectsService';
 import { organizationAssignmentsService } from '../services/organizationAssignmentsService';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare,
-  Activity, MapPin, Phone, Mail, Calendar, DollarSign, CheckCircle2,
-  AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2, Folder
-} from 'lucide-react';
+import { ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare, Activity, MapPin, Phone, Mail, Calendar, DollarSign, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2, Folder, Upload, X as XIcon, Image } from 'lucide-react';
 import { format } from 'date-fns';
 import { useOrganization } from '../contexts/OrganizationContext';
 
 export default function OrganizationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isProximityAdmin } = useAuth();
+  const { isProximityAdmin, isInternalUser } = useAuth();
   const [organization, setOrganization] = useState(null);
   const [projects, setProjects] = useState([]);
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef(null);
 
   useEffect(() => {
     loadOrganization();
@@ -53,6 +51,34 @@ export default function OrganizationDetail() {
       console.error('Error loading organization:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLogoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      await organizationsService.uploadLogo(id, file);
+      await loadOrganization();
+    } catch (err) {
+      console.error('Logo upload failed:', err);
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!confirm('Remove this organization logo?')) return;
+    setLogoUploading(true);
+    try {
+      await organizationsService.removeLogo(id, organization.logo_storage_path);
+      await loadOrganization();
+    } catch (err) {
+      console.error('Logo removal failed:', err);
+    } finally {
+      setLogoUploading(false);
     }
   }
 
@@ -130,6 +156,9 @@ export default function OrganizationDetail() {
     .toUpperCase()
     .slice(0, 3);
 
+  const logoUrl = organizationsService.getLogoPublicUrl(organization.logo_storage_path);
+  const canManageLogo = isProximityAdmin || isInternalUser;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -140,11 +169,42 @@ export default function OrganizationDetail() {
           <ArrowLeft className="w-5 h-5 text-slate-400" />
         </button>
         <div className="flex items-center gap-4 flex-1">
-          <div className={`w-14 h-14 ${typeBadge.color} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
-            {initials}
+          <div className="relative group">
+            <div className={`w-14 h-14 ${!logoUrl ? typeBadge.color : ''} rounded-xl flex items-center justify-center text-white font-bold text-lg overflow-hidden border-2 border-slate-700`}>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={`${organization.name} logo`}
+                  className="w-full h-full object-contain bg-white"
+                />
+              ) : (
+                initials
+              )}
+            </div>
+            {canManageLogo && (
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                title="Upload logo"
+              >
+                {logoUploading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5 text-white" />
+                )}
+              </button>
+            )}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
           </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white">{organization.name}</h1>
               <span className={`px-3 py-1 ${typeBadge.color} text-white rounded-full text-xs font-semibold`}>
                 {typeBadge.label}
@@ -152,6 +212,28 @@ export default function OrganizationDetail() {
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
                 {statusBadge.label}
               </span>
+              {canManageLogo && logoUrl && (
+                <button
+                  onClick={handleLogoRemove}
+                  disabled={logoUploading}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors disabled:opacity-50"
+                  title="Remove logo"
+                >
+                  <XIcon className="w-3 h-3" />
+                  Remove logo
+                </button>
+              )}
+              {canManageLogo && !logoUrl && (
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-teal-400 hover:bg-slate-800 rounded transition-colors disabled:opacity-50"
+                  title="Upload logo"
+                >
+                  <Image className="w-3 h-3" />
+                  Add logo
+                </button>
+              )}
             </div>
             <p className="text-slate-400 text-sm mt-1">
               {projects.length} project{projects.length !== 1 ? 's' : ''}, {organization.totalFacilities || 0} facilit{organization.totalFacilities !== 1 ? 'ies' : 'y'} {organization.region ? `in ${organization.region}` : ''}

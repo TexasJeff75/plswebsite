@@ -11,6 +11,8 @@ interface InvitationEmailRequest {
   role: string;
   inviteUrl: string;
   expiresAt: string;
+  organizationName?: string;
+  organizationLogoUrl?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -22,7 +24,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { email, role, inviteUrl, expiresAt }: InvitationEmailRequest = await req.json();
+    const { email, role, inviteUrl, expiresAt, organizationName, organizationLogoUrl }: InvitationEmailRequest = await req.json();
 
     if (!email || !role || !inviteUrl) {
       return new Response(
@@ -62,11 +64,18 @@ Deno.serve(async (req: Request) => {
       day: 'numeric'
     });
 
-    const emailText = `You're Invited to Proximity Lab Services Deployment Tracker
+    const senderName = organizationName || 'Proximity Lab Services';
+    const platformName = organizationName ? `${organizationName} Deployment Tracker` : 'Proximity Lab Services Deployment Tracker';
+
+    const headerBranding = organizationLogoUrl
+      ? `<img src="${organizationLogoUrl}" alt="${senderName}" style="max-height: 56px; max-width: 220px; object-fit: contain; display: block; margin: 0 auto 12px auto;" />`
+      : `<p style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">${senderName}</p>`;
+
+    const emailText = `You're Invited to ${platformName}
 
 Hello,
 
-You've been invited to join the Proximity Lab Services Deployment Tracker platform as a ${role}.
+You've been invited to join the ${platformName} with the role of ${role}.
 
 To accept your invitation, please click the link below or copy it into your browser:
 
@@ -84,12 +93,8 @@ If you didn't expect this invitation, you can safely ignore this email. The invi
 If you have any questions, please contact your system administrator.
 
 ---
-Proximity Lab Services
-Deployment Tracker Platform
-16922 Telge Rd., Suite 2
-Cypress, TX 77429
-(210) 316-1792
-info@proximitylabservices.com
+${senderName}
+Powered by Proximity Lab Services
 `;
 
     const emailHtml = `
@@ -98,21 +103,22 @@ info@proximitylabservices.com
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>You've been invited to Proximity Lab Services</title>
+          <title>You've been invited to ${platformName}</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f8fafc;">
           <div style="background-color: #ffffff; margin: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
 
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Team Invitation</h1>
-              <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Proximity Lab Services Deployment Tracker</p>
+              ${headerBranding}
+              <h1 style="margin: 0 0 6px 0; font-size: 22px; font-weight: 600;">Team Invitation</h1>
+              <p style="margin: 0; font-size: 14px; opacity: 0.75;">${platformName}</p>
             </div>
 
             <div style="padding: 40px 30px; background-color: #ffffff;">
               <p style="font-size: 16px; margin: 0 0 20px 0; color: #1e293b;">Hello,</p>
 
               <p style="font-size: 16px; margin: 0 0 25px 0; color: #334155;">
-                You have been invited to join the Proximity Lab Services Deployment Tracker platform with the role of <strong>${role}</strong>.
+                You have been invited to join <strong>${platformName}</strong> with the role of <strong>${role}</strong>.
               </p>
 
               <div style="text-align: center; margin: 30px 0;">
@@ -148,12 +154,8 @@ info@proximitylabservices.com
             </div>
 
             <div style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 5px 0; font-size: 14px; color: #475569; font-weight: 600;">Proximity Lab Services</p>
-              <p style="margin: 0 0 10px 0; font-size: 13px; color: #64748b;">Deployment Tracker Platform</p>
-              <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                16922 Telge Rd., Suite 2, Cypress, TX 77429<br>
-                (210) 316-1792 | info@proximitylabservices.com
-              </p>
+              <p style="margin: 0 0 4px 0; font-size: 14px; color: #475569; font-weight: 600;">${senderName}</p>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8;">Powered by Proximity Lab Services Deployment Tracker</p>
             </div>
           </div>
         </body>
@@ -162,8 +164,7 @@ info@proximitylabservices.com
 
     console.log(`Sending invitation email to ${email}`);
     console.log(`Role: ${role}`);
-    console.log(`Invite URL: ${inviteUrl}`);
-    console.log(`Expires: ${expiryDate}`);
+    console.log(`Organization: ${senderName}`);
 
     const fromEmail = Deno.env.get('EMAIL_FROM') || 'Proximity Lab Services <noreply@proximitylabservices.com>';
 
@@ -176,7 +177,7 @@ info@proximitylabservices.com
       body: JSON.stringify({
         from: fromEmail,
         to: [email],
-        subject: "You're invited to Proximity Lab Services Deployment Tracker",
+        subject: `You're invited to ${platformName}`,
         html: emailHtml,
         text: emailText,
         reply_to: 'info@proximitylabservices.com',
