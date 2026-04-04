@@ -203,6 +203,9 @@ export default function SupplyOrderDetail() {
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
 
+  const [fulfillmentEdits, setFulfillmentEdits] = useState({});
+  const [savingFulfillment, setSavingFulfillment] = useState({});
+
   const [dispatchForm, setDispatchForm] = useState({
     tracking_number: '',
     estimated_delivery_date: '',
@@ -262,6 +265,23 @@ export default function SupplyOrderDetail() {
       alert(err.message);
     } finally {
       setTransitioning(false);
+    }
+  }
+
+  async function handleSaveFulfillment(item) {
+    const val = fulfillmentEdits[item.id];
+    if (val === undefined || val === '') return;
+    const parsed = parseInt(val, 10);
+    if (isNaN(parsed) || parsed < 0) return;
+    try {
+      setSavingFulfillment(s => ({ ...s, [item.id]: true }));
+      await supplyOrdersService.updateItemFulfillment(item.id, parsed, id, user.id);
+      setFulfillmentEdits(e => { const n = { ...e }; delete n[item.id]; return n; });
+      await loadOrder();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSavingFulfillment(s => ({ ...s, [item.id]: false }));
     }
   }
 
@@ -429,14 +449,45 @@ export default function SupplyOrderDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
-                    {order.items.map(item => (
-                      <tr key={item.id}>
-                        <td className="py-3 text-sm text-white">{item.catalog_item?.name || <span className="italic text-slate-300">{item.free_form_description}</span>}</td>
-                        <td className="py-3 text-sm text-slate-400">{item.catalog_item?.category || 'Custom'}</td>
-                        <td className="py-3 text-sm text-white text-right">{item.quantity_requested} {item.catalog_item?.unit || ''}</td>
-                        <td className="py-3 text-sm text-slate-400 text-right">{item.quantity_fulfilled ?? '—'}</td>
-                      </tr>
-                    ))}
+                    {order.items.map(item => {
+                      const isEditing = fulfillmentEdits[item.id] !== undefined;
+                      const isSaving = savingFulfillment[item.id];
+                      const editVal = fulfillmentEdits[item.id] ?? '';
+                      return (
+                        <tr key={item.id}>
+                          <td className="py-3 text-sm text-white">{item.catalog_item?.name || <span className="italic text-slate-300">{item.free_form_description}</span>}</td>
+                          <td className="py-3 text-sm text-slate-400">{item.catalog_item?.category || 'Custom'}</td>
+                          <td className="py-3 text-sm text-white text-right">{item.quantity_requested} {item.catalog_item?.unit || ''}</td>
+                          <td className="py-3 text-sm text-right">
+                            {isStaff ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={isEditing ? editVal : (item.quantity_fulfilled ?? '')}
+                                  placeholder="—"
+                                  onChange={e => setFulfillmentEdits(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleSaveFulfillment(item); if (e.key === 'Escape') setFulfillmentEdits(prev => { const n = { ...prev }; delete n[item.id]; return n; }); }}
+                                  disabled={isSaving}
+                                  className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+                                />
+                                {isEditing && (
+                                  <button
+                                    onClick={() => handleSaveFulfillment(item)}
+                                    disabled={isSaving}
+                                    className="text-xs px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded transition-colors disabled:opacity-50"
+                                  >
+                                    {isSaving ? '...' : 'Save'}
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">{item.quantity_fulfilled ?? '—'}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (

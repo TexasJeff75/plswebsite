@@ -171,6 +171,21 @@ export const supplyOrdersService = {
     return data;
   },
 
+  async updateItemFulfillment(itemId, quantityFulfilled, orderId, actorUserId) {
+    const { data, error } = await supabase
+      .from('supply_order_items')
+      .update({ quantity_fulfilled: quantityFulfilled })
+      .eq('id', itemId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await this._logActivity(orderId, actorUserId, `Item fulfillment updated to ${quantityFulfilled}`, null, null, '');
+
+    return data;
+  },
+
   async getPendingCount() {
     const { count, error } = await supabase
       .from('supply_orders')
