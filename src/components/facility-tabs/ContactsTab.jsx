@@ -58,7 +58,7 @@ export default function ContactsTab({ facility }) {
   async function loadCourierData() {
     try {
       const [allCouriers, facilityAssignments] = await Promise.all([
-        courierAssignmentService.getAllCouriers(),
+        courierAssignmentService.getAssignableCouriersForFacility(facility.id),
         courierAssignmentService.getByFacility(facility.id),
       ]);
       setCouriers(allCouriers);
@@ -362,7 +362,9 @@ export default function ContactsTab({ facility }) {
             >
               <option value="">Select a courier to assign...</option>
               {couriers.map(c => (
-                <option key={c.user_id} value={c.user_id}>{c.display_name || c.email}</option>
+                <option key={c.user_id} value={c.user_id}>
+                  {c.display_name || c.email}{c.role !== 'Courier' ? ` (${c.role})` : ''}
+                </option>
               ))}
             </select>
             <button

@@ -95,4 +95,39 @@ export const courierAssignmentService = {
     if (error) throw error;
     return data || [];
   },
+
+  async getAssignableCouriersForFacility(facilityId) {
+    const dedicatedCouriers = await this.getAllCouriers();
+
+    const { data: facility } = await supabase
+      .from('facilities')
+      .select('organization_id')
+      .eq('id', facilityId)
+      .maybeSingle();
+
+    let customerUsers = [];
+    if (facility?.organization_id) {
+      const { data } = await supabase
+        .from('user_organization_assignments')
+        .select('user_id, user_roles!fk_user_org_assignments_user_roles(id, user_id, display_name, email, role)')
+        .eq('organization_id', facility.organization_id);
+
+      if (data) {
+        customerUsers = data
+          .filter(row => row.user_roles && ['Customer Admin', 'Customer Viewer'].includes(row.user_roles.role))
+          .map(row => row.user_roles);
+      }
+    }
+
+    const seen = new Set();
+    const merged = [];
+    for (const u of [...dedicatedCouriers, ...customerUsers]) {
+      if (!seen.has(u.user_id)) {
+        seen.add(u.user_id);
+        merged.push(u);
+      }
+    }
+
+    return merged.sort((a, b) => (a.display_name || a.email).localeCompare(b.display_name || b.email));
+  },
 };
