@@ -212,29 +212,26 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Signing out user...');
 
-      // Clear impersonation state first
       setImpersonatedUser(null);
       setImpersonatedProfile(null);
       setOriginalAdmin(null);
 
-      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // Clear user state
       setUser(null);
       setProfile(null);
 
-      console.log('Sign out successful');
+      const postLogoutRedirect = encodeURIComponent(`${window.location.origin}/tracker.html`);
+      window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/logout?post_logout_redirect_uri=${postLogoutRedirect}`;
     } catch (error) {
       console.error('Error signing out:', error);
-      // Even if there's an error, clear the local state
       setUser(null);
       setProfile(null);
       setImpersonatedUser(null);
       setImpersonatedProfile(null);
       setOriginalAdmin(null);
-      throw error;
+      window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/logout?post_logout_redirect_uri=${encodeURIComponent(`${window.location.origin}/tracker.html`)}`;
     }
   };
 
