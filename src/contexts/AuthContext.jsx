@@ -304,6 +304,7 @@ export const AuthProvider = ({ children }) => {
   const isProximityStaff = ['Proximity Admin', 'Super Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'].includes(activeProfile?.role);
   const isCustomerAdmin = activeProfile?.role === 'Customer Admin';
   const isCustomerViewer = activeProfile?.role === 'Customer Viewer';
+  const isCourier = activeProfile?.role === 'Courier';
   const canEdit = isProximityStaff || isCustomerAdmin;
   const canView = !!activeProfile;
 
@@ -326,6 +327,9 @@ export const AuthProvider = ({ children }) => {
     isViewer: canView,
     isStaff: isProximityStaff,
     isCustomer: isCustomerAdmin || isCustomerViewer,
+    isCustomerAdmin,
+    isCustomerViewer,
+    isCourier,
     organizationId: activeProfile?.organization_id
   };
 

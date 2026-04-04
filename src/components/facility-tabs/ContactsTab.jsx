@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Mail, User, Star, Edit2, Trash2, Plus, Save, X } from 'lucide-react';
+import { Phone, Mail, User, Star, CreditCard as Edit2, Trash2, Plus, Save, X, Truck, Check } from 'lucide-react';
 import { facilityContactsService } from '../../services/facilityContactsService';
+import { courierAssignmentService } from '../../services/courierAssignmentService';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function ContactsTab({ facility }) {
+  const { isStaff, user } = useAuth();
   const [contacts, setContacts] = useState([]);
   const [contactRoles, setContactRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingContact, setEditingContact] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [error, setError] = useState(null);
+  const [couriers, setCouriers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [selectedCourierId, setSelectedCourierId] = useState('');
+  const [courierSaving, setCourierSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -21,7 +28,10 @@ export default function ContactsTab({ facility }) {
   useEffect(() => {
     loadContacts();
     loadContactRoles();
-  }, [facility.id]);
+    if (isStaff) {
+      loadCourierData();
+    }
+  }, [facility.id, isStaff]);
 
   async function loadContacts() {
     try {
@@ -42,6 +52,42 @@ export default function ContactsTab({ facility }) {
       setContactRoles(roles);
     } catch (err) {
       console.error('Error loading contact roles:', err);
+    }
+  }
+
+  async function loadCourierData() {
+    try {
+      const [allCouriers, facilityAssignments] = await Promise.all([
+        courierAssignmentService.getAllCouriers(),
+        courierAssignmentService.getByFacility(facility.id),
+      ]);
+      setCouriers(allCouriers);
+      setAssignments(facilityAssignments);
+    } catch (err) {
+      console.error('Error loading courier data:', err);
+    }
+  }
+
+  async function handleAssignCourier() {
+    if (!selectedCourierId) return;
+    try {
+      setCourierSaving(true);
+      await courierAssignmentService.assignCourier(facility.id, selectedCourierId, user?.id);
+      setSelectedCourierId('');
+      await loadCourierData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCourierSaving(false);
+    }
+  }
+
+  async function handleDeactivateCourier(assignmentId) {
+    try {
+      await courierAssignmentService.deactivate(assignmentId);
+      await loadCourierData();
+    } catch (err) {
+      alert(err.message);
     }
   }
 
@@ -274,6 +320,58 @@ export default function ContactsTab({ facility }) {
             >
               <Save className="w-4 h-4" />
               Save Contact
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isStaff && (
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Truck className="w-5 h-5 text-amber-400" />
+            <h3 className="text-white font-semibold">Courier Assignment</h3>
+          </div>
+
+          {assignments.filter(a => a.is_active).length > 0 ? (
+            <div className="space-y-2 mb-4">
+              {assignments.filter(a => a.is_active).map(a => (
+                <div key={a.id} className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-white font-medium text-sm">{a.courier?.display_name || a.courier?.email}</p>
+                    <p className="text-slate-400 text-xs">{a.courier?.email} &mdash; Active Courier</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeactivateCourier(a.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                    title="Remove courier assignment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-400 text-sm mb-4">No courier currently assigned to this facility.</p>
+          )}
+
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedCourierId}
+              onChange={e => setSelectedCourierId(e.target.value)}
+              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500"
+            >
+              <option value="">Select a courier to assign...</option>
+              {couriers.map(c => (
+                <option key={c.user_id} value={c.user_id}>{c.display_name || c.email}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleAssignCourier}
+              disabled={!selectedCourierId || courierSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
+            >
+              <Check className="w-4 h-4" />
+              Assign
             </button>
           </div>
         </div>

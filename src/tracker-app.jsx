@@ -27,6 +27,11 @@ import StratusAPIViewer from './components/StratusAPIViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import Commissions from './components/Commissions';
+import SupplyOrders from './components/SupplyOrders';
+import SupplyOrderDetail from './components/SupplyOrderDetail';
+import SupplyCatalog from './components/SupplyCatalog';
+import MyDeliveries from './components/MyDeliveries';
+import DeliverySignature from './components/DeliverySignature';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -125,6 +130,18 @@ function App() {
                     <Users />
                   </ProtectedRoute>
                 } />
+                <Route path="supply-orders" element={
+                  <ProtectedRoute requireAdmin>
+                    <SupplyOrders />
+                  </ProtectedRoute>
+                } />
+                <Route path="supply-orders/:id" element={
+                  <ProtectedRoute requireAdmin>
+                    <SupplyOrderDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="my-deliveries" element={<MyDeliveries />} />
+                <Route path="delivery/:qrToken" element={<DeliverySignature />} />
                 <Route path="settings" element={
                   <ProtectedRoute requireAdmin>
                     <Settings />
@@ -133,6 +150,7 @@ function App() {
                   <Route index element={<Navigate to="/settings/templates" replace />} />
                   <Route path="templates" element={<Templates />} />
                   <Route path="reference-data" element={<ReferenceData />} />
+                  <Route path="supply-catalog" element={<SupplyCatalog />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
                   <Route path="stratus-api-viewer" element={<StratusAPIViewer />} />
                 </Route>

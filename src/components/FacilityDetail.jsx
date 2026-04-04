@@ -4,7 +4,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import { templatesService } from '../services/templatesService';
 import { useAuth } from '../contexts/AuthContext';
 import { facilityStatsService } from '../services/facilityStatsService';
-import { FileText, X, Check, Loader2, Calendar, MapPin, Navigation, Pencil, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search, Flag } from 'lucide-react';
+import { FileText, X, Check, Loader as Loader2, Calendar, MapPin, Navigation, Pencil, TrendingUp, ChevronRight, Building2, Folder, ArrowRightLeft, Search, Flag } from 'lucide-react';
 import { projectsService } from '../services/projectsService';
 import TabContainer from './facility-tabs/TabContainer';
 import RegulatoryTab from './facility-tabs/RegulatoryTab';
@@ -17,10 +17,11 @@ import ActivityLogTab from './facility-tabs/ActivityLogTab';
 import LabOrdersTab from './facility-tabs/LabOrdersTab';
 import ContactsTab from './facility-tabs/ContactsTab';
 import FacilityMapEmbed from './maps/FacilityMapEmbed';
+import SupplyOrdersTab from './facility-tabs/SupplyOrdersTab';
 
 export default function FacilityDetail() {
   const { id } = useParams();
-  const { isEditor, isStaff } = useAuth();
+  const { isEditor, isStaff, isCourier } = useAuth();
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -190,6 +191,7 @@ export default function FacilityDetail() {
     { label: 'Facility Readiness', component: <FacilityReadinessTab facility={facility} isEditor={isEditor} /> },
     { label: 'Milestones', component: <MilestonesTab facility={facility} isEditor={isEditor} onUpdate={loadFacility} /> },
     { label: 'Contacts', component: <ContactsTab facility={facility} /> },
+    { label: 'Supply Orders', component: <SupplyOrdersTab facility={facility} /> },
     { label: 'Lab Orders', component: <LabOrdersTab facility={facility} /> },
     { label: 'Documents', component: <DocumentsTab facility={facility} isEditor={isEditor} /> },
     { label: 'Activity Log', component: <ActivityLogTab facility={facility} /> },

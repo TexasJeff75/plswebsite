@@ -8,7 +8,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const INTERNAL_ROLES = ['Proximity Admin', 'Proximity Staff', 'Account Manager', 'Technical Consultant', 'Compliance Specialist'];
 const CUSTOMER_ROLES = ['Customer Admin', 'Customer Viewer'];
-const ALL_ROLES = [...INTERNAL_ROLES, ...CUSTOMER_ROLES];
+const EXTERNAL_ROLES = ['Courier'];
+const ALL_ROLES = [...INTERNAL_ROLES, ...CUSTOMER_ROLES, ...EXTERNAL_ROLES];
 
 const ORG_ROLES = [
   { value: 'customer_admin', label: 'Admin' },
@@ -355,6 +356,7 @@ export default function Users() {
       'Compliance Specialist': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
       'Customer Admin': 'bg-green-500/20 text-green-400 border-green-500/30',
       'Customer Viewer': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      'Courier': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     };
     return colors[role] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
   };
