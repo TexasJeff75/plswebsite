@@ -204,10 +204,29 @@ function PhaseDelivery({ delivery, onComplete }) {
   const order = delivery.order;
   const facility = order?.facility;
 
-  const localTime = new Date().toLocaleString(undefined, {
-    dateStyle: 'medium', timeStyle: 'medium', timeZoneName: 'short'
-  });
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const localTime = (() => {
+    try {
+      return new Date().toLocaleString(undefined, {
+        dateStyle: 'medium', timeStyle: 'medium', timeZoneName: 'short'
+      });
+    } catch {
+      try {
+        return new Date().toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: 'numeric',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+      } catch {
+        return new Date().toString();
+      }
+    }
+  })();
+  const timezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'UTC';
+    }
+  })();
 
   useEffect(() => {
     if (navigator.geolocation) {
