@@ -80,7 +80,7 @@ export const supplyDeliveryService = {
     return data;
   },
 
-  async confirmPickup(id, { courierTypedName, signatureBase64 }) {
+  async confirmPickup(id, { courierTypedName, signatureBase64, actorUserId }) {
     const { data, error } = await supabase
       .from('supply_deliveries')
       .update({
@@ -89,14 +89,24 @@ export const supplyDeliveryService = {
         picked_up_signature: signatureBase64,
       })
       .eq('id', id)
-      .select()
+      .select('*, order:supply_orders(id, status)')
       .single();
 
     if (error) throw error;
+
+    if (data?.order?.id) {
+      await supabase.from('supply_order_activity').insert({
+        order_id: data.order.id,
+        actor_user_id: actorUserId || null,
+        action: `Package picked up by ${courierTypedName}`,
+        notes: '',
+      });
+    }
+
     return data;
   },
 
-  async confirmDelivery(id, { recipientTypedName, recipientSignature, courierTypedName, latitude, longitude, timezone, localTimestamp }) {
+  async confirmDelivery(id, { recipientTypedName, recipientSignature, courierTypedName, latitude, longitude, timezone, localTimestamp, actorUserId }) {
     const { data, error } = await supabase
       .from('supply_deliveries')
       .update({
@@ -111,10 +121,23 @@ export const supplyDeliveryService = {
         qr_used: true,
       })
       .eq('id', id)
-      .select()
+      .select('*, order:supply_orders(id, status)')
       .single();
 
     if (error) throw error;
+
+    if (data?.order?.id) {
+      const locationNote = latitude && longitude
+        ? `GPS: ${Number(latitude).toFixed(5)}, ${Number(longitude).toFixed(5)}`
+        : '';
+      await supabase.from('supply_order_activity').insert({
+        order_id: data.order.id,
+        actor_user_id: actorUserId || null,
+        action: `Delivered — signed by ${recipientTypedName}`,
+        notes: [localTimestamp, locationNote].filter(Boolean).join(' · '),
+      });
+    }
+
     return data;
   },
 };

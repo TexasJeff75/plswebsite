@@ -468,7 +468,9 @@ export default function SupplyOrderDetail() {
         estimated_delivery_date: dispatchForm.estimated_delivery_date || null,
       });
 
-      await supplyOrdersService.updateStatus(id, 'out_for_delivery', user.id);
+      await supplyOrdersService.updateStatus(id, 'out_for_delivery', user.id, {
+        notes: `Courier: ${activeCourier?.courier?.display_name || activeCourier?.courier?.email || 'assigned'}${dispatchForm.tracking_number ? ` · Tracking: ${dispatchForm.tracking_number}` : ''}`,
+      });
       await loadOrder();
       setActiveTab('qr');
     } catch (err) {

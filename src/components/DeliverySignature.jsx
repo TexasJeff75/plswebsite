@@ -111,7 +111,7 @@ function ItemList({ items }) {
   );
 }
 
-function PhasePickup({ delivery, onComplete }) {
+function PhasePickup({ delivery, onComplete, actorUserId }) {
   const [courierName, setCourierName] = useState('');
   const [signature, setSignature] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +129,7 @@ function PhasePickup({ delivery, onComplete }) {
       await supplyDeliveryService.confirmPickup(delivery.id, {
         courierTypedName: courierName,
         signatureBase64: signature,
+        actorUserId,
       });
       onComplete();
     } catch (err) {
@@ -194,7 +195,7 @@ function PhasePickup({ delivery, onComplete }) {
   );
 }
 
-function PhaseDelivery({ delivery, onComplete }) {
+function PhaseDelivery({ delivery, onComplete, actorUserId }) {
   const [recipientName, setRecipientName] = useState('');
   const [recipientSig, setRecipientSig] = useState(null);
   const [courierName, setCourierName] = useState(delivery.courier_typed_name_at_pickup || '');
@@ -254,8 +255,9 @@ function PhaseDelivery({ delivery, onComplete }) {
         longitude: location?.lng,
         timezone,
         localTimestamp: localTime,
+        actorUserId,
       });
-      await supplyOrdersService.updateStatus(order.id, 'delivered', null);
+      await supplyOrdersService.updateStatus(order.id, 'delivered', actorUserId || null);
       onComplete();
     } catch (err) {
       setError(err.message);
@@ -471,6 +473,7 @@ export default function DeliverySignature() {
           <PhasePickup
             delivery={delivery}
             onComplete={() => { loadDelivery(); setPhase('delivery'); }}
+            actorUserId={user?.id}
           />
         )}
 
@@ -478,6 +481,7 @@ export default function DeliverySignature() {
           <PhaseDelivery
             delivery={delivery}
             onComplete={() => { loadDelivery(); setPhase('complete'); }}
+            actorUserId={user?.id}
           />
         )}
 
