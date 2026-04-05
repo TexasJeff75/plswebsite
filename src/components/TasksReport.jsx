@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, TriangleAlert as AlertTriangle, Clock, Users, ListFilter as Filter, Download, Calendar, CircleCheck as CheckCircle2, Circle, CircleAlert as AlertCircle } from 'lucide-react';
+import { FileText, TriangleAlert as AlertTriangle, Clock, Users, ListFilter as Filter, Download, Calendar, CircleCheck as CheckCircle2, Circle, CircleAlert as AlertCircle, CreditCard as Edit2, Save, X } from 'lucide-react';
 import { taskService } from '../services/taskService';
-import { format, isAfter, isBefore, addDays, parseISO } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import { format, isBefore, addDays, parseISO } from 'date-fns';
 
 export default function TasksReport() {
+  const { isAdmin, isStaff } = useAuth();
+  const canEdit = isAdmin || isStaff;
+
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingTask, setEditingTask] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState({
     status: 'all',
     priority: 'all',
@@ -45,7 +52,7 @@ export default function TasksReport() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekFromNow = addDays(today, 7);
 
-    const stats = {
+    const s = {
       total: taskList.length,
       overdue: 0,
       dueToday: 0,
@@ -56,19 +63,19 @@ export default function TasksReport() {
     };
 
     taskList.forEach(task => {
-      if (!task.assigned_to) stats.unassigned++;
-      if (task.priority === 'critical') stats.critical++;
-      if (task.priority === 'high') stats.high++;
+      if (!task.assigned_to) s.unassigned++;
+      if (task.priority === 'critical') s.critical++;
+      if (task.priority === 'high') s.high++;
 
       if (task.due_date) {
         const dueDate = parseISO(task.due_date);
-        if (isBefore(dueDate, today)) stats.overdue++;
-        else if (dueDate.getTime() === today.getTime()) stats.dueToday++;
-        else if (isBefore(dueDate, weekFromNow)) stats.dueThisWeek++;
+        if (isBefore(dueDate, today)) s.overdue++;
+        else if (dueDate.getTime() === today.getTime()) s.dueToday++;
+        else if (isBefore(dueDate, weekFromNow)) s.dueThisWeek++;
       }
     });
 
-    setStats(stats);
+    setStats(s);
   };
 
   const getFilteredTasks = () => {
@@ -103,6 +110,38 @@ export default function TasksReport() {
 
       return true;
     });
+  };
+
+  const startEdit = (task) => {
+    setEditingTask(task.id);
+    setEditForm({
+      status: task.status,
+      priority: task.priority || 'medium',
+      due_date: task.due_date ? task.due_date.substring(0, 10) : '',
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingTask(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async (taskId) => {
+    try {
+      setSaving(true);
+      await taskService.updateTask(taskId, {
+        status: editForm.status,
+        priority: editForm.priority,
+        due_date: editForm.due_date || null,
+      });
+      setEditingTask(null);
+      setEditForm({});
+      await loadAllTasks();
+    } catch (err) {
+      console.error('Error saving task:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -316,98 +355,161 @@ export default function TasksReport() {
       </div>
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/30">
+        <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/30 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">
             Tasks ({filteredTasks.length})
           </h2>
+          {canEdit && (
+            <span className="text-xs text-slate-400">Click the edit icon on a row to update status, priority, or due date</span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-900/30 border-b border-slate-700/50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Facility
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Milestone
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Subject
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Priority
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Assigned To
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Due Date
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Facility</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Milestone</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Priority</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned To</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Due Date</th>
+                {canEdit && (
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={canEdit ? 8 : 7} className="px-4 py-8 text-center text-slate-400">
                     No incomplete tasks found
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-white">
-                      {task.facility?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-300">
-                      {task.milestone?.name || <span className="text-slate-500 italic">General Task</span>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-white max-w-xs">
-                      <div className="font-medium">{task.subject}</div>
-                      {task.description && (
-                        <div className="text-slate-400 text-xs mt-1 line-clamp-1">
-                          {task.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2 text-slate-300">
-                        {getStatusIcon(task.status)}
-                        <span className="capitalize">{task.status.replace('_', ' ')}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {task.priority ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
-                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-white">
-                      {task.assigned_user?.display_name || (
-                        <span className="text-yellow-400 font-medium">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {task.due_date ? (
-                        <div className={`flex items-center gap-2 ${isOverdue(task.due_date) ? 'text-red-400 font-medium' : 'text-slate-300'}`}>
-                          <Calendar className="w-4 h-4" />
-                          {format(parseISO(task.due_date), 'MMM d, yyyy')}
-                          {isOverdue(task.due_date) && (
-                            <span className="text-xs">(Overdue)</span>
+                filteredTasks.map((task) => {
+                  const isEditing = editingTask === task.id;
+                  return (
+                    <tr key={task.id} className={`transition-colors ${isEditing ? 'bg-slate-700/40' : 'hover:bg-slate-700/30'}`}>
+                      <td className="px-4 py-3 text-sm text-white">
+                        {task.facility?.name || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-300">
+                        {task.milestone?.name || <span className="text-slate-500 italic">General Task</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-white max-w-xs">
+                        <div className="font-medium">{task.subject}</div>
+                        {task.description && (
+                          <div className="text-slate-400 text-xs mt-1 line-clamp-1">{task.description}</div>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm">
+                        {isEditing ? (
+                          <select
+                            value={editForm.status}
+                            onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value }))}
+                            className="px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="blocked">Blocked</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        ) : (
+                          <div className="flex items-center gap-2 text-slate-300">
+                            {getStatusIcon(task.status)}
+                            <span className="capitalize">{task.status.replace('_', ' ')}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm">
+                        {isEditing ? (
+                          <select
+                            value={editForm.priority}
+                            onChange={(e) => setEditForm(f => ({ ...f, priority: e.target.value }))}
+                            className="px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          >
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                          </select>
+                        ) : (
+                          task.priority ? (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
+                              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">N/A</span>
+                          )
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-white">
+                        {task.assigned_user?.display_name || (
+                          <span className="text-yellow-400 font-medium">Unassigned</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editForm.due_date}
+                            onChange={(e) => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                            className="px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          />
+                        ) : (
+                          task.due_date ? (
+                            <div className={`flex items-center gap-2 ${isOverdue(task.due_date) ? 'text-red-400 font-medium' : 'text-slate-300'}`}>
+                              <Calendar className="w-4 h-4" />
+                              {format(parseISO(task.due_date), 'MMM d, yyyy')}
+                              {isOverdue(task.due_date) && <span className="text-xs">(Overdue)</span>}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">No due date</span>
+                          )
+                        )}
+                      </td>
+
+                      {canEdit && (
+                        <td className="px-4 py-3 text-sm">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => saveEdit(task.id)}
+                                disabled={saving}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+                              >
+                                <Save className="w-3 h-3" />
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                disabled={saving}
+                                className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-600 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEdit(task)}
+                              className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                              title="Edit task"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                           )}
-                        </div>
-                      ) : (
-                        <span className="text-slate-500">No due date</span>
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                ))
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
