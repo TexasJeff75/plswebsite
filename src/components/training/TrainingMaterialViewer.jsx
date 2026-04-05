@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, ExternalLink, Loader as Loader2, Video, FileText, Image, Link, Monitor } from 'lucide-react';
+import { X, Download, ExternalLink, Loader as Loader2, Video, FileText, Image, Link, Monitor, Package } from 'lucide-react';
+
+const EQUIPMENT_TYPE_LABELS = {
+  analyzer: 'Analyzer',
+  poc_device: 'POC Device',
+  laptop: 'Laptop',
+  printer: 'Printer',
+  barcode_scanner: 'Barcode Scanner',
+  centrifuge: 'Centrifuge',
+  refrigerator: 'Refrigerator',
+  other: 'Other',
+};
 import { trainingMaterialsService } from '../../services/trainingMaterialsService';
 
 function getYouTubeEmbedUrl(url) {
@@ -63,14 +74,20 @@ export default function TrainingMaterialViewer({ material, onClose }) {
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-white truncate">{material.title}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-xs text-slate-400 capitalize">{material.category}</span>
                 <span className="text-slate-600">·</span>
                 <span className="text-xs text-slate-400 capitalize">{material.material_type}</span>
-                {material.equipment_type && (
+                {material.equipment_catalog && (
                   <>
                     <span className="text-slate-600">·</span>
-                    <span className="text-xs text-slate-400">{material.equipment_type}</span>
+                    <span className="flex items-center gap-1 text-xs text-teal-400">
+                      <Package className="w-3 h-3" />
+                      {material.equipment_catalog.equipment_name}
+                      {material.equipment_catalog.manufacturer && (
+                        <span className="text-slate-500">({material.equipment_catalog.manufacturer})</span>
+                      )}
+                    </span>
                   </>
                 )}
               </div>
@@ -205,6 +222,27 @@ export default function TrainingMaterialViewer({ material, onClose }) {
                 <ExternalLink className="w-4 h-4" />
                 Open External Link
               </a>
+            </div>
+          )}
+
+          {material.equipment_catalog && (
+            <div className="px-5 py-3 border-t border-slate-700/50 bg-slate-800/30">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Linked Equipment</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded bg-teal-500/15 border border-teal-500/25 flex items-center justify-center flex-shrink-0">
+                  <Package className="w-4 h-4 text-teal-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">{material.equipment_catalog.equipment_name}</p>
+                  <p className="text-xs text-slate-400">
+                    {material.equipment_catalog.manufacturer && `${material.equipment_catalog.manufacturer}`}
+                    {material.equipment_catalog.manufacturer && material.equipment_catalog.model_number && ' · '}
+                    {material.equipment_catalog.model_number && `Model: ${material.equipment_catalog.model_number}`}
+                    {(material.equipment_catalog.manufacturer || material.equipment_catalog.model_number) && material.equipment_catalog.equipment_type && ' · '}
+                    {material.equipment_catalog.equipment_type && (EQUIPMENT_TYPE_LABELS[material.equipment_catalog.equipment_type] || material.equipment_catalog.equipment_type)}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

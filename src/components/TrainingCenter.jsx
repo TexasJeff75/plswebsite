@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Search, Video, FileText, Image, Link, Monitor, CreditCard as Edit2, Trash2, Eye, EyeOff, ListFilter as Filter, RefreshCw, ChevronDown } from 'lucide-react';
+import {
+  BookOpen, Plus, Search, Video, FileText, Image, Link, Monitor,
+  CreditCard as Edit2, Trash2, Eye, EyeOff, Package
+} from 'lucide-react';
 import { trainingMaterialsService } from '../services/trainingMaterialsService';
 import { useAuth } from '../contexts/AuthContext';
 import TrainingMaterialModal from './training/TrainingMaterialModal';
@@ -25,11 +28,11 @@ const TYPES = [
 ];
 
 const TYPE_META = {
-  video: { icon: Video, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', label: 'Video' },
-  document: { icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', label: 'Document' },
-  image: { icon: Image, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20', label: 'Image' },
-  presentation: { icon: Monitor, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20', label: 'Presentation' },
-  link: { icon: Link, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20', label: 'Link' },
+  video: { icon: Video, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', bar: 'bg-red-500', label: 'Video' },
+  document: { icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', bar: 'bg-blue-500', label: 'Document' },
+  image: { icon: Image, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20', bar: 'bg-green-500', label: 'Image' },
+  presentation: { icon: Monitor, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20', bar: 'bg-orange-500', label: 'Presentation' },
+  link: { icon: Link, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20', bar: 'bg-teal-500', label: 'Link' },
 };
 
 const CATEGORY_COLORS = {
@@ -39,6 +42,17 @@ const CATEGORY_COLORS = {
   onboarding: 'bg-green-500/15 text-green-300 border-green-500/25',
   safety: 'bg-red-500/15 text-red-300 border-red-500/25',
   other: 'bg-slate-500/15 text-slate-300 border-slate-500/25',
+};
+
+const EQUIPMENT_TYPE_LABELS = {
+  analyzer: 'Analyzer',
+  poc_device: 'POC Device',
+  laptop: 'Laptop',
+  printer: 'Printer',
+  barcode_scanner: 'Barcode Scanner',
+  centrifuge: 'Centrifuge',
+  refrigerator: 'Refrigerator',
+  other: 'Other',
 };
 
 function formatBytes(bytes) {
@@ -53,10 +67,12 @@ export default function TrainingCenter() {
   const canManage = isStaff || isAdmin;
 
   const [materials, setMaterials] = useState([]);
+  const [catalogItems, setCatalogItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [equipmentFilter, setEquipmentFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
   const [viewingMaterial, setViewingMaterial] = useState(null);
@@ -64,6 +80,7 @@ export default function TrainingCenter() {
 
   useEffect(() => {
     loadMaterials();
+    trainingMaterialsService.getEquipmentCatalog().then(setCatalogItems).catch(console.error);
   }, [categoryFilter, typeFilter]);
 
   const loadMaterials = async () => {
@@ -82,12 +99,13 @@ export default function TrainingCenter() {
   };
 
   const filteredMaterials = materials.filter(m => {
+    if (equipmentFilter !== 'all' && m.equipment_catalog_id !== equipmentFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
       m.title?.toLowerCase().includes(q) ||
       m.description?.toLowerCase().includes(q) ||
-      m.equipment_type?.toLowerCase().includes(q) ||
+      m.equipment_catalog?.equipment_name?.toLowerCase().includes(q) ||
       m.tags?.some(t => t.toLowerCase().includes(q))
     );
   });
@@ -114,24 +132,15 @@ export default function TrainingCenter() {
     }
   };
 
-  const handleView = (material) => {
-    setViewingMaterial(material);
-  };
+  const openAdd = () => { setEditingMaterial(null); setShowModal(true); };
+  const openEdit = (material) => { setEditingMaterial(material); setShowModal(true); };
+  const handleSaved = () => { setShowModal(false); setEditingMaterial(null); loadMaterials(); };
 
-  const openAdd = () => {
-    setEditingMaterial(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (material) => {
-    setEditingMaterial(material);
-    setShowModal(true);
-  };
-
-  const handleSaved = () => {
-    setShowModal(false);
-    setEditingMaterial(null);
-    loadMaterials();
+  const clearFilters = () => {
+    setSearch('');
+    setCategoryFilter('all');
+    setTypeFilter('all');
+    setEquipmentFilter('all');
   };
 
   const stats = {
@@ -140,6 +149,9 @@ export default function TrainingCenter() {
     documents: materials.filter(m => m.material_type === 'document').length,
     images: materials.filter(m => m.material_type === 'image').length,
   };
+
+  const linkedEquipmentIds = [...new Set(materials.map(m => m.equipment_catalog_id).filter(Boolean))];
+  const linkedEquipment = catalogItems.filter(e => linkedEquipmentIds.includes(e.id));
 
   return (
     <div className="space-y-6">
@@ -162,24 +174,93 @@ export default function TrainingCenter() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Materials', value: stats.total, icon: BookOpen, color: 'teal' },
-          { label: 'Videos', value: stats.videos, icon: Video, color: 'red' },
-          { label: 'Documents', value: stats.documents, icon: FileText, color: 'blue' },
-          { label: 'Images', value: stats.images, icon: Image, color: 'green' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className={`bg-gradient-to-br from-${color}-500/10 to-slate-800/50 border border-${color}-500/20 rounded-lg p-4 relative overflow-hidden`}>
-            <div className={`absolute top-0 left-0 w-1 h-full bg-${color}-500 rounded-l-lg`} />
-            <div className="flex items-center justify-between mb-2">
-              <h3 className={`text-${color}-300/80 text-xs font-medium uppercase tracking-wider`}>{label}</h3>
-              <div className={`w-8 h-8 bg-${color}-500/15 rounded flex items-center justify-center ring-1 ring-${color}-500/20`}>
-                <Icon className={`w-4 h-4 text-${color}-400`} />
-              </div>
+        <div className="bg-slate-800/50 border border-teal-500/20 rounded-lg p-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-teal-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-teal-300/80 text-xs font-medium uppercase tracking-wider">Total Materials</h3>
+            <div className="w-8 h-8 bg-teal-500/15 rounded flex items-center justify-center ring-1 ring-teal-500/20">
+              <BookOpen className="w-4 h-4 text-teal-400" />
             </div>
-            <p className="text-2xl font-bold text-white">{value}</p>
           </div>
-        ))}
+          <p className="text-2xl font-bold text-white">{stats.total}</p>
+        </div>
+        <div className="bg-slate-800/50 border border-red-500/20 rounded-lg p-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-red-300/80 text-xs font-medium uppercase tracking-wider">Videos</h3>
+            <div className="w-8 h-8 bg-red-500/15 rounded flex items-center justify-center ring-1 ring-red-500/20">
+              <Video className="w-4 h-4 text-red-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white">{stats.videos}</p>
+        </div>
+        <div className="bg-slate-800/50 border border-blue-500/20 rounded-lg p-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-blue-300/80 text-xs font-medium uppercase tracking-wider">Documents</h3>
+            <div className="w-8 h-8 bg-blue-500/15 rounded flex items-center justify-center ring-1 ring-blue-500/20">
+              <FileText className="w-4 h-4 text-blue-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white">{stats.documents}</p>
+        </div>
+        <div className="bg-slate-800/50 border border-green-500/20 rounded-lg p-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-l-lg" />
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-green-300/80 text-xs font-medium uppercase tracking-wider">Images</h3>
+            <div className="w-8 h-8 bg-green-500/15 rounded flex items-center justify-center ring-1 ring-green-500/20">
+              <Image className="w-4 h-4 text-green-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white">{stats.images}</p>
+        </div>
       </div>
+
+      {linkedEquipment.length > 0 && (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Package className="w-4 h-4 text-slate-400" />
+            <h2 className="text-sm font-medium text-slate-300">Filter by Equipment</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setEquipmentFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                equipmentFilter === 'all'
+                  ? 'bg-teal-600 border-teal-600 text-white'
+                  : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:border-slate-500'
+              }`}
+            >
+              All Equipment
+            </button>
+            <button
+              onClick={() => setEquipmentFilter('none')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                equipmentFilter === 'none'
+                  ? 'bg-slate-600 border-slate-500 text-white'
+                  : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:border-slate-500'
+              }`}
+            >
+              No Equipment
+            </button>
+            {linkedEquipment.map(eq => (
+              <button
+                key={eq.id}
+                onClick={() => setEquipmentFilter(eq.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  equipmentFilter === eq.id
+                    ? 'bg-teal-600 border-teal-600 text-white'
+                    : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <Package className="w-3 h-3" />
+                {eq.equipment_name}
+                {eq.manufacturer && <span className="opacity-60">({eq.manufacturer})</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
         <div className="flex flex-col md:flex-row gap-3">
@@ -208,7 +289,7 @@ export default function TrainingCenter() {
             {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
           <button
-            onClick={() => { setSearch(''); setCategoryFilter('all'); setTypeFilter('all'); }}
+            onClick={clearFilters}
             className="px-3 py-2.5 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors text-sm whitespace-nowrap"
           >
             Clear
@@ -245,14 +326,15 @@ export default function TrainingCenter() {
           {filteredMaterials.map(material => {
             const meta = TYPE_META[material.material_type] || TYPE_META.document;
             const Icon = meta.icon;
+            const linkedEq = material.equipment_catalog;
             return (
               <div
                 key={material.id}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600 transition-all duration-200 group"
+                className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600 transition-all duration-200 group flex flex-col"
               >
-                <div className={`h-1.5 w-full ${meta.bg.includes('red') ? 'bg-red-500' : meta.bg.includes('blue') ? 'bg-blue-500' : meta.bg.includes('green') ? 'bg-green-500' : meta.bg.includes('orange') ? 'bg-orange-500' : 'bg-teal-500'}`} />
+                <div className={`h-1.5 w-full ${meta.bar}`} />
 
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-1">
                   <div className="flex items-start gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 ${meta.bg}`}>
                       <Icon className={`w-5 h-5 ${meta.color}`} />
@@ -261,9 +343,6 @@ export default function TrainingCenter() {
                       <h3 className="font-semibold text-white text-sm leading-tight line-clamp-2 group-hover:text-teal-300 transition-colors">
                         {material.title}
                       </h3>
-                      {material.equipment_type && (
-                        <p className="text-xs text-slate-400 mt-0.5 truncate">{material.equipment_type}</p>
-                      )}
                     </div>
                     {!material.is_published && canManage && (
                       <span className="flex-shrink-0 px-1.5 py-0.5 bg-yellow-500/15 text-yellow-400 text-xs rounded border border-yellow-500/25 font-medium">
@@ -271,6 +350,22 @@ export default function TrainingCenter() {
                       </span>
                     )}
                   </div>
+
+                  {linkedEq && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-700/40 rounded-lg mb-3 border border-slate-600/40">
+                      <Package className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-teal-300 text-xs font-medium truncate">{linkedEq.equipment_name}</p>
+                        {(linkedEq.manufacturer || linkedEq.equipment_type) && (
+                          <p className="text-slate-400 text-xs truncate">
+                            {linkedEq.manufacturer && `${linkedEq.manufacturer}`}
+                            {linkedEq.manufacturer && linkedEq.equipment_type && ' · '}
+                            {linkedEq.equipment_type && (EQUIPMENT_TYPE_LABELS[linkedEq.equipment_type] || linkedEq.equipment_type)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {material.description && (
                     <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-3">{material.description}</p>
@@ -301,9 +396,9 @@ export default function TrainingCenter() {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-700/50">
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-700/50 mt-auto">
                     <button
-                      onClick={() => handleView(material)}
+                      onClick={() => setViewingMaterial(material)}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-teal-600/15 hover:bg-teal-600 border border-teal-500/30 hover:border-teal-600 text-teal-400 hover:text-white rounded-lg text-xs font-medium transition-all"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -322,7 +417,7 @@ export default function TrainingCenter() {
                         <button
                           onClick={() => handleTogglePublish(material)}
                           className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
-                          title={material.is_published ? 'Unpublish (hide from users)' : 'Publish (make visible to users)'}
+                          title={material.is_published ? 'Unpublish' : 'Publish'}
                         >
                           {material.is_published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-green-400" />}
                         </button>

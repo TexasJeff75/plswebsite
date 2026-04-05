@@ -6,7 +6,7 @@ export const trainingMaterialsService = {
   async getAll(filters = {}) {
     let query = supabase
       .from('training_materials')
-      .select('*, uploader:uploaded_by(email)')
+      .select('*, uploader:uploaded_by(email), equipment_catalog(id, equipment_name, equipment_type, manufacturer, model_number)')
       .order('created_at', { ascending: false });
 
     if (filters.category && filters.category !== 'all') {
@@ -14,6 +14,9 @@ export const trainingMaterialsService = {
     }
     if (filters.material_type && filters.material_type !== 'all') {
       query = query.eq('material_type', filters.material_type);
+    }
+    if (filters.equipment_catalog_id) {
+      query = query.eq('equipment_catalog_id', filters.equipment_catalog_id);
     }
     if (filters.search) {
       query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
@@ -27,11 +30,20 @@ export const trainingMaterialsService = {
   async getById(id) {
     const { data, error } = await supabase
       .from('training_materials')
-      .select('*')
+      .select('*, equipment_catalog(id, equipment_name, equipment_type, manufacturer, model_number)')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
     return data;
+  },
+
+  async getEquipmentCatalog() {
+    const { data, error } = await supabase
+      .from('equipment_catalog')
+      .select('id, equipment_name, equipment_type, manufacturer, model_number')
+      .order('equipment_name', { ascending: true });
+    if (error) throw error;
+    return data || [];
   },
 
   async create(payload) {

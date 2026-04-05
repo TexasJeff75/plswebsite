@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Upload, Link, Video, FileText, Image, Presentation, Loader as Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Upload, Link, Video, FileText, Image, Loader as Loader2, Package, ChevronDown, Search } from 'lucide-react';
 import { trainingMaterialsService } from '../../services/trainingMaterialsService';
 
 const CATEGORIES = [
@@ -15,7 +15,7 @@ const MATERIAL_TYPES = [
   { value: 'video', label: 'Video', icon: Video },
   { value: 'document', label: 'Document', icon: FileText },
   { value: 'image', label: 'Image', icon: Image },
-  { value: 'presentation', label: 'Presentation', icon: Presentation },
+  { value: 'presentation', label: 'Presentation', icon: FileText },
   { value: 'link', label: 'External Link', icon: Link },
 ];
 
@@ -27,9 +27,122 @@ const FILE_TYPES = {
   link: '',
 };
 
+const EQUIPMENT_TYPE_LABELS = {
+  analyzer: 'Analyzer',
+  poc_device: 'POC Device',
+  laptop: 'Laptop',
+  printer: 'Printer',
+  barcode_scanner: 'Barcode Scanner',
+  centrifuge: 'Centrifuge',
+  refrigerator: 'Refrigerator',
+  other: 'Other',
+};
+
+function EquipmentPicker({ value, onChange, catalogItems }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const selected = catalogItems.find(i => i.id === value);
+
+  const filtered = catalogItems.filter(item => {
+    const q = search.toLowerCase();
+    return (
+      item.equipment_name?.toLowerCase().includes(q) ||
+      item.manufacturer?.toLowerCase().includes(q) ||
+      item.model_number?.toLowerCase().includes(q) ||
+      EQUIPMENT_TYPE_LABELS[item.equipment_type]?.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-left hover:border-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+      >
+        {selected ? (
+          <div className="min-w-0">
+            <span className="text-white text-sm font-medium truncate block">{selected.equipment_name}</span>
+            <span className="text-slate-400 text-xs">
+              {selected.manufacturer && `${selected.manufacturer} · `}
+              {EQUIPMENT_TYPE_LABELS[selected.equipment_type] || selected.equipment_type}
+            </span>
+          </div>
+        ) : (
+          <span className="text-slate-500 text-sm">No equipment linked (optional)</span>
+        )}
+        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-20 overflow-hidden">
+          <div className="p-2 border-b border-slate-700/50">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search equipment..."
+                autoFocus
+                className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => { onChange(null); setOpen(false); setSearch(''); }}
+              className="w-full text-left px-3 py-2.5 text-slate-400 hover:bg-slate-700 text-sm italic transition-colors"
+            >
+              None (no equipment linked)
+            </button>
+            {filtered.length === 0 && (
+              <p className="px-3 py-3 text-slate-500 text-sm text-center">No equipment found</p>
+            )}
+            {filtered.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { onChange(item.id); setOpen(false); setSearch(''); }}
+                className={`w-full text-left px-3 py-2.5 hover:bg-slate-700 transition-colors ${item.id === value ? 'bg-teal-500/15' : ''}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.equipment_name}</p>
+                    <p className="text-slate-400 text-xs">
+                      {item.manufacturer && `${item.manufacturer} · `}
+                      {item.model_number && `${item.model_number} · `}
+                      {EQUIPMENT_TYPE_LABELS[item.equipment_type] || item.equipment_type}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TrainingMaterialModal({ onClose, onSaved, editing = null }) {
   const isEditing = Boolean(editing);
   const fileInputRef = useRef(null);
+
+  const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
   const [form, setForm] = useState({
     title: editing?.title || '',
@@ -38,7 +151,7 @@ export default function TrainingMaterialModal({ onClose, onSaved, editing = null
     material_type: editing?.material_type || 'document',
     video_url: editing?.video_url || '',
     external_link: editing?.external_link || '',
-    equipment_type: editing?.equipment_type || '',
+    equipment_catalog_id: editing?.equipment_catalog_id || null,
     tags: editing?.tags?.join(', ') || '',
     is_published: editing?.is_published ?? true,
   });
@@ -47,6 +160,14 @@ export default function TrainingMaterialModal({ onClose, onSaved, editing = null
   const [dragOver, setDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    trainingMaterialsService
+      .getEquipmentCatalog()
+      .then(data => setCatalogItems(data))
+      .catch(console.error)
+      .finally(() => setCatalogLoading(false));
+  }, []);
 
   const needsFile = ['video', 'document', 'image', 'presentation'].includes(form.material_type);
   const needsVideoUrl = form.material_type === 'video';
@@ -98,7 +219,7 @@ export default function TrainingMaterialModal({ onClose, onSaved, editing = null
         material_type: form.material_type,
         video_url: form.video_url.trim() || null,
         external_link: form.external_link.trim() || null,
-        equipment_type: form.equipment_type.trim() || null,
+        equipment_catalog_id: form.equipment_catalog_id || null,
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         is_published: form.is_published,
         ...fileData,
@@ -144,6 +265,23 @@ export default function TrainingMaterialModal({ onClose, onSaved, editing = null
               placeholder="e.g. How to Calibrate the Analyzer"
               className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <Package className="w-4 h-4 text-teal-400" />
+              Equipment (from Catalog)
+            </label>
+            {catalogLoading ? (
+              <div className="px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-slate-500 text-sm">Loading equipment catalog...</div>
+            ) : (
+              <EquipmentPicker
+                value={form.equipment_catalog_id}
+                onChange={id => setForm(f => ({ ...f, equipment_catalog_id: id }))}
+                catalogItems={catalogItems}
+              />
+            )}
+            <p className="text-xs text-slate-500 mt-1">Link this material to a specific piece of equipment in the catalog</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -249,27 +387,15 @@ export default function TrainingMaterialModal({ onClose, onSaved, editing = null
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Equipment Type</label>
-              <input
-                type="text"
-                value={form.equipment_type}
-                onChange={e => setForm(f => ({ ...f, equipment_type: e.target.value }))}
-                placeholder="e.g. Hematology Analyzer"
-                className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Tags</label>
-              <input
-                type="text"
-                value={form.tags}
-                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-                placeholder="analyzer, calibration, qc (comma-separated)"
-                className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Tags</label>
+            <input
+              type="text"
+              value={form.tags}
+              onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+              placeholder="analyzer, calibration, qc (comma-separated)"
+              className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            />
           </div>
 
           <div className="flex items-center gap-3">
