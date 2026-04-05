@@ -32,6 +32,7 @@ import SupplyOrderDetail from './components/SupplyOrderDetail';
 import SupplyCatalog from './components/SupplyCatalog';
 import MyDeliveries from './components/MyDeliveries';
 import DeliverySignature from './components/DeliverySignature';
+import TrainingCenter from './components/TrainingCenter';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -113,6 +114,7 @@ function App() {
                 <Route path="support/:id" element={<TicketDetail />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="tasks-report" element={<TasksReport />} />
+                <Route path="training" element={<TrainingCenter />} />
                 <Route path="commissions" element={
                   <ProtectedRoute requireAdmin>
                     <Commissions />
