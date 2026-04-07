@@ -362,7 +362,7 @@ function PackingSlip({ order, token }) {
 
 export default function SupplyOrderDetail() {
   const { id } = useParams();
-  const { user, isStaff } = useAuth();
+  const { user, isStaff, isCustomerAdmin } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -480,12 +480,12 @@ export default function SupplyOrderDetail() {
     }
   }
 
-  if (!isStaff) {
+  if (!isStaff && !isCustomerAdmin) {
     return (
       <div className="text-center py-12">
         <Package className="w-16 h-16 mx-auto text-slate-700 mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
-        <p className="text-slate-400">Proximity staff only.</p>
+        <p className="text-slate-400">Staff or customer admin access required.</p>
       </div>
     );
   }
@@ -530,7 +530,7 @@ export default function SupplyOrderDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {canTransition && order.status !== 'ready' && (
+          {isStaff && canTransition && order.status !== 'ready' && (
             <button
               onClick={() => handleStatusTransition(nextStatus)}
               disabled={transitioning}
@@ -548,7 +548,7 @@ export default function SupplyOrderDetail() {
               Dispatch
             </button>
           )}
-          {canCancel && (
+          {isStaff && canCancel && (
             <button
               onClick={() => setShowCancelForm(!showCancelForm)}
               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg font-medium transition-colors text-sm"

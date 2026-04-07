@@ -21,7 +21,7 @@ function StatusBadge({ status }) {
 }
 
 export default function SupplyOrders() {
-  const { isStaff } = useAuth();
+  const { isStaff, isCustomerAdmin } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -51,12 +51,12 @@ export default function SupplyOrders() {
     }
   }
 
-  if (!isStaff) {
+  if (!isStaff && !isCustomerAdmin) {
     return (
       <div className="text-center py-12">
         <Package className="w-16 h-16 mx-auto text-slate-700 mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
-        <p className="text-slate-400">You need Proximity staff privileges to access this page.</p>
+        <p className="text-slate-400">You need staff or customer admin privileges to access this page.</p>
       </div>
     );
   }
