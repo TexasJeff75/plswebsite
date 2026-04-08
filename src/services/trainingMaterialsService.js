@@ -6,7 +6,7 @@ export const trainingMaterialsService = {
   async getAll(filters = {}) {
     let query = supabase
       .from('training_materials')
-      .select('*, uploader:uploaded_by(email), equipment_catalog(id, equipment_name, equipment_type, manufacturer, model_number)')
+      .select('*, equipment_catalog(id, equipment_name, equipment_type, manufacturer, model_number)')
       .order('created_at', { ascending: false });
 
     if (filters.category && filters.category !== 'all') {
