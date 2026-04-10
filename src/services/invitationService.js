@@ -4,10 +4,7 @@ export const invitationService = {
   async getAll() {
     const { data, error } = await supabase
       .from('user_invitations')
-      .select(`
-        *,
-        invited_by_user:user_roles!user_invitations_invited_by_fkey(display_name, email)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -17,10 +14,7 @@ export const invitationService = {
   async getById(id) {
     const { data, error } = await supabase
       .from('user_invitations')
-      .select(`
-        *,
-        invited_by_user:user_roles!user_invitations_invited_by_fkey(display_name, email)
-      `)
+      .select('*')
       .eq('id', id)
       .maybeSingle();
 
