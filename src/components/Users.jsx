@@ -35,7 +35,7 @@ export default function Users() {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [newInvitation, setNewInvitation] = useState({
     email: '',
-    role: 'Customer Viewer',
+    role: 'Customer User',
     organization_assignments: []
   });
 
@@ -376,7 +376,7 @@ export default function Users() {
   };
 
   const isCustomerRole = editingUser && CUSTOMER_ROLES.includes(editingUser.role);
-  const isInviteCustomerRole = CUSTOMER_ROLES.includes(newInvitation.role);
+  const isInviteCustomerRole = ['Customer Admin', 'Customer User', 'Customer Viewer'].includes(newInvitation.role);
 
   if (!isStaff) {
     return (
@@ -877,18 +877,17 @@ export default function Users() {
                     className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     <optgroup label="Internal (Proximity)">
-                      {INTERNAL_ROLES.map(role => (
-                        <option key={role} value={role}>{role}</option>
-                      ))}
+                      <option value="Proximity Admin">Proximity Admin</option>
+                      <option value="Proximity Staff">Proximity Staff</option>
+                      <option value="Account Manager">Account Manager</option>
                     </optgroup>
                     <optgroup label="Customer">
-                      {CUSTOMER_ROLES.map(role => (
-                        <option key={role} value={role}>{role}</option>
-                      ))}
+                      <option value="Customer Admin">Customer Admin</option>
+                      <option value="Customer User">Customer User</option>
                     </optgroup>
                   </select>
                   <p className="text-slate-500 text-xs mt-1">
-                    {INTERNAL_ROLES.includes(newInvitation.role)
+                    {['Proximity Admin', 'Proximity Staff', 'Account Manager'].includes(newInvitation.role)
                       ? 'Internal users have access to all organizations'
                       : 'Customer users only see their assigned organizations'}
                   </p>
