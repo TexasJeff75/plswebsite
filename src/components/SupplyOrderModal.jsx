@@ -93,6 +93,11 @@ export default function SupplyOrderModal({ facility, onClose, onSuccess }) {
       return;
     }
 
+    if (!user?.id) {
+      setError('Your session has expired. Please refresh the page and sign in again.');
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -119,7 +124,14 @@ export default function SupplyOrderModal({ facility, onClose, onSuccess }) {
       onClose();
     } catch (err) {
       console.error('Error creating order:', err);
-      setError(err.message || 'Failed to create order');
+      const msg = err?.message || '';
+      if (msg.includes('row-level security') || msg.includes('violates')) {
+        setError('You do not have permission to create orders for this facility. Please contact your administrator.');
+      } else if (msg.includes('session') || msg.includes('JWT') || msg.includes('token')) {
+        setError('Your session has expired. Please refresh the page and sign in again.');
+      } else {
+        setError(msg || 'Failed to create order');
+      }
     } finally {
       setSubmitting(false);
     }

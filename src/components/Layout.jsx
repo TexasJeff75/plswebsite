@@ -142,7 +142,7 @@ export default function Layout() {
     });
   }
 
-  if (['Proximity Admin', 'Super Admin', 'Proximity Staff'].includes(profile?.role)) {
+  if (profile?.role === 'Super Admin') {
     navItems.push({
       path: '/commissions',
       label: 'Commissions',
@@ -152,6 +152,9 @@ export default function Layout() {
         </svg>
       )
     });
+  }
+
+  if (['Proximity Admin', 'Super Admin', 'Proximity Staff'].includes(profile?.role)) {
     navItems.push({
       path: '/supply-orders',
       label: 'Supply Orders',

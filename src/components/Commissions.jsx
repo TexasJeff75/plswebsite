@@ -26,7 +26,7 @@ export default function Commissions() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('reports');
 
-  const isAllowed = ['Proximity Admin', 'Super Admin', 'Proximity Staff'].includes(profile?.role);
+  const isAllowed = profile?.role === 'Super Admin';
 
   if (!isAllowed) {
     return (

@@ -123,8 +123,9 @@ export const labOrdersService = {
   },
 
   async _getSyncHeaders() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session;
+    if (!session) throw new Error('Your session has expired. Please refresh the page and sign in again.');
     return {
       'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',

@@ -553,7 +553,7 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      {realProfile?.role === 'Proximity Admin' && user.role !== 'Proximity Admin' && (
+                      {['Proximity Admin', 'Super Admin'].includes(realProfile?.role) && !['Proximity Admin', 'Super Admin'].includes(user.role) && (
                         <button
                           onClick={() => handleImpersonate(user)}
                           className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-700 rounded transition-colors"
