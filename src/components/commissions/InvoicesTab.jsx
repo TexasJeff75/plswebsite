@@ -372,6 +372,11 @@ export default function InvoicesTab() {
 
       const periodCache = {};
 
+      const uniqueDates = [...new Set(parsedData.invoices.map(inv => inv.transaction_date).filter(Boolean))];
+      for (const date of uniqueDates) {
+        await resolveOrCreatePeriod(date, periodCache);
+      }
+
       const { data: batch, error: batchError } = await supabase
         .from('qb_import_batches')
         .insert({
@@ -385,7 +390,7 @@ export default function InvoicesTab() {
         .single();
       if (batchError) throw batchError;
 
-      const toUpsert = await Promise.all(parsedData.invoices.map(async (inv) => {
+      const toUpsert = parsedData.invoices.map((inv) => {
         const arPaidLower = (inv.ar_paid || '').toLowerCase();
         const status = arPaidLower === 'paid' ? 'Paid' : arPaidLower === 'unpaid' ? 'Unpaid' : inv.txn_type || 'Invoice';
 
@@ -393,7 +398,9 @@ export default function InvoicesTab() {
           ? (repByName[inv.rep_name.trim().toLowerCase()] ?? null)
           : null;
 
-        const periodId = await resolveOrCreatePeriod(inv.transaction_date, periodCache);
+        const d = inv.transaction_date ? new Date(inv.transaction_date + 'T00:00:00') : null;
+        const periodKey = d ? `${d.getFullYear()}-${d.getMonth()}` : null;
+        const periodId = periodKey ? (periodCache[periodKey] ?? null) : null;
 
         return {
           transaction_date: inv.transaction_date,
@@ -413,7 +420,7 @@ export default function InvoicesTab() {
           sales_rep_id: repId,
           commission_period_id: periodId,
         };
-      }));
+      });
 
       const deduped = Object.values(
         toUpsert.reduce((acc, row) => {
