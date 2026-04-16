@@ -187,9 +187,26 @@ export const qboInvoicesService = {
 
 export const commissionCalculationsService = {
   async calculateForInvoice(invoice, salesRep, rules) {
-    const applicableRule = rules
-      .filter(r => r.is_active && (!r.sales_rep_id || r.sales_rep_id === salesRep.id))
-      .sort((a, b) => b.priority - a.priority)[0];
+    const invoiceDate = invoice.transaction_date || invoice.invoice_date;
+    const customerName = (invoice.customer_name || '').toLowerCase();
+    const productService = (invoice.product_service || '').toLowerCase();
+
+    const specificRules = rules.filter(r => {
+      if (!r.is_active) return false;
+      if (r.sales_rep_id && r.sales_rep_id !== salesRep.id) return false;
+      if (r.applies_to_customer_name && !customerName.includes(r.applies_to_customer_name.toLowerCase())) return false;
+      if (r.applies_to_product_code && !productService.includes(r.applies_to_product_code.toLowerCase())) return false;
+      if (r.effective_from && invoiceDate && invoiceDate < r.effective_from) return false;
+      if (r.effective_to && invoiceDate && invoiceDate > r.effective_to) return false;
+      return true;
+    }).sort((a, b) => {
+      const aSpecificity = (a.applies_to_customer_name ? 2 : 0) + (a.applies_to_product_code ? 2 : 0) + (a.sales_rep_id ? 1 : 0);
+      const bSpecificity = (b.applies_to_customer_name ? 2 : 0) + (b.applies_to_product_code ? 2 : 0) + (b.sales_rep_id ? 1 : 0);
+      if (bSpecificity !== aSpecificity) return bSpecificity - aSpecificity;
+      return b.priority - a.priority;
+    });
+
+    const applicableRule = specificRules[0] ?? null;
 
     const rate = applicableRule?.commission_rate ?? salesRep.default_commission_rate;
     const commissionableAmount = invoice.total_amount;
