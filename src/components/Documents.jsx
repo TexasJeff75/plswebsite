@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Search, Filter, Eye, Download, Archive, RefreshCw, Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { FileText, Search, ListFilter as Filter, Eye, Download, Archive, RefreshCw, Upload, X, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Plus } from 'lucide-react';
 import { unifiedDocumentService } from '../services/unifiedDocumentService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { supabase } from '../lib/supabase';
 import DocumentViewer from './documents/DocumentViewer';
 import DocumentUploadForm from './documents/DocumentUploadForm';
 
@@ -43,13 +44,39 @@ export default function Documents() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [actionStatus, setActionStatus] = useState(null);
+  const [uploadEntityType, setUploadEntityType] = useState('facility');
+  const [uploadEntityId, setUploadEntityId] = useState('');
+  const [facilities, setFacilities] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [equipmentCatalog, setEquipmentCatalog] = useState([]);
 
-  const isAdmin = ['Proximity Admin', 'Proximity Staff'].includes(profile?.role);
+  const isAdmin = ['Proximity Admin', 'Proximity Staff', 'Super Admin'].includes(profile?.role);
 
   useEffect(() => {
     loadDocuments();
     loadStats();
   }, [filters, selectedOrganization]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadFacilitiesAndOrgs();
+    }
+  }, [isAdmin]);
+
+  async function loadFacilitiesAndOrgs() {
+    try {
+      const [{ data: facs }, { data: orgs }, { data: catalog }] = await Promise.all([
+        supabase.from('facilities').select('id, name').order('name'),
+        supabase.from('organizations').select('id, name').order('name'),
+        supabase.from('equipment_catalog').select('id, name').order('name'),
+      ]);
+      setFacilities(facs || []);
+      setOrganizations(orgs || []);
+      setEquipmentCatalog(catalog || []);
+    } catch (error) {
+      console.error('Error loading entity lists:', error);
+    }
+  }
 
   async function loadDocuments() {
     try {
@@ -149,24 +176,35 @@ export default function Documents() {
           selectedDoc.entity_type,
           selectedDoc.entity_id,
           file,
-          {
-            ...metadata,
-            organization_id: selectedDoc.organization_id,
-          }
+          { ...metadata, organization_id: selectedDoc.organization_id }
         );
         setActionStatus({ type: 'success', message: 'Document replaced successfully' });
         setSelectedDoc(null);
       } else {
-        alert('Direct upload requires entity selection - use entity-specific upload forms');
+        if (!uploadEntityId) {
+          setActionStatus({ type: 'error', message: 'Please select an entity to attach this document to' });
+          setTimeout(() => setActionStatus(null), 3000);
+          return;
+        }
+
+        await unifiedDocumentService.uploadDocument(
+          uploadEntityType,
+          uploadEntityId,
+          file,
+          metadata
+        );
+        setActionStatus({ type: 'success', message: 'Document uploaded successfully' });
       }
 
       setShowUpload(false);
+      setUploadEntityType('equipment_catalog');
+      setUploadEntityId('');
       loadDocuments();
       loadStats();
       setTimeout(() => setActionStatus(null), 3000);
     } catch (error) {
       console.error('Error uploading document:', error);
-      setActionStatus({ type: 'error', message: 'Failed to upload document' });
+      setActionStatus({ type: 'error', message: 'Failed to upload document: ' + error.message });
       setTimeout(() => setActionStatus(null), 3000);
     } finally {
       setUploading(false);
@@ -200,6 +238,15 @@ export default function Documents() {
             <p className="text-slate-400 text-sm">Central repository for all documents</p>
           </div>
         </div>
+        {isAdmin && (
+          <button
+            onClick={() => { setSelectedDoc(null); setShowUpload(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Upload Document
+          </button>
+        )}
       </div>
 
       {actionStatus && (
@@ -420,30 +467,101 @@ export default function Documents() {
         />
       )}
 
-      {showUpload && selectedDoc && (
+      {showUpload && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-white">Replace Document</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  Replacing: {selectedDoc.document_name}
-                </p>
+                <h2 className="text-xl font-semibold text-white">
+                  {selectedDoc ? 'Replace Document' : 'Upload Document'}
+                </h2>
+                {selectedDoc && (
+                  <p className="text-slate-400 text-sm mt-1">
+                    Replacing: {selectedDoc.document_name}
+                  </p>
+                )}
               </div>
               <button
-                onClick={() => {
-                  setShowUpload(false);
-                  setSelectedDoc(null);
-                }}
+                onClick={() => { setShowUpload(false); setSelectedDoc(null); }}
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
+
+            {!selectedDoc && (
+              <div className="space-y-4 mb-6 pb-6 border-b border-slate-700">
+                <h3 className="text-white font-medium text-sm">Attach Document To</h3>
+                <div>
+                  <label className="text-slate-400 text-sm mb-2 block">Entity Type *</label>
+                  <select
+                    value={uploadEntityType}
+                    onChange={(e) => { setUploadEntityType(e.target.value); setUploadEntityId(''); }}
+                    className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+                  >
+                    <option value="facility">Facility</option>
+                    <option value="organization">Organization</option>
+                    <option value="equipment_catalog">Equipment Catalog</option>
+                  </select>
+                </div>
+
+                {uploadEntityType === 'facility' && (
+                  <div>
+                    <label className="text-slate-400 text-sm mb-2 block">Facility *</label>
+                    <select
+                      value={uploadEntityId}
+                      onChange={(e) => setUploadEntityId(e.target.value)}
+                      className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+                      required
+                    >
+                      <option value="">Select a facility...</option>
+                      {facilities.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {uploadEntityType === 'organization' && (
+                  <div>
+                    <label className="text-slate-400 text-sm mb-2 block">Organization *</label>
+                    <select
+                      value={uploadEntityId}
+                      onChange={(e) => setUploadEntityId(e.target.value)}
+                      className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+                      required
+                    >
+                      <option value="">Select an organization...</option>
+                      {organizations.map(o => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {uploadEntityType === 'equipment_catalog' && (
+                  <div>
+                    <label className="text-slate-400 text-sm mb-2 block">Equipment Item *</label>
+                    <select
+                      value={uploadEntityId}
+                      onChange={(e) => setUploadEntityId(e.target.value)}
+                      className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+                      required
+                    >
+                      <option value="">Select an equipment item...</option>
+                      {equipmentCatalog.map(e => (
+                        <option key={e.id} value={e.id}>{e.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
             <DocumentUploadForm
               onUpload={handleUpload}
               uploading={uploading}
-              defaultType={selectedDoc.document_type || 'other'}
+              defaultType={selectedDoc?.document_type || 'other'}
             />
           </div>
         </div>
