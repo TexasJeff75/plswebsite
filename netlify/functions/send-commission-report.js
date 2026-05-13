@@ -242,59 +242,87 @@ function buildEmailHtml(report) {
   const customerSummary = buildCustomerSummaryHtml(report);
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
   <title>Commission Report — ${periodName} — ${repName}</title>
+  <style>
+    :root { color-scheme: light only; supported-color-schemes: light only; }
+  </style>
 </head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;line-height:1.6;color:#1e293b;max-width:680px;margin:0 auto;padding:0;background-color:#f8fafc;">
-  <div style="background-color:#ffffff;margin:20px;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#ffffff;padding:36px 32px;">
-      <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;">Proximity Lab Services</div>
-      <div style="font-size:13px;opacity:0.7;margin-bottom:20px;">Commission Statement</div>
-      <div style="font-size:22px;font-weight:700;">${repName}</div>
-      <div style="font-size:14px;opacity:0.85;margin-top:4px;">${periodName}</div>
-    </div>
-    <div style="padding:32px;">
-      <p style="font-size:15px;color:#334155;margin:0 0 24px 0;">
-        Please find your commission report for <strong>${periodName}</strong> attached to this email as an HTML file.
-      </p>
-      <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:140px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:4px;">Report #</div>
-          <div style="font-size:14px;font-weight:700;color:#0f172a;">${report.report_number}</div>
-        </div>
-        <div style="flex:1;min-width:140px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:4px;">Total Invoiced</div>
-          <div style="font-size:14px;font-weight:700;color:#0f172a;">${fmt(report.total_invoice_amount)}</div>
-        </div>
-        <div style="flex:1;min-width:140px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#16a34a;font-weight:600;margin-bottom:4px;">Commission Owed</div>
-          <div style="font-size:16px;font-weight:800;color:#16a34a;">${fmt(report.total_commission_amount)}</div>
-        </div>
-      </div>
-      <div style="margin-bottom:28px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;font-weight:700;margin-bottom:10px;">Commission Summary by Customer</div>
-        <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-          ${customerSummary}
-        </div>
-      </div>
-      <div style="background:#fff7ed;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:4px;margin-bottom:24px;">
-        <p style="margin:0;font-size:13px;color:#92400e;">
-          The full commission report with all invoice line items is attached. Please review and reach out with any questions.
-        </p>
-      </div>
-      <p style="font-size:13px;color:#64748b;margin:0;">
-        Questions? Contact us at <a href="mailto:info@proximitylabservices.com" style="color:#0ea5e9;">info@proximitylabservices.com</a>.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-      <p style="margin:0 0 4px 0;font-size:13px;color:#475569;font-weight:600;">Proximity Lab Services</p>
-      <p style="margin:0 0 6px 0;font-size:12px;color:#64748b;">16922 Telge Rd., Suite 2 · Cypress, TX 77429</p>
-      <p style="margin:0;font-size:12px;color:#94a3b8;">(210) 316-1792 · info@proximitylabservices.com</p>
-    </div>
-  </div>
+<body style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#1e293b;background-color:#f8fafc;margin:0;padding:0;" bgcolor="#f8fafc">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc;">
+    <tr><td align="center" style="padding:20px 10px;">
+      <table width="640" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;width:100%;background-color:#ffffff;border-radius:10px;overflow:hidden;" bgcolor="#ffffff">
+        <!-- Header -->
+        <tr><td bgcolor="#0f172a" style="background-color:#0f172a;padding:36px 32px;">
+          <div style="font-size:20px;font-weight:800;color:#ffffff;margin-bottom:4px;">Proximity Lab Services</div>
+          <div style="font-size:13px;color:#94a3b8;margin-bottom:20px;">Commission Statement</div>
+          <div style="font-size:22px;font-weight:700;color:#ffffff;">${repName}</div>
+          <div style="font-size:14px;color:#cbd5e1;margin-top:4px;">${periodName}</div>
+        </td></tr>
+        <!-- Body -->
+        <tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:32px;">
+          <p style="font-size:15px;color:#334155;margin:0 0 24px 0;">
+            Please find your commission report for <strong style="color:#1e293b;">${periodName}</strong> attached to this email as an HTML file.
+          </p>
+          <!-- Stats row -->
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+            <tr>
+              <td width="33%" style="padding-right:6px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr><td bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;margin-bottom:4px;">REPORT #</div>
+                    <div style="font-size:13px;font-weight:700;color:#0f172a;">${report.report_number}</div>
+                  </td></tr>
+                </table>
+              </td>
+              <td width="33%" style="padding:0 3px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr><td bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;margin-bottom:4px;">TOTAL INVOICED</div>
+                    <div style="font-size:14px;font-weight:700;color:#0f172a;">${fmt(report.total_invoice_amount)}</div>
+                  </td></tr>
+                </table>
+              </td>
+              <td width="33%" style="padding-left:6px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr><td bgcolor="#f0fdf4" style="background-color:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#16a34a;font-weight:700;margin-bottom:4px;">COMMISSION OWED</div>
+                    <div style="font-size:16px;font-weight:800;color:#16a34a;">${fmt(report.total_commission_amount)}</div>
+                  </td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          <!-- Summary -->
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;font-weight:700;margin-bottom:10px;">COMMISSION SUMMARY BY CUSTOMER</div>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:28px;">
+            ${customerSummary}
+          </table>
+          <!-- Note -->
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+            <tr><td bgcolor="#fff7ed" style="background-color:#fff7ed;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:4px;">
+              <p style="margin:0;font-size:13px;color:#92400e;">The full commission report with all invoice line items is attached. Please review and reach out with any questions.</p>
+            </td></tr>
+          </table>
+          <p style="font-size:13px;color:#64748b;margin:0;">
+            Questions? Contact us at <a href="mailto:info@proximitylabservices.com" style="color:#0ea5e9;text-decoration:underline;">info@proximitylabservices.com</a>.
+          </p>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td bgcolor="#f8fafc" style="background-color:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+          <p style="margin:0 0 4px 0;font-size:13px;color:#475569;font-weight:700;">Proximity Lab Services</p>
+          <p style="margin:0 0 6px 0;font-size:12px;color:#64748b;">16922 Telge Rd., Suite 2 · Cypress, TX 77429</p>
+          <p style="margin:0;font-size:12px;color:#64748b;">(210) 316-1792 · info@proximitylabservices.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>`;
 }
@@ -305,42 +333,42 @@ function buildCustomerSummaryHtml(report) {
   items.forEach((item) => {
     const key = item.qbo_invoices?.customer_name || 'Unknown';
     if (!byCustomer[key]) byCustomer[key] = { amount: 0, commission: 0, count: 0 };
-    byCustomer[key].amount += item.commissionable_amount || 0;
-    byCustomer[key].commission += item.commission_amount || 0;
+    byCustomer[key].amount += parseFloat(item.commissionable_amount || 0);
+    byCustomer[key].commission += parseFloat(item.commission_amount || 0);
     byCustomer[key].count += 1;
   });
 
   const rows = Object.entries(byCustomer)
     .sort((a, b) => b[1].commission - a[1].commission)
     .map(([customer, t], idx) => `
-      <tr style="${idx % 2 !== 0 ? 'background-color:#f8fafc;' : ''}">
-        <td style="padding:10px 14px;color:#1e293b;font-size:13px;">${customer}</td>
-        <td style="padding:10px 14px;text-align:center;color:#64748b;font-size:13px;">${t.count}</td>
-        <td style="padding:10px 14px;text-align:right;color:#1e293b;font-size:13px;">${fmt(t.amount)}</td>
-        <td style="padding:10px 14px;text-align:right;color:#64748b;font-size:13px;">${t.amount > 0 ? ((t.commission / t.amount) * 100).toFixed(1) : '0.0'}%</td>
-        <td style="padding:10px 14px;text-align:right;font-weight:700;color:#16a34a;font-size:13px;">${fmt(t.commission)}</td>
+      <tr bgcolor="${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'}" style="background-color:${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'};">
+        <td style="padding:10px 14px;color:#1e293b;font-size:13px;font-family:Arial,Helvetica,sans-serif;">${customer}</td>
+        <td style="padding:10px 14px;text-align:center;color:#475569;font-size:13px;font-family:Arial,Helvetica,sans-serif;">${t.count}</td>
+        <td style="padding:10px 14px;text-align:right;color:#1e293b;font-size:13px;font-family:Arial,Helvetica,sans-serif;">${fmt(t.amount)}</td>
+        <td style="padding:10px 14px;text-align:right;color:#475569;font-size:13px;font-family:Arial,Helvetica,sans-serif;">${t.amount > 0 ? ((t.commission / t.amount) * 100).toFixed(1) : '0.0'}%</td>
+        <td style="padding:10px 14px;text-align:right;font-weight:700;color:#16a34a;font-size:13px;font-family:Arial,Helvetica,sans-serif;">${fmt(t.commission)}</td>
       </tr>`)
     .join('');
 
   return `
-    <table style="width:100%;border-collapse:collapse;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
       <thead>
-        <tr style="background-color:#f1f5f9;">
-          <th style="padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Customer</th>
-          <th style="padding:10px 14px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Line Items</th>
-          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Total Amount</th>
-          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Eff. Rate</th>
-          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Commission</th>
+        <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;">
+          <th style="padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;font-family:Arial,Helvetica,sans-serif;">Customer</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;font-family:Arial,Helvetica,sans-serif;">Line Items</th>
+          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;font-family:Arial,Helvetica,sans-serif;">Total Amount</th>
+          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;font-family:Arial,Helvetica,sans-serif;">Eff. Rate</th>
+          <th style="padding:10px 14px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;font-family:Arial,Helvetica,sans-serif;">Commission</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:#94a3b8;">No data</td></tr>'}</tbody>
+      <tbody>${rows || '<tr bgcolor="#ffffff" style="background-color:#ffffff;"><td colspan="5" style="text-align:center;padding:16px;color:#64748b;font-family:Arial,Helvetica,sans-serif;">No data</td></tr>'}</tbody>
       <tfoot>
-        <tr style="background-color:#f8fafc;border-top:2px solid #e2e8f0;">
-          <td style="padding:10px 14px;font-weight:700;font-size:13px;color:#0f172a;">Total</td>
-          <td style="padding:10px 14px;text-align:center;font-weight:700;font-size:13px;color:#0f172a;">${items.length}</td>
-          <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:13px;color:#0f172a;">${fmt(report.total_commissionable_amount)}</td>
-          <td></td>
-          <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:14px;color:#16a34a;">${fmt(report.total_commission_amount)}</td>
+        <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;border-top:2px solid #e2e8f0;">
+          <td style="padding:10px 14px;font-weight:700;font-size:13px;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">Total</td>
+          <td style="padding:10px 14px;text-align:center;font-weight:700;font-size:13px;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">${items.length}</td>
+          <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:13px;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">${fmt(report.total_commissionable_amount)}</td>
+          <td style="color:#0f172a;font-family:Arial,Helvetica,sans-serif;"></td>
+          <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:14px;color:#16a34a;font-family:Arial,Helvetica,sans-serif;">${fmt(report.total_commission_amount)}</td>
         </tr>
       </tfoot>
     </table>`;
@@ -396,162 +424,211 @@ info@proximitylabservices.com
 
 function buildPdfHtml(report) {
   const items = report.commission_report_items || [];
+  const F = 'font-family:Arial,Helvetica,sans-serif;';
 
   const byCustomer = {};
   items.forEach((item) => {
     const key = item.qbo_invoices?.customer_name || 'Unknown';
     if (!byCustomer[key]) byCustomer[key] = { amount: 0, commission: 0, count: 0 };
-    byCustomer[key].amount += item.commissionable_amount || 0;
-    byCustomer[key].commission += item.commission_amount || 0;
+    byCustomer[key].amount += parseFloat(item.commissionable_amount || 0);
+    byCustomer[key].commission += parseFloat(item.commission_amount || 0);
     byCustomer[key].count += 1;
   });
 
   const summaryRows = Object.entries(byCustomer)
     .sort((a, b) => b[1].commission - a[1].commission)
     .map(([customer, t], idx) => `
-    <tr style="${idx % 2 !== 0 ? 'background:#f8fafc' : ''}">
-      <td>${customer}</td>
-      <td style="text-align:center">${t.count}</td>
-      <td style="text-align:right">${fmt(t.amount)}</td>
-      <td style="text-align:right">${t.amount > 0 ? ((t.commission / t.amount) * 100).toFixed(1) : '0.0'}%</td>
-      <td style="text-align:right;font-weight:700;color:#16a34a">${fmt(t.commission)}</td>
+    <tr bgcolor="${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'}" style="background-color:${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'};">
+      <td style="padding:9px 12px;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${customer}</td>
+      <td style="padding:9px 12px;text-align:center;color:#475569;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${t.count}</td>
+      <td style="padding:9px 12px;text-align:right;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${fmt(t.amount)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#475569;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${t.amount > 0 ? ((t.commission / t.amount) * 100).toFixed(1) : '0.0'}%</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:700;color:#16a34a;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${fmt(t.commission)}</td>
     </tr>`).join('');
 
   const lineItemRows = items.map((item, idx) => {
     const inv = item.qbo_invoices || {};
     const arPaid = inv.ar_paid || '';
-    const arStyle = arPaid.toLowerCase() === 'paid'
-      ? 'background:#dcfce7;color:#16a34a'
-      : 'background:#fef9c3;color:#ca8a04';
+    const isPaid = arPaid.toLowerCase() === 'paid';
+    const arBg = isPaid ? '#dcfce7' : '#fef9c3';
+    const arColor = isPaid ? '#16a34a' : '#ca8a04';
     return `
-    <tr style="${idx % 2 !== 0 ? 'background:#f8fafc' : ''}">
-      <td>${fmtDateShort(inv.transaction_date || inv.invoice_date)}</td>
-      <td>${inv.num || inv.invoice_number || '—'}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${inv.customer_name || '—'}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${inv.product_service || '—'}</td>
-      <td>${arPaid ? `<span style="padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;${arStyle}">${arPaid}</span>` : '—'}</td>
-      <td style="text-align:right">${fmt(item.commissionable_amount)}</td>
-      <td style="text-align:right">${((item.commission_rate || 0) * 100).toFixed(1)}%</td>
-      <td style="text-align:right;font-weight:600;color:#16a34a">${fmt(item.commission_amount)}</td>
+    <tr bgcolor="${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'}" style="background-color:${idx % 2 !== 0 ? '#f8fafc' : '#ffffff'};">
+      <td style="padding:9px 12px;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${fmtDateShort(inv.transaction_date || inv.invoice_date)}</td>
+      <td style="padding:9px 12px;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${inv.num || inv.invoice_number || '—'}</td>
+      <td style="padding:9px 12px;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;max-width:160px;overflow:hidden;${F}">${inv.customer_name || '—'}</td>
+      <td style="padding:9px 12px;color:#475569;border-bottom:1px solid #f1f5f9;vertical-align:middle;max-width:180px;overflow:hidden;${F}">${inv.product_service || '—'}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${arPaid ? `<span style="padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background-color:${arBg};color:${arColor};${F}">${arPaid}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
+      <td style="padding:9px 12px;text-align:right;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${fmt(item.commissionable_amount)}</td>
+      <td style="padding:9px 12px;text-align:right;color:#475569;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${((item.commission_rate || 0) * 100).toFixed(1)}%</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:600;color:#16a34a;border-bottom:1px solid #f1f5f9;vertical-align:middle;${F}">${fmt(item.commission_amount)}</td>
     </tr>`;
   }).join('');
 
   const statusClass = (report.status || 'draft').toLowerCase().replace(/\s+/g, '-');
   const badgeColors = {
-    approved: 'background:#dcfce7;color:#16a34a',
-    draft: 'background:#f1f5f9;color:#64748b',
-    'pending-approval': 'background:#fef9c3;color:#ca8a04',
-    emailed: 'background:#ccfbf1;color:#0d9488',
-    paid: 'background:#dbeafe;color:#2563eb',
-    rejected: 'background:#fee2e2;color:#dc2626',
+    approved: 'background-color:#dcfce7;color:#16a34a',
+    draft: 'background-color:#f1f5f9;color:#475569',
+    'pending-approval': 'background-color:#fef9c3;color:#ca8a04',
+    emailed: 'background-color:#ccfbf1;color:#0d9488',
+    paid: 'background-color:#dbeafe;color:#2563eb',
+    rejected: 'background-color:#fee2e2;color:#dc2626',
   };
-  const badgeStyle = badgeColors[statusClass] || 'background:#f1f5f9;color:#64748b';
+  const badgeStyle = badgeColors[statusClass] || 'background-color:#f1f5f9;color:#475569';
+
+  const thStyle = `padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700;${F}`;
+  const tfStyle = `padding:9px 12px;font-weight:700;background-color:#f1f5f9;border-top:2px solid #e2e8f0;font-size:13px;color:#0f172a;${F}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',system-ui,sans-serif; color:#1e293b; background:white; padding:48px; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:36px; padding-bottom:24px; border-bottom:2px solid #e2e8f0; }
-  .company-name { font-size:22px; font-weight:800; color:#0f172a; }
-  .company-sub { font-size:12px; color:#64748b; margin-top:2px; }
-  .report-title { text-align:right; }
-  .report-title h1 { font-size:20px; font-weight:700; color:#0f172a; }
-  .report-title .num { font-size:13px; color:#64748b; margin-top:4px; }
-  .rep-block { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:18px 24px; margin-bottom:24px; display:flex; justify-content:space-between; gap:24px; }
-  .rep-block .lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; font-weight:600; margin-bottom:3px; }
-  .rep-block .val { font-size:15px; font-weight:600; color:#0f172a; }
-  .rep-block .sub { font-size:12px; color:#64748b; margin-top:2px; }
-  .summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
-  .sc { padding:14px 18px; border-radius:10px; border:1px solid #e2e8f0; }
-  .sc .sl { font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; font-weight:600; margin-bottom:5px; }
-  .sc .sv { font-size:20px; font-weight:800; color:#0f172a; }
-  .sc.hi { background:#f0fdf4; border-color:#86efac; }
-  .sc.hi .sv { color:#16a34a; }
-  .section-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; font-weight:700; margin-bottom:10px; }
-  table { width:100%; border-collapse:collapse; margin-bottom:28px; font-size:12px; }
-  thead tr { background:#f1f5f9; }
-  th { padding:9px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; font-weight:700; }
-  td { padding:9px 12px; color:#374151; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-  tfoot td { font-weight:700; background:#f8fafc; border-top:2px solid #e2e8f0; font-size:13px; }
-  tfoot td:last-child { color:#16a34a; font-size:14px; }
-  .footer { margin-top:40px; padding-top:20px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:flex-end; }
-  .sig-line { border-top:1px solid #cbd5e1; width:200px; padding-top:8px; font-size:11px; color:#94a3b8; }
-</style>
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<style>:root{color-scheme:light only;}</style>
 </head>
-<body>
-<div class="header">
-  <div>
-    <div class="company-name">Proximity Lab Services</div>
-    <div class="company-sub">Commission Statement</div>
-  </div>
-  <div class="report-title">
-    <h1>Commission Report</h1>
-    <div class="num">${report.report_number}</div>
-    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Generated ${fmtDate(report.created_at)}</div>
-    <div style="margin-top:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:10px;font-weight:700;text-transform:uppercase;${badgeStyle}">${report.status}</span></div>
-  </div>
-</div>
-<div class="rep-block">
-  <div>
-    <div class="lbl">Sales Representative</div>
-    <div class="val">${report.sales_reps?.name || '—'}</div>
-    <div class="sub">${report.sales_reps?.email || ''}</div>
-  </div>
-  <div>
-    <div class="lbl">Commission Period</div>
-    <div class="val">${report.commission_periods?.name || 'Custom Period'}</div>
-    <div class="sub">${fmtDate(report.period_start)} – ${fmtDate(report.period_end)}</div>
-  </div>
-  <div>
-    <div class="lbl">Report Date</div>
-    <div class="val">${fmtDate(report.created_at)}</div>
-  </div>
-</div>
-<div class="summary-grid">
-  <div class="sc"><div class="sl">Line Items</div><div class="sv">${items.length}</div></div>
-  <div class="sc"><div class="sl">Total Invoiced</div><div class="sv">${fmt(report.total_invoice_amount)}</div></div>
-  <div class="sc"><div class="sl">Commissionable</div><div class="sv">${fmt(report.total_commissionable_amount)}</div></div>
-  <div class="sc hi"><div class="sl">Commission Owed</div><div class="sv">${fmt(report.total_commission_amount)}</div></div>
-</div>
-<div class="section-title">Invoice Line Items</div>
-<table>
-  <thead><tr>
-    <th>Txn Date</th><th>Num</th><th>Customer</th><th>Product / Service</th><th>A/R Paid</th>
-    <th style="text-align:right">Amount</th><th style="text-align:right">Rate</th><th style="text-align:right">Commission</th>
-  </tr></thead>
-  <tbody>${lineItemRows || '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:20px">No line items</td></tr>'}</tbody>
-  <tfoot><tr>
-    <td colspan="5">Total</td>
-    <td style="text-align:right">${fmt(report.total_commissionable_amount)}</td>
-    <td></td>
-    <td style="text-align:right">${fmt(report.total_commission_amount)}</td>
-  </tr></tfoot>
+<body style="margin:0;padding:48px;background-color:#ffffff;color:#1e293b;${F}">
+
+<!-- Header -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:36px;border-bottom:2px solid #e2e8f0;padding-bottom:24px;">
+  <tr>
+    <td style="${F}">
+      <div style="font-size:22px;font-weight:800;color:#0f172a;${F}">Proximity Lab Services</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;${F}">Commission Statement</div>
+    </td>
+    <td style="text-align:right;${F}">
+      <div style="font-size:20px;font-weight:700;color:#0f172a;${F}">Commission Report</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px;${F}">${report.report_number}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px;${F}">Generated ${fmtDate(report.created_at)}</div>
+      <div style="margin-top:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:10px;font-weight:700;text-transform:uppercase;${badgeStyle};${F}">${report.status}</span></div>
+    </td>
+  </tr>
 </table>
-<div class="section-title">Commission Summary by Customer</div>
-<table>
-  <thead><tr>
-    <th>Customer</th><th style="text-align:center">Line Items</th>
-    <th style="text-align:right">Total Amount</th><th style="text-align:right">Eff. Rate</th><th style="text-align:right">Commission</th>
-  </tr></thead>
-  <tbody>${summaryRows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">No data</td></tr>'}</tbody>
-  <tfoot><tr>
-    <td>Total</td><td style="text-align:center">${items.length}</td>
-    <td style="text-align:right">${fmt(report.total_commissionable_amount)}</td>
-    <td></td>
-    <td style="text-align:right">${fmt(report.total_commission_amount)}</td>
-  </tr></tfoot>
+
+<!-- Rep block -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:24px;">
+  <tr>
+    <td style="padding:18px 24px;${F}">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:3px;${F}">Sales Representative</div>
+      <div style="font-size:15px;font-weight:600;color:#0f172a;${F}">${report.sales_reps?.name || '—'}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;${F}">${report.sales_reps?.email || ''}</div>
+    </td>
+    <td style="padding:18px 24px;${F}">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:3px;${F}">Commission Period</div>
+      <div style="font-size:15px;font-weight:600;color:#0f172a;${F}">${report.commission_periods?.name || 'Custom Period'}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;${F}">${fmtDate(report.period_start)} – ${fmtDate(report.period_end)}</div>
+    </td>
+    <td style="padding:18px 24px;${F}">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:3px;${F}">Report Date</div>
+      <div style="font-size:15px;font-weight:600;color:#0f172a;${F}">${fmtDate(report.created_at)}</div>
+    </td>
+  </tr>
 </table>
-<div class="footer">
-  <div><div class="sig-line">Approved By</div></div>
-  <div><div class="sig-line">Sales Representative Signature</div></div>
-  <div style="text-align:right;font-size:11px;color:#94a3b8">
-    <div>Proximity Lab Services</div>
-    <div style="margin-top:4px">Confidential Commission Statement</div>
-  </div>
-</div>
+
+<!-- Summary stats -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+  <tr>
+    <td width="25%" style="padding-right:7px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:5px;${F}">Line Items</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a;${F}">${items.length}</div>
+        </td>
+      </tr></table>
+    </td>
+    <td width="25%" style="padding:0 3.5px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:5px;${F}">Total Invoiced</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a;${F}">${fmt(report.total_invoice_amount)}</div>
+        </td>
+      </tr></table>
+    </td>
+    <td width="25%" style="padding:0 3.5px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600;margin-bottom:5px;${F}">Commissionable</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a;${F}">${fmt(report.total_commissionable_amount)}</div>
+        </td>
+      </tr></table>
+    </td>
+    <td width="25%" style="padding-left:7px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td bgcolor="#f0fdf4" style="background-color:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 18px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#16a34a;font-weight:600;margin-bottom:5px;${F}">Commission Owed</div>
+          <div style="font-size:20px;font-weight:800;color:#16a34a;${F}">${fmt(report.total_commission_amount)}</div>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+</table>
+
+<!-- Line items table -->
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;font-weight:700;margin-bottom:10px;${F}">Invoice Line Items</div>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:28px;font-size:12px;">
+  <thead>
+    <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;">
+      <th style="${thStyle}">Txn Date</th>
+      <th style="${thStyle}">Num</th>
+      <th style="${thStyle}">Customer</th>
+      <th style="${thStyle}">Product / Service</th>
+      <th style="${thStyle}">A/R Paid</th>
+      <th style="${thStyle}text-align:right;">Amount</th>
+      <th style="${thStyle}text-align:right;">Rate</th>
+      <th style="${thStyle}text-align:right;">Commission</th>
+    </tr>
+  </thead>
+  <tbody>${lineItemRows || `<tr bgcolor="#ffffff" style="background-color:#ffffff;"><td colspan="8" style="text-align:center;color:#94a3b8;padding:20px;${F}">No line items</td></tr>`}</tbody>
+  <tfoot>
+    <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;">
+      <td colspan="5" style="${tfStyle}">Total</td>
+      <td style="${tfStyle}text-align:right;">${fmt(report.total_commissionable_amount)}</td>
+      <td style="${tfStyle}"></td>
+      <td style="${tfStyle}text-align:right;color:#16a34a;font-size:14px;">${fmt(report.total_commission_amount)}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Summary table -->
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;font-weight:700;margin-bottom:10px;${F}">Commission Summary by Customer</div>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:28px;font-size:12px;">
+  <thead>
+    <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;">
+      <th style="${thStyle}">Customer</th>
+      <th style="${thStyle}text-align:center;">Line Items</th>
+      <th style="${thStyle}text-align:right;">Total Amount</th>
+      <th style="${thStyle}text-align:right;">Eff. Rate</th>
+      <th style="${thStyle}text-align:right;">Commission</th>
+    </tr>
+  </thead>
+  <tbody>${summaryRows || `<tr bgcolor="#ffffff" style="background-color:#ffffff;"><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;${F}">No data</td></tr>`}</tbody>
+  <tfoot>
+    <tr bgcolor="#f1f5f9" style="background-color:#f1f5f9;">
+      <td style="${tfStyle}">Total</td>
+      <td style="${tfStyle}text-align:center;">${items.length}</td>
+      <td style="${tfStyle}text-align:right;">${fmt(report.total_commissionable_amount)}</td>
+      <td style="${tfStyle}"></td>
+      <td style="${tfStyle}text-align:right;color:#16a34a;font-size:14px;">${fmt(report.total_commission_amount)}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Footer / signature -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:40px;border-top:1px solid #e2e8f0;padding-top:20px;">
+  <tr>
+    <td style="${F}">
+      <div style="border-top:1px solid #cbd5e1;width:200px;padding-top:8px;font-size:11px;color:#94a3b8;${F}">Approved By</div>
+    </td>
+    <td style="${F}">
+      <div style="border-top:1px solid #cbd5e1;width:200px;padding-top:8px;font-size:11px;color:#94a3b8;${F}">Sales Representative Signature</div>
+    </td>
+    <td style="text-align:right;${F}">
+      <div style="font-size:11px;color:#94a3b8;${F}">Proximity Lab Services</div>
+      <div style="margin-top:4px;font-size:11px;color:#94a3b8;${F}">Confidential Commission Statement</div>
+    </td>
+  </tr>
+</table>
+
 </body>
 </html>`;
 }
