@@ -298,56 +298,95 @@ export default function InvoicesTab() {
 
   async function autoGenerateReports() {
     try {
+      // Discover which rep+period combinations have paid invoices
       const { data: paidInvoices } = await supabase
         .from('qbo_invoices')
-        .select('*, sales_reps(id, name, email, default_commission_rate), commission_periods(id, name, start_date, end_date)')
+        .select('commission_period_id, commission_periods(id, name, start_date, end_date)')
         .eq('ar_paid', 'Paid')
-        .not('sales_rep_id', 'is', null)
         .not('commission_period_id', 'is', null);
 
       if (!paidInvoices?.length) return { created: 0, skipped: 0 };
 
-      const rules = await commissionRulesService.getAll();
-
-      const groups = {};
+      // Collect the unique periods that have paid invoices
+      const periodMap = {};
       for (const inv of paidInvoices) {
-        const key = `${inv.sales_rep_id}|${inv.commission_period_id}`;
-        if (!groups[key]) groups[key] = { rep: inv.sales_reps, period: inv.commission_periods, invoices: [] };
-        groups[key].invoices.push(inv);
+        if (inv.commission_periods) {
+          periodMap[inv.commission_period_id] = inv.commission_periods;
+        }
       }
+
+      // Get all active reps that have at least one rule
+      const allReps = await salesRepsService.getAll();
+      const activeReps = allReps.filter(r => r.status === 'Active');
 
       let created = 0;
       let skipped = 0;
 
-      for (const { rep, period, invoices } of Object.values(groups)) {
-        if (!rep || !period) continue;
+      for (const rep of activeReps) {
+        // Load rules scoped to this payee rep
+        const rules = await commissionRulesService.getAll(rep.id);
+        if (!rules.length) continue;
 
-        const { data: existing } = await supabase
-          .from('commission_reports')
-          .select('id, status')
-          .eq('sales_rep_id', rep.id)
-          .eq('commission_period_id', period.id)
-          .not('status', 'in', '("Rejected")')
-          .maybeSingle();
+        // Does any rule use a customer/product/trigger-rep filter?
+        // If yes we must scan ALL paid invoices in the period (not just the rep's own).
+        const hasFilterRules = rules.some(r =>
+          (r.applies_to_customer_name || '').trim() ||
+          (r.applies_to_product_code || '').trim() ||
+          r.applies_to_sales_rep_id
+        );
 
-        if (existing) { skipped++; continue; }
+        for (const period of Object.values(periodMap)) {
+          // Skip if a non-rejected report already exists for this rep+period
+          const { data: existing } = await supabase
+            .from('commission_reports')
+            .select('id')
+            .eq('sales_rep_id', rep.id)
+            .eq('commission_period_id', period.id)
+            .neq('status', 'Rejected')
+            .maybeSingle();
 
-        const calculations = await Promise.all(invoices.map(inv =>
-          commissionCalculationsService.calculateForInvoice(inv, rep, rules)
-        ));
+          if (existing) { skipped++; continue; }
 
-        const savedCalcs = await Promise.all(calculations.map(c =>
-          commissionCalculationsService.saveCalculation(c)
-        ));
+          // Fetch invoices using the same strategy as the manual generate path
+          let invoiceQuery = supabase
+            .from('qbo_invoices')
+            .select('*, sales_reps(id, name, email, default_commission_rate), commission_periods(id, name, start_date, end_date)')
+            .eq('ar_paid', 'Paid')
+            .eq('commission_period_id', period.id);
 
-        const calcsWithDetails = savedCalcs.map((c, i) => ({
-          ...c,
-          qbo_invoices: invoices[i],
-          commission_periods: period,
-        }));
+          if (!hasFilterRules) {
+            // Simple rep: only invoices directly assigned to them
+            invoiceQuery = invoiceQuery.eq('sales_rep_id', rep.id);
+          }
+          // Filter-rule rep: fetch all paid invoices in period, rule matching will narrow
 
-        await commissionReportsService.generateReport(rep.id, period.id, calcsWithDetails);
-        created++;
+          const { data: periodInvoices } = await invoiceQuery;
+          if (!periodInvoices?.length) continue;
+
+          // Match each invoice against rules — same logic as handleGenerate
+          const matchedPairs = [];
+          for (const inv of periodInvoices) {
+            const rule = commissionCalculationsService.matchRule(inv, rep, rules);
+            if (hasFilterRules && !rule) continue; // override rep: skip if no rule fired
+            matchedPairs.push({ inv, rule });
+          }
+
+          if (!matchedPairs.length) continue;
+
+          const savedCalcs = await Promise.all(matchedPairs.map(async ({ inv }) => {
+            const calc = await commissionCalculationsService.calculateForInvoice(inv, rep, rules);
+            return commissionCalculationsService.saveCalculation(calc);
+          }));
+
+          const calcsWithDetails = savedCalcs.map((c, i) => ({
+            ...c,
+            qbo_invoices: matchedPairs[i].inv,
+            commission_periods: period,
+          }));
+
+          await commissionReportsService.generateReport(rep.id, period.id, calcsWithDetails);
+          created++;
+        }
       }
 
       return { created, skipped };
