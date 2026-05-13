@@ -90,18 +90,21 @@ export default function ReportsTab() {
         salesRepsService.getById(genForm.sales_rep_id)
       ]);
 
-      // Determine whether any rule has applies_to_sales_rep_id set — if so,
-      // this rep earns overrides on OTHER reps' invoices and we must scan all
-      // invoices in the period, not just those assigned to this rep.
-      const hasOverrideRules = rules.some(r => r.applies_to_sales_rep_id);
+      // If ANY rule has a customer/product filter or a trigger-rep filter, the payee
+      // may earn on invoices not assigned to them in the system. We must scan ALL
+      // paid invoices in the period so rule matching works correctly.
+      // Only purely rep-scoped rules (no filters at all) allow narrowing to their invoices.
+      const hasFilterRules = rules.some(r =>
+        (r.applies_to_customer_name || '').trim() ||
+        (r.applies_to_product_code || '').trim() ||
+        r.applies_to_sales_rep_id
+      );
 
       const invoiceFilter = { periodId: genForm.period_id, paidOnly: true };
-      if (!hasOverrideRules) {
-        // Standard rep: only their own invoices
+      if (!hasFilterRules) {
+        // Simple rep with no filter rules: only their own invoices
         invoiceFilter.salesRepId = genForm.sales_rep_id;
       }
-      // For override reps, fetch ALL paid invoices in the period so rule
-      // matching can check applies_to_sales_rep_id against each invoice's rep.
 
       const allInvoices = await qboInvoicesService.getAll(invoiceFilter);
 
@@ -111,20 +114,17 @@ export default function ReportsTab() {
         return;
       }
 
-      // For each invoice, check if any rule matches. Exclude invoices where
-      // no rule matches AND there is no default (override-only reps should only
-      // be paid on invoices explicitly covered by a rule).
       const period = periods.find(p => p.id === genForm.period_id);
       const matchedPairs = [];
 
       for (const inv of allInvoices) {
         const rule = commissionCalculationsService.matchRule(inv, rep, rules);
 
-        if (hasOverrideRules) {
-          // Override rep: only include invoices where a rule explicitly matched
+        if (hasFilterRules) {
+          // Filter-based rep: only pay on invoices where a rule explicitly matched
           if (!rule) continue;
         }
-        // Standard rep: include all invoices (fallback to default rate when no rule)
+        // Simple rep: include all their own invoices, fall back to default rate
 
         matchedPairs.push({ inv, rule });
       }
