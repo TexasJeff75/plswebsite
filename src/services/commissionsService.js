@@ -51,14 +51,14 @@ export const salesRepsService = {
 };
 
 export const commissionRulesService = {
+  // Returns rules where sales_rep_id matches (who gets paid).
+  // Pass salesRepId to scope to one payee; omit for all rules.
   async getAll(salesRepId = null) {
     let query = supabase
       .from('commission_rules')
-      .select('*, sales_reps(name, email)')
+      .select('*, sales_reps:sales_rep_id(name, email), trigger_rep:applies_to_sales_rep_id(name)')
       .order('priority', { ascending: false });
-    // Include rules tied to this rep AND global rules (sales_rep_id IS NULL).
-    // A plain .eq() would silently exclude NULL rows in SQL.
-    if (salesRepId) query = query.or(`sales_rep_id.eq.${salesRepId},sales_rep_id.is.null`);
+    if (salesRepId) query = query.eq('sales_rep_id', salesRepId);
     const { data, error } = await query;
     if (error) throw error;
     return data;
@@ -133,7 +133,7 @@ export const qboInvoicesService = {
       .select(`
         *,
         sales_reps(id, name, email),
-        commission_periods(id, name)
+        commission_periods(id, name, start_date, end_date)
       `)
       .order('invoice_date', { ascending: false });
 
@@ -188,16 +188,22 @@ export const qboInvoicesService = {
 };
 
 export const commissionCalculationsService = {
-  async calculateForInvoice(invoice, salesRep, rules) {
+  // Finds the best matching rule from `rules` for the given invoice.
+  // `salesRep` is the *payee* rep. Rules are already scoped to this payee.
+  // `invoice.sales_rep_id` is the rep whose name is on the invoice (may differ).
+  matchRule(invoice, salesRep, rules) {
     const invoiceDate = invoice.transaction_date || invoice.invoice_date;
     const customerName = (invoice.customer_name || '').toLowerCase();
     const productService = (invoice.product_service || '').toLowerCase();
+    const invoiceRepId = invoice.sales_rep_id;
 
-    const specificRules = rules.filter(r => {
+    const matched = rules.filter(r => {
       if (!r.is_active) return false;
-      // Skip rules locked to a different rep (global rules have null sales_rep_id and always pass)
-      if (r.sales_rep_id && r.sales_rep_id !== salesRep.id) return false;
-      // Trim stored values so accidental trailing spaces don't break matching
+
+      // applies_to_sales_rep_id: the rule only fires on invoices belonging to this rep.
+      // If null, fires on any rep's invoices.
+      if (r.applies_to_sales_rep_id && r.applies_to_sales_rep_id !== invoiceRepId) return false;
+
       const custFilter = (r.applies_to_customer_name || '').trim().toLowerCase();
       const prodFilter = (r.applies_to_product_code || '').trim().toLowerCase();
       if (custFilter && !customerName.includes(custFilter)) return false;
@@ -206,14 +212,20 @@ export const commissionCalculationsService = {
       if (r.effective_to && invoiceDate && invoiceDate > r.effective_to) return false;
       return true;
     }).sort((a, b) => {
-      const aSpecificity = (a.applies_to_customer_name ? 2 : 0) + (a.applies_to_product_code ? 2 : 0) + (a.sales_rep_id ? 1 : 0);
-      const bSpecificity = (b.applies_to_customer_name ? 2 : 0) + (b.applies_to_product_code ? 2 : 0) + (b.sales_rep_id ? 1 : 0);
-      if (bSpecificity !== aSpecificity) return bSpecificity - aSpecificity;
-      return b.priority - a.priority;
+      // More specific rules win: customer filter (2pts) + product filter (2pts) + rep trigger (1pt)
+      const score = r =>
+        ((r.applies_to_customer_name || '').trim() ? 2 : 0) +
+        ((r.applies_to_product_code || '').trim() ? 2 : 0) +
+        (r.applies_to_sales_rep_id ? 1 : 0);
+      const diff = score(b) - score(a);
+      return diff !== 0 ? diff : b.priority - a.priority;
     });
 
-    const applicableRule = specificRules[0] ?? null;
+    return matched[0] ?? null;
+  },
 
+  async calculateForInvoice(invoice, salesRep, rules) {
+    const applicableRule = this.matchRule(invoice, salesRep, rules);
     const rate = applicableRule?.commission_rate ?? salesRep.default_commission_rate;
     const commissionableAmount = invoice.total_amount;
     const commissionAmount = parseFloat((commissionableAmount * rate).toFixed(2));

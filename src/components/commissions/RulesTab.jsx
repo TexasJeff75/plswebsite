@@ -6,6 +6,7 @@ const EMPTY_RULE = {
   name: '',
   description: '',
   sales_rep_id: '',
+  applies_to_sales_rep_id: '',
   rule_type: 'flat_rate',
   commission_rate: 0.05,
   min_amount: '',
@@ -76,6 +77,7 @@ export default function RulesTab() {
       name: rule.name || '',
       description: rule.description || '',
       sales_rep_id: rule.sales_rep_id || '',
+      applies_to_sales_rep_id: rule.applies_to_sales_rep_id || '',
       rule_type: rule.rule_type || 'flat_rate',
       commission_rate: rule.commission_rate || 0.05,
       min_amount: rule.min_amount ?? '',
@@ -103,6 +105,7 @@ export default function RulesTab() {
       const payload = {
         ...form,
         sales_rep_id: form.sales_rep_id || null,
+        applies_to_sales_rep_id: form.applies_to_sales_rep_id || null,
         min_amount: form.min_amount === '' ? null : parseFloat(form.min_amount),
         max_amount: form.max_amount === '' ? null : parseFloat(form.max_amount),
         effective_from: form.effective_from || null,
@@ -191,10 +194,17 @@ export default function RulesTab() {
                     </div>
                     {rule.description && <p className="text-slate-500 text-sm mt-0.5">{rule.description}</p>}
                     <div className="mt-1.5 flex flex-wrap gap-2">
-                      {rule.sales_reps && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Rep: {rule.sales_reps.name}</span>}
-                      {!rule.sales_rep_id && <span className="text-xs text-slate-500 bg-slate-700/20 px-2 py-0.5 rounded">All Reps (fallback)</span>}
-                      {rule.applies_to_product_code && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Product: {rule.applies_to_product_code}</span>}
+                      {rule.sales_reps
+                        ? <span className="text-xs text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded">Pays: {rule.sales_reps.name}</span>
+                        : <span className="text-xs text-slate-500 bg-slate-700/20 px-2 py-0.5 rounded">Pays: All Reps (fallback)</span>
+                      }
+                      {rule.applies_to_sales_rep_id && (
+                        <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                          On invoices by: {rule.trigger_rep?.name ?? reps.find(r => r.id === rule.applies_to_sales_rep_id)?.name ?? 'Unknown Rep'}
+                        </span>
+                      )}
                       {rule.applies_to_customer_name && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Customer: {rule.applies_to_customer_name}</span>}
+                      {rule.applies_to_product_code && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Product: {rule.applies_to_product_code}</span>}
                       {rule.min_amount && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Min: ${rule.min_amount}</span>}
                       {rule.max_amount && <span className="text-xs text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Max: ${rule.max_amount}</span>}
                       {rule.effective_from && <span className="text-xs text-slate-400">From {formatDate(rule.effective_from)}</span>}
@@ -250,13 +260,25 @@ export default function RulesTab() {
                   </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Apply to Rep (optional — leave blank for all)</label>
-                <select value={form.sales_rep_id} onChange={e => setForm(f => ({ ...f, sales_rep_id: e.target.value }))}
-                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
-                  <option value="">All Reps</option>
-                  {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+              <div className="grid grid-cols-1 gap-4 p-4 bg-slate-700/20 rounded-xl border border-slate-700/50">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide -mb-1">Who Gets Paid vs. Which Invoices Trigger It</p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Pays Rep <span className="text-slate-500 font-normal">(who receives this commission)</span></label>
+                  <select value={form.sales_rep_id} onChange={e => setForm(f => ({ ...f, sales_rep_id: e.target.value }))}
+                    className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+                    <option value="">All Reps (fallback)</option>
+                    {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Trigger on invoices by <span className="text-slate-500 font-normal">(optional — for overrides)</span></label>
+                  <select value={form.applies_to_sales_rep_id} onChange={e => setForm(f => ({ ...f, applies_to_sales_rep_id: e.target.value }))}
+                    className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
+                    <option value="">Any rep's invoices</option>
+                    {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">Use this for override commissions where the payee rep is not the one on the invoice (e.g. Gregory James earning on Tyler Ryan's accounts).</p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

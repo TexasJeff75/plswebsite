@@ -85,27 +85,65 @@ export default function ReportsTab() {
     setGenerating(true);
     setError(null);
     try {
-      const [invoices, rules, rep] = await Promise.all([
-        qboInvoicesService.getAll({ salesRepId: genForm.sales_rep_id, periodId: genForm.period_id, paidOnly: true }),
+      const [rules, rep] = await Promise.all([
         commissionRulesService.getAll(genForm.sales_rep_id),
         salesRepsService.getById(genForm.sales_rep_id)
       ]);
 
-      if (invoices.length === 0) {
-        setError('No invoices found for this rep and period.');
+      // Determine whether any rule has applies_to_sales_rep_id set — if so,
+      // this rep earns overrides on OTHER reps' invoices and we must scan all
+      // invoices in the period, not just those assigned to this rep.
+      const hasOverrideRules = rules.some(r => r.applies_to_sales_rep_id);
+
+      const invoiceFilter = { periodId: genForm.period_id, paidOnly: true };
+      if (!hasOverrideRules) {
+        // Standard rep: only their own invoices
+        invoiceFilter.salesRepId = genForm.sales_rep_id;
+      }
+      // For override reps, fetch ALL paid invoices in the period so rule
+      // matching can check applies_to_sales_rep_id against each invoice's rep.
+
+      const allInvoices = await qboInvoicesService.getAll(invoiceFilter);
+
+      if (allInvoices.length === 0) {
+        setError('No invoices found for this period.');
         setGenerating(false);
         return;
       }
 
-      const calculations = await Promise.all(invoices.map(async inv => {
+      // For each invoice, check if any rule matches. Exclude invoices where
+      // no rule matches AND there is no default (override-only reps should only
+      // be paid on invoices explicitly covered by a rule).
+      const period = periods.find(p => p.id === genForm.period_id);
+      const matchedPairs = [];
+
+      for (const inv of allInvoices) {
+        const rule = commissionCalculationsService.matchRule(inv, rep, rules);
+
+        if (hasOverrideRules) {
+          // Override rep: only include invoices where a rule explicitly matched
+          if (!rule) continue;
+        }
+        // Standard rep: include all invoices (fallback to default rate when no rule)
+
+        matchedPairs.push({ inv, rule });
+      }
+
+      if (matchedPairs.length === 0) {
+        setError('No invoices matched the commission rules for this rep and period.');
+        setGenerating(false);
+        return;
+      }
+
+      const calculations = await Promise.all(matchedPairs.map(async ({ inv, rule }) => {
         const calc = await commissionCalculationsService.calculateForInvoice(inv, rep, rules);
         return commissionCalculationsService.saveCalculation(calc);
       }));
 
       const calcsWithInvoices = calculations.map((c, i) => ({
         ...c,
-        qbo_invoices: invoices[i],
-        commission_periods: periods.find(p => p.id === genForm.period_id)
+        qbo_invoices: matchedPairs[i].inv,
+        commission_periods: period
       }));
 
       await commissionReportsService.generateReport(genForm.sales_rep_id, genForm.period_id, calcsWithInvoices);
