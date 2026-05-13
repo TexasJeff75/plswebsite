@@ -56,7 +56,9 @@ export const commissionRulesService = {
       .from('commission_rules')
       .select('*, sales_reps(name, email)')
       .order('priority', { ascending: false });
-    if (salesRepId) query = query.eq('sales_rep_id', salesRepId);
+    // Include rules tied to this rep AND global rules (sales_rep_id IS NULL).
+    // A plain .eq() would silently exclude NULL rows in SQL.
+    if (salesRepId) query = query.or(`sales_rep_id.eq.${salesRepId},sales_rep_id.is.null`);
     const { data, error } = await query;
     if (error) throw error;
     return data;
@@ -193,9 +195,13 @@ export const commissionCalculationsService = {
 
     const specificRules = rules.filter(r => {
       if (!r.is_active) return false;
+      // Skip rules locked to a different rep (global rules have null sales_rep_id and always pass)
       if (r.sales_rep_id && r.sales_rep_id !== salesRep.id) return false;
-      if (r.applies_to_customer_name && !customerName.includes(r.applies_to_customer_name.toLowerCase())) return false;
-      if (r.applies_to_product_code && !productService.includes(r.applies_to_product_code.toLowerCase())) return false;
+      // Trim stored values so accidental trailing spaces don't break matching
+      const custFilter = (r.applies_to_customer_name || '').trim().toLowerCase();
+      const prodFilter = (r.applies_to_product_code || '').trim().toLowerCase();
+      if (custFilter && !customerName.includes(custFilter)) return false;
+      if (prodFilter && !productService.includes(prodFilter)) return false;
       if (r.effective_from && invoiceDate && invoiceDate < r.effective_from) return false;
       if (r.effective_to && invoiceDate && invoiceDate > r.effective_to) return false;
       return true;
