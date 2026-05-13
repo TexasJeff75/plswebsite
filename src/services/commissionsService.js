@@ -336,12 +336,27 @@ export const commissionReportsService = {
     return data;
   },
 
+  async deleteDraftsForRepPeriod(salesRepId, periodId) {
+    const { data: drafts, error: fetchErr } = await supabase
+      .from('commission_reports')
+      .select('id')
+      .eq('sales_rep_id', salesRepId)
+      .eq('commission_period_id', periodId)
+      .eq('status', 'Draft');
+    if (fetchErr) throw fetchErr;
+    if (!drafts || drafts.length === 0) return;
+    const ids = drafts.map(d => d.id);
+    await supabase.from('commission_report_items').delete().in('report_id', ids);
+    await supabase.from('commission_reports').delete().in('id', ids);
+  },
+
   async generateReport(salesRepId, periodId, calculations) {
     const period = calculations[0]?.commission_periods;
     const totalInvoices = calculations.length;
-    const totalInvoiceAmount = calculations.reduce((sum, c) => sum + (c.qbo_invoices?.total_amount ?? 0), 0);
-    const totalCommissionableAmount = calculations.reduce((sum, c) => sum + c.commissionable_amount, 0);
-    const totalCommissionAmount = calculations.reduce((sum, c) => sum + c.commission_amount, 0);
+    // DB numeric fields come back as strings — coerce to float before summing
+    const totalInvoiceAmount = calculations.reduce((sum, c) => sum + parseFloat(c.qbo_invoices?.total_amount ?? 0), 0);
+    const totalCommissionableAmount = calculations.reduce((sum, c) => sum + parseFloat(c.commissionable_amount ?? 0), 0);
+    const totalCommissionAmount = calculations.reduce((sum, c) => sum + parseFloat(c.commission_amount ?? 0), 0);
 
     const reportNumber = `CR-${Date.now()}`;
 

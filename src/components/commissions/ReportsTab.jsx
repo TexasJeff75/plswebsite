@@ -55,6 +55,7 @@ export default function ReportsTab() {
   const [repHistory, setRepHistory] = useState(null);
   const [removingRejected, setRemovingRejected] = useState(false);
   const [confirmRemoveRejected, setConfirmRemoveRejected] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -77,14 +78,28 @@ export default function ReportsTab() {
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(force = false) {
     if (!genForm.sales_rep_id || !genForm.period_id) {
       setError('Please select both a sales rep and a period.');
       return;
     }
+    // Check for existing draft — confirm replacement before proceeding
+    if (!force) {
+      const existingDraft = reports.find(r =>
+        r.sales_rep_id === genForm.sales_rep_id &&
+        r.commission_period_id === genForm.period_id &&
+        r.status === 'Draft'
+      );
+      if (existingDraft) {
+        setGenerateModal(false);
+        setConfirmRegenerate(true);
+        return;
+      }
+    }
     setGenerating(true);
     setError(null);
     try {
+      await commissionReportsService.deleteDraftsForRepPeriod(genForm.sales_rep_id, genForm.period_id);
       const [rules, rep] = await Promise.all([
         commissionRulesService.getAll(genForm.sales_rep_id),
         salesRepsService.getById(genForm.sales_rep_id)
@@ -666,6 +681,32 @@ export default function ReportsTab() {
           onSend={() => handleConfirmSend(emailPreviewReport)}
           sendLabel="Confirm & Mark Sent"
         />
+      )}
+
+      {confirmRegenerate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-white font-semibold text-lg mb-2">Replace Existing Draft?</h3>
+              <p className="text-slate-400 text-sm">
+                A draft report already exists for{' '}
+                <span className="text-white font-medium">{reps.find(r => r.id === genForm.sales_rep_id)?.name}</span>
+                {' '}in{' '}
+                <span className="text-white font-medium">{periods.find(p => p.id === genForm.period_id)?.name}</span>.
+                Regenerating will delete the existing draft and create a fresh one with current data.
+              </p>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setConfirmRegenerate(false)} className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
+              <button
+                onClick={() => { setConfirmRegenerate(false); handleGenerate(true); }}
+                className="flex-1 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Replace & Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmRemoveRejected && (
