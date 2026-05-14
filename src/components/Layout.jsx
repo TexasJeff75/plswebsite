@@ -154,7 +154,7 @@ export default function Layout() {
     });
   }
 
-  if (['Proximity Admin', 'Super Admin', 'Proximity Staff'].includes(profile?.role)) {
+  if (['Proximity Admin', 'Super Admin', 'Proximity Staff', 'Customer Admin'].includes(profile?.role)) {
     navItems.push({
       path: '/supply-orders',
       label: 'Supply Orders',
