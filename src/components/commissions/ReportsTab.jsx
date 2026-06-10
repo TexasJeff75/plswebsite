@@ -47,7 +47,7 @@ export default function ReportsTab() {
   const [filterRep, setFilterRep] = useState('');
   const [generateModal, setGenerateModal] = useState(false);
   const [genForm, setGenForm] = useState({ sales_rep_id: '', period_id: '' });
-  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectModal, setRejectModal] = useState(null); // null | { ids: string[], label: string }
   const [rejectReason, setRejectReason] = useState('');
   const [pdfReport, setPdfReport] = useState(null);
   const [emailPreviewReport, setEmailPreviewReport] = useState(null);
@@ -56,6 +56,8 @@ export default function ReportsTab() {
   const [removingRejected, setRemovingRejected] = useState(false);
   const [confirmRemoveRejected, setConfirmRemoveRejected] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkRejecting, setBulkRejecting] = useState(false);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -197,17 +199,38 @@ export default function ReportsTab() {
   }
 
   async function handleReject() {
-    if (!rejectReason.trim()) return;
-    setActionLoading(prev => ({ ...prev, [rejectModal.id]: 'rejecting' }));
+    if (!rejectReason.trim() || !rejectModal) return;
+    const ids = rejectModal.ids;
+    setBulkRejecting(true);
+    ids.forEach(id => setActionLoading(prev => ({ ...prev, [id]: 'rejecting' })));
     try {
-      await commissionReportsService.reject(rejectModal.id, rejectReason);
+      await Promise.all(ids.map(id => commissionReportsService.reject(id, rejectReason)));
       setRejectModal(null);
       setRejectReason('');
+      setSelectedIds(new Set());
       await loadAll();
     } catch (err) {
       setError(err.message);
     } finally {
-      setActionLoading(prev => ({ ...prev, [rejectModal?.id]: null }));
+      setBulkRejecting(false);
+      ids.forEach(id => setActionLoading(prev => ({ ...prev, [id]: null })));
+    }
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const draftIds = filtered.filter(r => r.status === 'Draft').map(r => r.id);
+    if (draftIds.every(id => selectedIds.has(id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(draftIds));
     }
   }
 
@@ -273,6 +296,10 @@ export default function ReportsTab() {
     return true;
   });
 
+  const draftIds = filtered.filter(r => r.status === 'Draft').map(r => r.id);
+  const allDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedIds.has(id));
+  const someDraftsSelected = draftIds.some(id => selectedIds.has(id));
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -301,6 +328,33 @@ export default function ReportsTab() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-700/60 border border-slate-600/60 rounded-xl">
+          <span className="text-sm text-slate-300 font-medium">
+            {selectedIds.size} report{selectedIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 rounded-lg border border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600 text-xs font-medium transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setRejectModal({
+                ids: [...selectedIds],
+                label: `${selectedIds.size} selected report${selectedIds.size !== 1 ? 's' : ''}`
+              })}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-400 hover:text-red-300 rounded-lg text-xs font-medium transition-colors"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Reject Selected
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
@@ -311,6 +365,20 @@ export default function ReportsTab() {
       )}
 
       <div className="flex items-center gap-3 flex-wrap">
+        {draftIds.length > 0 && (
+          <label className="flex items-center gap-2 cursor-pointer select-none group">
+            <input
+              type="checkbox"
+              checked={allDraftsSelected}
+              ref={el => { if (el) el.indeterminate = someDraftsSelected && !allDraftsSelected; }}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-teal-500 cursor-pointer accent-teal-500"
+            />
+            <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+              Select all drafts
+            </span>
+          </label>
+        )}
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500 transition-colors">
           <option value="">All Statuses</option>
@@ -336,8 +404,19 @@ export default function ReportsTab() {
       ) : (
         <div className="space-y-3">
           {filtered.map(report => (
-            <div key={report.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden hover:border-slate-600/60 transition-colors">
-              <div className="px-5 py-4 flex items-center gap-4">
+            <div key={report.id} className={`bg-slate-800/60 border rounded-xl overflow-hidden transition-colors ${selectedIds.has(report.id) ? 'border-red-500/40 bg-red-500/5' : 'border-slate-700/60 hover:border-slate-600/60'}`}>
+              <div className="px-5 py-4 flex items-center gap-3">
+                {report.status === 'Draft' ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(report.id)}
+                    onChange={() => toggleSelect(report.id)}
+                    onClick={e => e.stopPropagation()}
+                    className="w-4 h-4 flex-shrink-0 rounded border-slate-500 bg-slate-700 cursor-pointer accent-teal-500"
+                  />
+                ) : (
+                  <div className="w-4 flex-shrink-0" />
+                )}
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
                   <div>
                     <p className="text-white font-semibold text-sm">{report.report_number}</p>
@@ -374,7 +453,7 @@ export default function ReportsTab() {
                   )}
                   {report.status === 'Draft' && (
                     <button
-                      onClick={() => setRejectModal(report)}
+                      onClick={() => setRejectModal({ ids: [report.id], label: `report ${report.report_number}` })}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
                     >
                       <XCircle className="w-3.5 h-3.5" />
@@ -646,8 +725,11 @@ export default function ReportsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl">
             <div className="p-6">
-              <h3 className="text-white font-semibold text-lg mb-2">Reject Report</h3>
-              <p className="text-slate-400 text-sm mb-4">Please provide a reason for rejecting report <strong className="text-white">{rejectModal.report_number}</strong>.</p>
+              <h3 className="text-white font-semibold text-lg mb-2">Reject {rejectModal.ids.length > 1 ? `${rejectModal.ids.length} Reports` : 'Report'}</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Please provide a reason for rejecting <strong className="text-white">{rejectModal.label}</strong>.
+                {rejectModal.ids.length > 1 && ' The same reason will be applied to all selected reports.'}
+              </p>
               <textarea
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
@@ -660,10 +742,10 @@ export default function ReportsTab() {
               <button onClick={() => { setRejectModal(null); setRejectReason(''); }} className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">Cancel</button>
               <button
                 onClick={handleReject}
-                disabled={!rejectReason.trim()}
+                disabled={!rejectReason.trim() || bulkRejecting}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Reject Report
+                {bulkRejecting ? 'Rejecting...' : `Reject ${rejectModal.ids.length > 1 ? `${rejectModal.ids.length} Reports` : 'Report'}`}
               </button>
             </div>
           </div>
