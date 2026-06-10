@@ -296,14 +296,20 @@ export default function InvoicesTab() {
     return upserted.id;
   }
 
-  async function autoGenerateReports() {
+  async function autoGenerateReports(limitToPeriodIds = null) {
     try {
-      // Discover which rep+period combinations have paid invoices
-      const { data: paidInvoices } = await supabase
+      // Discover which periods have paid invoices — scoped to this import's periods if provided
+      let periodQuery = supabase
         .from('qbo_invoices')
         .select('commission_period_id, commission_periods(id, name, start_date, end_date)')
         .eq('ar_paid', 'Paid')
         .not('commission_period_id', 'is', null);
+
+      if (limitToPeriodIds?.length) {
+        periodQuery = periodQuery.in('commission_period_id', limitToPeriodIds);
+      }
+
+      const { data: paidInvoices } = await periodQuery;
 
       if (!paidInvoices?.length) return { created: 0, skipped: 0 };
 
@@ -489,7 +495,9 @@ export default function InvoicesTab() {
           .map(inv => inv.rep_name.trim())
       )];
 
-      const autoReportResult = await autoGenerateReports();
+      // Only generate reports for the periods contained in this import batch
+      const importedPeriodIds = [...new Set(toUpsert.map(r => r.commission_period_id).filter(Boolean))];
+      const autoReportResult = await autoGenerateReports(importedPeriodIds);
 
       setImportResult({ count: inserted, total: toUpsert.length, filename: parsedData.filename, unmatchedReps, autoReports: autoReportResult });
       setParsedData(null);
