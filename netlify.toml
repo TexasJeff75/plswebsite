@@ -6,6 +6,13 @@ command = "npx vite build"
 directory = "netlify/functions"
 node_bundler = "esbuild"
 
+# Subdomain redirect: itsupport.proximitylabservices.com → SyncroMSP portal
+[[redirects]]
+from = "https://itsupport.proximitylabservices.com/*"
+to = "https://codistas.shield.syncromsp.com/my_profile/v2/index?portal_key=da9d6hwsauranhbe71t8"
+status = 301
+force = true
+
 [[redirects]]
 from = "/*"
 to = "/index.html"
