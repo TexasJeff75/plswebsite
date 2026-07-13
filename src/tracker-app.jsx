@@ -27,6 +27,7 @@ import StratusAPIViewer from './components/StratusAPIViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import Commissions from './components/Commissions';
+import Invoicing from './components/Invoicing';
 import SupplyOrders from './components/SupplyOrders';
 import SupplyOrderDetail from './components/SupplyOrderDetail';
 import SupplyCatalog from './components/SupplyCatalog';
@@ -118,6 +119,11 @@ function App() {
                 <Route path="commissions" element={
                   <ProtectedRoute requireAdmin>
                     <Commissions />
+                  </ProtectedRoute>
+                } />
+                <Route path="invoicing" element={
+                  <ProtectedRoute requireAdmin>
+                    <Invoicing />
                   </ProtectedRoute>
                 } />
                 <Route path="notifications" element={<Notifications />} />
