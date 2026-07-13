@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import * as XLSX from 'xlsx';
 
 const WEEKS_PER_MONTH = 4.345;
 
@@ -32,6 +33,156 @@ function weeklyRate(monthlyFee) {
   return Math.round((Number(monthlyFee) / WEEKS_PER_MONTH) * 100) / 100;
 }
 
+function parseDate(str) {
+  if (!str) return null;
+  if (str instanceof Date) return str;
+  const m = String(str).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    return new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]));
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+/**
+ * Parse a lab data export Excel file.
+ * Expected columns: Test Method, Accession #, Requisition Date, ...
+ * Returns an array of records: { testMethod, accessionNumber, requisitionDate (ISO date string) }
+ */
+export function parseLabDataFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          defval: null,
+          raw: true,
+        });
+
+        if (raw.length === 0) {
+          reject(new Error('File is empty.'));
+          return;
+        }
+
+        const header = raw[0].map((h) => String(h ?? '').trim().toLowerCase());
+        const tmIdx = header.findIndex((h) => h.includes('test method'));
+        const accIdx = header.findIndex((h) => h.includes('accession'));
+        const reqIdx = header.findIndex(
+          (h) => h.includes('requisition date') || h === 'requisition date'
+        );
+
+        if (tmIdx === -1 || reqIdx === -1) {
+          reject(
+            new Error(
+              'Could not find required columns. Expected "Test Method" and "Requisition Date".'
+            )
+          );
+          return;
+        }
+
+        const records = [];
+        for (let i = 1; i < raw.length; i++) {
+          const row = raw[i];
+          if (!row || !row[tmIdx]) continue;
+          const parsed = parseDate(row[reqIdx]);
+          if (!parsed) continue;
+          records.push({
+            testMethod: String(row[tmIdx]).trim(),
+            accessionNumber: accIdx !== -1 ? String(row[accIdx] ?? '').trim() : '',
+            requisitionDate: parsed.toISOString().split('T')[0],
+          });
+        }
+
+        resolve(records);
+      } catch (err) {
+        reject(new Error(`Failed to parse file: ${err.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Group records by week and test method, counting tests per group.
+ * Returns: { weeks: [{ weekStart, weekEnd, methods: [{ testMethod, count }] }], orgCode }
+ */
+export function groupRecordsByWeek(records) {
+  const weekMap = {};
+
+  for (const rec of records) {
+    const ws = getWeekStart(rec.requisitionDate);
+    if (!weekMap[ws]) weekMap[ws] = {};
+    const key = rec.testMethod;
+    weekMap[ws][key] = (weekMap[ws][key] || 0) + 1;
+  }
+
+  const weeks = Object.keys(weekMap)
+    .sort()
+    .map((ws) => ({
+      weekStart: ws,
+      weekEnd: getWeekEnd(ws),
+      methods: Object.entries(weekMap[ws])
+        .map(([testMethod, count]) => ({ testMethod, count }))
+        .sort((a, b) => b.count - a.count),
+    }));
+
+  return weeks;
+}
+
+export const testMethodRateService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('test_method_rates')
+      .select('*')
+      .order('test_method');
+    if (error) throw error;
+    return data;
+  },
+
+  async upsert(rate) {
+    const { data, error } = await supabase
+      .from('test_method_rates')
+      .upsert(
+        {
+          test_method: rate.test_method,
+          rate: rate.rate,
+          description: rate.description || '',
+          is_active: rate.is_active ?? true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'test_method' }
+      )
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('test_method_rates')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('test_method_rates')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+};
+
 export const invoiceBatchService = {
   async getAll() {
     const { data, error } = await supabase
@@ -52,7 +203,7 @@ export const invoiceBatchService = {
     return data;
   },
 
-  async create(requisitionDate, createdBy) {
+  async create(requisitionDate, createdBy, sourceFileName) {
     const weekStart = getWeekStart(requisitionDate);
     const weekEnd = getWeekEnd(weekStart);
     const { data, error } = await supabase
@@ -62,6 +213,7 @@ export const invoiceBatchService = {
         week_start: weekStart,
         week_end: weekEnd,
         created_by: createdBy,
+        notes: sourceFileName ? `Source: ${sourceFileName}` : '',
       })
       .select()
       .single();
@@ -117,138 +269,131 @@ export const invoiceBatchService = {
     return data;
   },
 
-  async generateInvoices(batchId, requisitionDate) {
-    const { data: orgs, error: orgError } = await supabase
-      .from('organizations')
-      .select('id, name, type, contact_email')
-      .eq('type', 'customer')
-      .order('name');
-    if (orgError) throw orgError;
-
-    const orgIds = orgs.map((o) => o.id);
-    if (orgIds.length === 0) return { invoiceCount: 0, facilityCount: 0, totalAmount: 0 };
-
-    const { data: facilities, error: facError } = await supabase
-      .from('facilities')
-      .select('id, name, organization_id, monthly_service_fee, monthly_lis_saas_fee, service_fee_start_date, site_configuration, overall_status')
-      .in('organization_id', orgIds)
-      .order('name');
-    if (facError) throw facError;
-
+  /**
+   * Generate invoices from parsed lab data for a specific week.
+   * Creates one invoice per organization, with line items per test method.
+   *
+   * @param {string} batchId - The batch ID
+   * @param {string} requisitionDate - The requisition date (ISO)
+   * @param {Array} weekRecords - Records for this week: [{ testMethod, accessionNumber, requisitionDate }]
+   * @param {string} sourceFileName - The uploaded file name
+   * @param {string} organizationId - The organization to invoice
+   * @param {string} orgName - Organization name (for invoice number)
+   * @param {Object} rateMap - { testMethod: rate } lookup
+   */
+  async generateInvoicesFromData(
+    batchId,
+    requisitionDate,
+    weekRecords,
+    sourceFileName,
+    organizationId,
+    orgName,
+    rateMap
+  ) {
     const weekStart = getWeekStart(requisitionDate);
     const weekEnd = getWeekEnd(weekStart);
     const dateStr = formatMMDDYY(requisitionDate);
+    const orgCode = deriveOrgCode(orgName);
+    const invoiceNumber = `${orgCode}-${dateStr}`;
 
-    let totalAmount = 0;
-    let facilityCount = 0;
-    let invoiceCount = 0;
-
-    for (const org of orgs) {
-      const orgFacilities = facilities.filter(
-        (f) =>
-          f.organization_id === org.id &&
-          f.service_fee_start_date &&
-          f.service_fee_start_date <= requisitionDate &&
-          f.overall_status !== 'cancelled'
-      );
-
-      if (orgFacilities.length === 0) continue;
-
-      const orgCode = deriveOrgCode(org.name);
-      const invoiceNumber = `${orgCode}-${dateStr}`;
-
-      const { data: existing } = await supabase
-        .from('weekly_invoices')
-        .select('id')
-        .eq('batch_id', batchId)
-        .eq('organization_id', org.id)
-        .maybeSingle();
-      if (existing) continue;
-
-      const { data: invoice, error: invError } = await supabase
-        .from('weekly_invoices')
-        .insert({
-          batch_id: batchId,
-          organization_id: org.id,
-          invoice_number: invoiceNumber,
-          requisition_date: requisitionDate,
-          week_start: weekStart,
-          week_end: weekEnd,
-          qb_customer_name: org.name,
-          status: 'draft',
-        })
-        .select()
-        .single();
-      if (invError) throw invError;
-
-      let invoiceTotal = 0;
-      for (const fac of orgFacilities) {
-        const serviceFee = Number(fac.monthly_service_fee) || 0;
-        const lisFee = Number(fac.monthly_lis_saas_fee) || 0;
-
-        if (serviceFee > 0) {
-          const weeklyService = weeklyRate(serviceFee);
-          const { error: liError } = await supabase
-            .from('weekly_invoice_line_items')
-            .insert({
-              invoice_id: invoice.id,
-              facility_id: fac.id,
-              facility_name: fac.name,
-              line_type: 'service_fee',
-              description: `Weekly service fee — ${fac.name}`,
-              quantity: 1,
-              unit_price: weeklyService,
-              amount: weeklyService,
-            });
-          if (liError) throw liError;
-          invoiceTotal += weeklyService;
-          facilityCount++;
-        }
-
-        if (lisFee > 0) {
-          const weeklyLis = weeklyRate(lisFee);
-          const { error: liError } = await supabase
-            .from('weekly_invoice_line_items')
-            .insert({
-              invoice_id: invoice.id,
-              facility_id: fac.id,
-              facility_name: fac.name,
-              line_type: 'lis_saas_fee',
-              description: `Weekly LIS SaaS fee — ${fac.name}`,
-              quantity: 1,
-              unit_price: weeklyLis,
-              amount: weeklyLis,
-            });
-          if (liError) throw liError;
-          invoiceTotal += weeklyLis;
-        }
-      }
-
-      invoiceTotal = Math.round(invoiceTotal * 100) / 100;
-      const { error: updError } = await supabase
-        .from('weekly_invoices')
-        .update({ total_amount: invoiceTotal, line_count: orgFacilities.length })
-        .eq('id', invoice.id);
-      if (updError) throw updError;
-
-      totalAmount += invoiceTotal;
-      invoiceCount++;
+    // Check for existing invoice in this batch
+    const { data: existing } = await supabase
+      .from('weekly_invoices')
+      .select('id')
+      .eq('batch_id', batchId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (existing) {
+      return { invoiceId: existing.id, totalAmount: 0, lineCount: 0, skipped: true };
     }
 
-    totalAmount = Math.round(totalAmount * 100) / 100;
+    // Count tests by method
+    const methodCounts = {};
+    for (const rec of weekRecords) {
+      const key = rec.testMethod;
+      methodCounts[key] = (methodCounts[key] || 0) + 1;
+    }
+
+    // Create the invoice
+    const { data: invoice, error: invError } = await supabase
+      .from('weekly_invoices')
+      .insert({
+        batch_id: batchId,
+        organization_id: organizationId,
+        invoice_number: invoiceNumber,
+        requisition_date: requisitionDate,
+        week_start: weekStart,
+        week_end: weekEnd,
+        qb_customer_name: orgName,
+        status: 'draft',
+      })
+      .select()
+      .single();
+    if (invError) throw invError;
+
+    // Create line items per test method
+    let invoiceTotal = 0;
+    let lineCount = 0;
+    const methods = Object.entries(methodCounts).sort((a, b) => b[1] - a[1]);
+
+    for (const [testMethod, count] of methods) {
+      const rate = rateMap[testMethod] ?? 0;
+      const amount = Math.round(count * rate * 100) / 100;
+
+      const { error: liError } = await supabase
+        .from('weekly_invoice_line_items')
+        .insert({
+          invoice_id: invoice.id,
+          facility_name: testMethod,
+          line_type: 'test_fee',
+          description: `${testMethod} (${count} tests @ ${rate.toFixed(2)}/test)`,
+          quantity: count,
+          unit_price: rate,
+          amount,
+          test_count: count,
+          source_file: sourceFileName,
+        });
+      if (liError) throw liError;
+
+      invoiceTotal += amount;
+      lineCount++;
+    }
+
+    invoiceTotal = Math.round(invoiceTotal * 100) / 100;
+
+    // Update invoice total
+    const { error: updError } = await supabase
+      .from('weekly_invoices')
+      .update({ total_amount: invoiceTotal, line_count: lineCount })
+      .eq('id', invoice.id);
+    if (updError) throw updError;
+
+    return { invoiceId: invoice.id, totalAmount: invoiceTotal, lineCount };
+  },
+
+  async recalculateBatchTotals(batchId) {
+    const { data: invoices, error } = await supabase
+      .from('weekly_invoices')
+      .select('id, total_amount, status')
+      .eq('batch_id', batchId);
+    if (error) throw error;
+
+    const activeInvoices = invoices.filter((i) => i.status !== 'void');
+    const totalAmount = Math.round(
+      activeInvoices.reduce((s, i) => s + Number(i.total_amount), 0) * 100
+    ) / 100;
 
     const { error: batchUpdError } = await supabase
       .from('weekly_invoice_batches')
       .update({
         total_amount: totalAmount,
-        invoice_count: invoiceCount,
-        facility_count: facilityCount,
+        invoice_count: activeInvoices.length,
         updated_at: new Date().toISOString(),
       })
       .eq('id', batchId);
     if (batchUpdError) throw batchUpdError;
 
-    return { invoiceCount, facilityCount, totalAmount };
+    return { totalAmount, invoiceCount: activeInvoices.length };
   },
 };
 
@@ -305,7 +450,11 @@ export const weeklyInvoiceService = {
 
     const { data: updated, error: updError } = await supabase
       .from('weekly_invoices')
-      .update({ total_amount: total, line_count: items.length, updated_at: new Date().toISOString() })
+      .update({
+        total_amount: total,
+        line_count: items.length,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', invoiceId)
       .select()
       .single();
@@ -353,7 +502,8 @@ export function exportToQuickBooksCSV(invoices, batch) {
     'Customer',
     'Invoice Date',
     'Due Date',
-    'Line Description',
+    'Item',
+    'Description',
     'Quantity',
     'Rate',
     'Amount',
@@ -368,6 +518,7 @@ export function exportToQuickBooksCSV(invoices, batch) {
         inv.qb_customer_name || inv.organizations?.name || '',
         batch.requisition_date,
         batch.week_end,
+        line.facility_name || '',
         line.description || '',
         String(line.quantity),
         String(line.unit_price),
@@ -391,4 +542,10 @@ export function exportToQuickBooksCSV(invoices, batch) {
     .join('\n');
 }
 
-export { getWeekStart, getWeekEnd, weeklyRate, formatMMDDYY, deriveOrgCode };
+export {
+  getWeekStart,
+  getWeekEnd,
+  weeklyRate,
+  formatMMDDYY,
+  deriveOrgCode,
+};
