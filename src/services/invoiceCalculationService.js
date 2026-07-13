@@ -48,6 +48,7 @@ function parseDate(str) {
  * Parse a lab data export Excel file.
  * Expected columns: Test Method, Accession #, Requisition Date, ...
  * Returns an array of records: { testMethod, accessionNumber, requisitionDate (ISO date string) }
+ * (testMethod = the order panel name as it appears in the file)
  */
 export function parseLabDataFile(file) {
   return new Promise((resolve, reject) => {
@@ -108,7 +109,7 @@ export function parseLabDataFile(file) {
 }
 
 /**
- * Group records by week and test method, counting tests per group.
+ * Group records by week and panel, counting orders per group.
  * Returns: { weeks: [{ weekStart, weekEnd, methods: [{ testMethod, count }] }], orgCode }
  */
 export function groupRecordsByWeek(records) {
@@ -271,7 +272,7 @@ export const invoiceBatchService = {
 
   /**
    * Generate invoices from parsed lab data for a specific week.
-   * Creates one invoice per organization, with line items per test method.
+   * Creates one invoice per organization, with line items per panel.
    *
    * @param {string} batchId - The batch ID
    * @param {string} requisitionDate - The requisition date (ISO)
@@ -307,7 +308,7 @@ export const invoiceBatchService = {
       return { invoiceId: existing.id, totalAmount: 0, lineCount: 0, skipped: true };
     }
 
-    // Count tests by method
+    // Count orders by panel
     const methodCounts = {};
     for (const rec of weekRecords) {
       const key = rec.testMethod;
@@ -331,7 +332,7 @@ export const invoiceBatchService = {
       .single();
     if (invError) throw invError;
 
-    // Create line items per test method
+    // Create line items per panel
     let invoiceTotal = 0;
     let lineCount = 0;
     const methods = Object.entries(methodCounts).sort((a, b) => b[1] - a[1]);
@@ -346,7 +347,7 @@ export const invoiceBatchService = {
           invoice_id: invoice.id,
           facility_name: testMethod,
           line_type: 'test_fee',
-          description: `${testMethod} (${count} tests @ ${rate.toFixed(2)}/test)`,
+          description: `${testMethod} (${count} orders @ ${rate.toFixed(2)}/order)`,
           quantity: count,
           unit_price: rate,
           amount,
@@ -502,7 +503,7 @@ export function exportToQuickBooksCSV(invoices, batch) {
     'Customer',
     'Invoice Date',
     'Due Date',
-    'Item',
+    'Panel',
     'Description',
     'Quantity',
     'Rate',

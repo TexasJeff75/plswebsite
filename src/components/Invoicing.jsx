@@ -514,8 +514,8 @@ function UploadPanel({
       </div>
       <p className="text-slate-400 text-sm mb-4">
         Upload a lab data export (Excel) with Test Method and Requisition Date
-        columns. The system will group tests by week and calculate invoice line
-        items based on per-test-method rates.
+        columns. The system will group orders by week and calculate invoice line
+        items based on per-panel rates.
       </p>
 
       <div
@@ -647,7 +647,7 @@ function GeneratePanel({
                   {formatDate(w.weekStart)} \u2013 {formatDate(w.weekEnd)}
                 </p>
                 <p className="text-slate-500 text-xs mt-0.5">
-                  {weekTests} tests \u00b7 {fmt(weekTotal)}
+                  {weekTests} orders \u00b7 {fmt(weekTotal)}
                 </p>
               </button>
             );
@@ -674,13 +674,13 @@ function GeneratePanel({
             </button>
           </div>
 
-          {/* Test method breakdown */}
+          {/* Panel breakdown */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-slate-400 text-xs border-b border-slate-700/50">
-                  <th className="text-left font-medium py-2 px-2">Test Method</th>
-                  <th className="text-right font-medium py-2 px-2">Count</th>
+                  <th className="text-left font-medium py-2 px-2">Panel</th>
+                  <th className="text-right font-medium py-2 px-2">Orders</th>
                   <th className="text-right font-medium py-2 px-2">Rate</th>
                   <th className="text-right font-medium py-2 px-2">Subtotal</th>
                 </tr>
@@ -707,7 +707,7 @@ function GeneratePanel({
               <tfoot>
                 <tr className="border-t border-slate-700/50">
                   <td className="py-2 px-2 text-slate-400 text-xs font-medium">
-                    Total ({totalTests} tests)
+                    Total ({totalTests} orders)
                   </td>
                   <td className="py-2 px-2 text-right text-slate-400 text-xs">{totalTests}</td>
                   <td></td>
@@ -722,11 +722,12 @@ function GeneratePanel({
           {/* Rate configuration */}
           {showRates && (
             <div className="p-4 bg-slate-900/40 border border-slate-700/40 rounded-lg space-y-3">
-              <p className="text-slate-400 text-xs">Per-test-method billing rates</p>
+              <p className="text-slate-400 text-xs">Per-panel billing rates</p>
               <div className="space-y-1.5">
                 {rates.map((r) => (
                   <div key={r.id} className="flex items-center gap-2">
                     <span className="flex-1 text-slate-200 text-sm">{r.test_method}</span>
+                    <span className="text-slate-500 text-xs hidden sm:inline">/ order</span>
                     <div className="flex items-center gap-1">
                       <span className="text-slate-500 text-sm">$</span>
                       <input
@@ -750,7 +751,7 @@ function GeneratePanel({
               <div className="flex items-center gap-2 pt-2 border-t border-slate-700/40">
                 <input
                   type="text"
-                  placeholder="Test method name"
+                  placeholder="Panel name"
                   value={newMethod}
                   onChange={(e) => setNewMethod(e.target.value)}
                   className="flex-1 px-2 py-1.5 bg-slate-800/60 border border-slate-700/60 rounded text-white text-sm focus:outline-none focus:border-teal-500/50"
@@ -983,7 +984,7 @@ function BatchDetailView({
           <StatCard label="Total Amount" value={fmt(totalAmount)} icon={DollarSign} />
           <StatCard label="Invoices" value={activeInvoices.length} icon={Receipt} />
           <StatCard
-            label="Total Tests"
+            label="Total Orders"
             value={activeInvoices.reduce((s, i) => {
               const items = i.weekly_invoice_line_items || [];
               return s + items.reduce((ts, li) => ts + (li.test_count || 0), 0);
@@ -1157,9 +1158,9 @@ function InvoiceCard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-slate-400 text-xs border-b border-slate-700/50">
-                  <th className="text-left font-medium py-2 px-2">Test Method / Description</th>
+                  <th className="text-left font-medium py-2 px-2">Panel / Description</th>
                   <th className="text-left font-medium py-2 px-2">Type</th>
-                  <th className="text-right font-medium py-2 px-2">Tests</th>
+                  <th className="text-right font-medium py-2 px-2">Orders</th>
                   <th className="text-right font-medium py-2 px-2">Rate</th>
                   <th className="text-right font-medium py-2 px-2">Amount</th>
                   <th className="w-8"></th>
@@ -1196,7 +1197,7 @@ function InvoiceCard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
-                  placeholder="Description / method name"
+                  placeholder="Panel / description"
                   value={newLine.facility_name}
                   onChange={(e) =>
                     setNewLine({ ...newLine, facility_name: e.target.value })
@@ -1211,7 +1212,7 @@ function InvoiceCard({
                   className="px-3 py-2 bg-slate-800/60 border border-slate-700/60 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500/50"
                 >
                   <option value="custom">Custom</option>
-                  <option value="test_fee">Test Fee</option>
+                  <option value="test_fee">Panel Fee</option>
                   <option value="service_fee">Service Fee</option>
                   <option value="lis_saas_fee">LIS SaaS Fee</option>
                 </select>
