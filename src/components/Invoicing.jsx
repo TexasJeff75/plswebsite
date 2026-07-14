@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Calendar, FileSpreadsheet, Plus, Trash2, RefreshCw, ChevronDown, ChevronRight, Download, Check, X, CircleAlert as AlertCircle, Loader as Loader2, Receipt, Building2, EyeOff, ArrowLeft, TrendingUp, DollarSign, Upload, Settings, FileUp, Table, Hash, ArrowRight } from 'lucide-react';
+import { Calendar, FileSpreadsheet, Plus, Trash2, RefreshCw, ChevronDown, ChevronRight, Download, Check, X, CircleAlert as AlertCircle, Loader as Loader2, Receipt, Building2, EyeOff, ArrowLeft, TrendingUp, DollarSign, Upload, Settings, FileUp, Table, Hash, ArrowRight, Tag } from 'lucide-react';
+import PriceListView from './invoicing/PriceListView';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -400,19 +401,38 @@ export default function Invoicing() {
             </p>
           </div>
         </div>
-        {view === 'detail' && (
-          <button
-            onClick={() => {
-              setView('list');
-              setSelectedBatch(null);
-              setInvoices([]);
-            }}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white bg-slate-800/60 border border-slate-700/60 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Batches
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {view === 'detail' && (
+            <button
+              onClick={() => {
+                setView('list');
+                setSelectedBatch(null);
+                setInvoices([]);
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white bg-slate-800/60 border border-slate-700/60 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Batches
+            </button>
+          )}
+          {view !== 'pricelist' ? (
+            <button
+              onClick={() => setView('pricelist')}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/15 border border-teal-500/20 rounded-lg transition-colors"
+            >
+              <Tag className="w-4 h-4" />
+              Price List
+            </button>
+          ) : (
+            <button
+              onClick={() => setView('list')}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white bg-slate-800/60 border border-slate-700/60 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Invoicing
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -491,6 +511,8 @@ export default function Invoicing() {
           formatDate={formatDate}
         />
       )}
+
+      {view === 'pricelist' && <PriceListView />}
     </div>
   );
 }
