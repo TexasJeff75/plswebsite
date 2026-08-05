@@ -1,24 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, X, FileText, File } from 'lucide-react';
-
-const DOCUMENT_TYPES = [
-  { value: 'manual', label: 'Manual' },
-  { value: 'specification', label: 'Specification' },
-  { value: 'certificate', label: 'Certificate' },
-  { value: 'report', label: 'Report' },
-  { value: 'training_material', label: 'Training Material' },
-  { value: 'regulatory', label: 'Regulatory Document' },
-  { value: 'clia_certificate', label: 'CLIA Certificate' },
-  { value: 'lab_director_agreement', label: 'Lab Director Agreement' },
-  { value: 'implementation_acknowledgment', label: 'Implementation Acknowledgment' },
-  { value: 'training_record', label: 'Training Record' },
-  { value: 'competency_assessment', label: 'Competency Assessment' },
-  { value: 'pt_report', label: 'PT Report' },
-  { value: 'image', label: 'Image' },
-  { value: 'other', label: 'Other' },
-];
+import { useReferenceData } from '../../hooks/useReferenceData';
 
 export default function DocumentUploadForm({ onUpload, uploading = false, defaultType = 'other' }) {
+  const { data: documentTypes, isLoading: typesLoading } = useReferenceData('document_type');
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [formData, setFormData] = useState({
@@ -29,6 +14,12 @@ export default function DocumentUploadForm({ onUpload, uploading = false, defaul
     expiration_date: '',
     tags: '',
   });
+
+  useEffect(() => {
+    if (documentTypes.length > 0 && !documentTypes.find(t => t.code === formData.document_type)) {
+      setFormData(prev => ({ ...prev, document_type: defaultType }));
+    }
+  }, [documentTypes, defaultType, formData.document_type]);
 
   function handleFileSelect(file) {
     if (!file) {
@@ -134,11 +125,12 @@ export default function DocumentUploadForm({ onUpload, uploading = false, defaul
           value={formData.document_type}
           onChange={(e) => handleChange('document_type', e.target.value)}
           required
-          disabled={uploading}
+          disabled={uploading || typesLoading}
           className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600 disabled:opacity-50"
         >
-          {DOCUMENT_TYPES.map(type => (
-            <option key={type.value} value={type.value}>{type.label}</option>
+          {typesLoading && <option value="">Loading...</option>}
+          {documentTypes.map(type => (
+            <option key={type.code} value={type.code}>{type.display_name}</option>
           ))}
         </select>
       </div>

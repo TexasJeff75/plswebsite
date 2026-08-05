@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Search, ListFilter as Filter, Eye, Download, Archive, RefreshCw, Upload, X, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Plus } from 'lucide-react';
 import { unifiedDocumentService } from '../services/unifiedDocumentService';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { useReferenceData } from '../hooks/useReferenceData';
 import { supabase } from '../lib/supabase';
 import DocumentViewer from './documents/DocumentViewer';
 import DocumentUploadForm from './documents/DocumentUploadForm';
@@ -49,6 +50,15 @@ export default function Documents() {
   const [facilities, setFacilities] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [equipmentCatalog, setEquipmentCatalog] = useState([]);
+  const { data: documentTypes } = useReferenceData('document_type');
+
+  const typeLabelMap = useMemo(() => {
+    const map = {};
+    for (const t of documentTypes) {
+      map[t.code] = t.display_name;
+    }
+    return map;
+  }, [documentTypes]);
 
   const isAdmin = ['Proximity Admin', 'Proximity Staff', 'Super Admin'].includes(profile?.role);
 
@@ -343,13 +353,16 @@ export default function Documents() {
 
             <div>
               <label className="text-slate-400 text-sm mb-2 block">Document Type</label>
-              <input
-                type="text"
-                placeholder="e.g., manual, certificate"
+              <select
                 value={filters.document_type}
                 onChange={(e) => handleFilterChange('document_type', e.target.value)}
                 className="w-full bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-              />
+              >
+                <option value="">All Document Types</option>
+                {documentTypes.map(type => (
+                  <option key={type.code} value={type.code}>{type.display_name}</option>
+                ))}
+              </select>
             </div>
           </div>
         )}
@@ -397,7 +410,7 @@ export default function Documents() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-slate-300 text-sm">{doc.document_type || 'N/A'}</span>
+                      <span className="text-slate-300 text-sm">{doc.document_type ? (typeLabelMap[doc.document_type] || doc.document_type) : 'N/A'}</span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-slate-300 text-sm capitalize">{doc.entity_type}</span>

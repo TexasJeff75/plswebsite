@@ -1,38 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Download, Trash2, AlertTriangle, Eye, Archive, RefreshCw, Book } from 'lucide-react';
 import { unifiedDocumentService } from '../../services/unifiedDocumentService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrganization } from '../../contexts/OrganizationContext';
+import { useReferenceData } from '../../hooks/useReferenceData';
 import DocumentUploadForm from '../documents/DocumentUploadForm';
 import DocumentViewer from '../documents/DocumentViewer';
-
-const TYPE_LABELS = {
-  clia_certificate: 'CLIA Certificate',
-  lab_director_agreement: 'Lab Director Agreement',
-  implementation_acknowledgment: 'Implementation Acknowledgment',
-  training_record: 'Training Record',
-  competency_assessment: 'Competency Assessment',
-  pt_report: 'PT Report',
-  manual: 'Manual',
-  specification: 'Specification',
-  certificate: 'Certificate',
-  report: 'Report',
-  training_material: 'Training Material',
-  regulatory: 'Regulatory Document',
-  image: 'Image',
-  other: 'Other',
-};
 
 export default function DocumentsTab({ facility, isEditor }) {
   const { user } = useAuth();
   const { selectedOrganization } = useOrganization();
+  const { data: documentTypes } = useReferenceData('document_type', { includeInactive: true });
   const [documents, setDocuments] = useState([]);
   const [equipmentRefDocs, setEquipmentRefDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [viewingDoc, setViewingDoc] = useState(null);
   const [replacingDoc, setReplacingDoc] = useState(null);
+
+  const typeLabelMap = useMemo(() => {
+    const map = {};
+    for (const t of documentTypes) {
+      map[t.code] = t.display_name;
+    }
+    return map;
+  }, [documentTypes]);
+
+  function getTypeLabel(code) {
+    return typeLabelMap[code] || code;
+  }
 
   useEffect(() => {
     loadDocuments();
@@ -274,7 +271,7 @@ export default function DocumentsTab({ facility, isEditor }) {
                     )}
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="bg-slate-600 px-2 py-1 rounded text-slate-300">
-                        {TYPE_LABELS[doc.document_type] || doc.document_type}
+                        {getTypeLabel(doc.document_type)}
                       </span>
                       {doc.version && (
                         <span className="bg-slate-600 px-2 py-1 rounded text-slate-300">
@@ -367,7 +364,7 @@ export default function DocumentsTab({ facility, isEditor }) {
                     )}
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="bg-slate-600/50 px-2 py-1 rounded text-slate-300 border border-blue-500/20">
-                        {TYPE_LABELS[doc.document_type] || doc.document_type}
+                        {getTypeLabel(doc.document_type)}
                       </span>
                       {doc.version && (
                         <span className="bg-slate-600/50 px-2 py-1 rounded text-slate-300">

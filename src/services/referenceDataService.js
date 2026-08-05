@@ -201,7 +201,8 @@ export const referenceDataService = {
       ticket_status: [{ table: 'support_tickets', field: 'status' }],
       ticket_category: [{ table: 'support_tickets', field: 'category' }],
       deployment_phase: [{ table: 'facilities', field: 'deployment_phase' }],
-      us_state: [{ table: 'facilities', field: 'state' }]
+      us_state: [{ table: 'facilities', field: 'state' }],
+      document_type: [{ table: 'unified_documents', field: 'document_type' }]
     };
 
     const mappings = tableFieldMap[category] || [];
@@ -244,7 +245,8 @@ export const referenceDataService = {
       ticket_status: [{ table: 'support_tickets', field: 'status' }],
       ticket_category: [{ table: 'support_tickets', field: 'category' }],
       deployment_phase: [{ table: 'facilities', field: 'deployment_phase' }],
-      us_state: [{ table: 'facilities', field: 'state' }]
+      us_state: [{ table: 'facilities', field: 'state' }],
+      document_type: [{ table: 'unified_documents', field: 'document_type' }]
     };
 
     const mappings = tableFieldMap[category] || [];
@@ -333,6 +335,7 @@ export const CATEGORY_GROUPS = {
   'Support': ['ticket_priority', 'ticket_status', 'ticket_category'],
   'Compliance': ['clia_certificate_type', 'accreditation_body', 'pt_provider'],
   'Integration': ['lis_provider'],
+  'Documents': ['document_type'],
   'System': ['user_role', 'notification_type', 'us_state']
 };
 
@@ -354,6 +357,7 @@ export const CATEGORY_LABELS = {
   accreditation_body: 'Accreditation Bodies',
   pt_provider: 'PT Providers',
   lis_provider: 'LIS Providers',
+  document_type: 'Document Types',
   user_role: 'User Roles',
   notification_type: 'Notification Types',
   us_state: 'US States'
