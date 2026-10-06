@@ -41,11 +41,22 @@ export const clientIntakeService = {
     return data;
   },
 
-  async savePublic(accessToken, payload, submit = false) {
+  async createChallenge(accessToken) {
+    const { data, error } = await supabase.rpc('create_public_client_intake_challenge', {
+      p_access_token: accessToken,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async savePublic(accessToken, payload, submit = false, challengeId = null, challengeAnswer = null) {
     const { data, error } = await supabase.rpc('save_public_client_intake', {
       p_access_token: accessToken,
       p_payload: payload,
       p_submit: submit,
+      p_challenge_id: challengeId,
+      p_challenge_answer: challengeAnswer,
     });
 
     if (error) throw error;

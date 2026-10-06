@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Loader2, Save, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Loader2, LockKeyhole, Save, ShieldCheck } from 'lucide-react';
 import { clientIntakeService } from '../services/clientIntakeService';
 
 const SERVICES = {
@@ -82,6 +82,11 @@ export default function PublicClientIntake({ accessToken }) {
   const [dirty, setDirty] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [challenge, setChallenge] = useState(null);
+  const [challengeAnswer, setChallengeAnswer] = useState('');
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeError, setChallengeError] = useState('');
 
   const steps = useMemo(() => ['Clinic details', 'Requested services', 'Testing averages', 'Providers', 'Office staff'], []);
 
@@ -107,19 +112,41 @@ export default function PublicClientIntake({ accessToken }) {
     setSaving(true);
     setError('');
     try {
-      const result = await clientIntakeService.savePublic(accessToken, payload, submit);
+      const result = await clientIntakeService.savePublic(accessToken, payload, submit, challenge?.challenge_id || null, challengeAnswer);
       setIntakeStatus(result.status);
       setDirty(false);
       setNotice(submit ? 'Your intake has been submitted.' : 'Progress saved. You can return to this link anytime.');
+      if (submit) {
+        setShowChallenge(false);
+        setChallenge(null);
+        setChallengeAnswer('');
+      }
       if (submit) setStatus('submitted');
       window.setTimeout(() => setNotice(''), 4500);
     } catch (saveError) {
       console.error('Unable to save client intake:', saveError);
-      setError('We could not save your progress. Please try again.');
+      if (submit) setChallengeError('That answer was not accepted. Please try again.');
+      else setError('We could not save your progress. Please try again.');
     } finally {
       setSaving(false);
     }
-  }, [accessToken, payload]);
+  }, [accessToken, challenge, challengeAnswer, payload]);
+
+  async function openSubmitChallenge() {
+    setChallengeLoading(true);
+    setChallengeError('');
+    try {
+      const nextChallenge = await clientIntakeService.createChallenge(accessToken);
+      setChallenge(nextChallenge);
+      setChallengeAnswer('');
+      setShowChallenge(true);
+    } catch (challengeRequestError) {
+      console.error('Unable to load human verification:', challengeRequestError);
+      setError('We could not load the final verification step. Please try again.');
+    } finally {
+      setChallengeLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!dirty || status !== 'ready' || intakeStatus === 'submitted') return undefined;
@@ -193,9 +220,11 @@ export default function PublicClientIntake({ accessToken }) {
 
           {step === 4 && <><SectionTitle eyebrow="Step 5 of 5" title="Office staff information" description="List staff members who may need access to the laboratory system or onboarding communications." /><div className="space-y-4">{payload.office_staff.map((person, index) => <PersonCard key={index} person={person} index={index} type="staff" onChange={(personIndex, value) => updatePerson('office_staff', personIndex, value)} />)}</div></>}
 
-          <div className="mt-10 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0} className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:invisible"><ChevronLeft className="h-4 w-4" /> Previous</button><div className="flex flex-col gap-3 sm:flex-row"><button type="button" onClick={() => save(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save progress'}</button>{step < steps.length - 1 ? <button type="button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700">Continue <ChevronRight className="h-4 w-4" /></button> : <button type="button" onClick={() => canSubmit() ? save(true) : setError('Please complete the required clinic name and address fields before submitting.')} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">Submit intake <ChevronRight className="h-4 w-4" /></button>}</div></div>
+          <div className="mt-10 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0} className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:invisible"><ChevronLeft className="h-4 w-4" /> Previous</button><div className="flex flex-col gap-3 sm:flex-row"><button type="button" onClick={() => save(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save progress'}</button>{step < steps.length - 1 ? <button type="button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700">Continue <ChevronRight className="h-4 w-4" /></button> : <button type="button" onClick={() => canSubmit() ? openSubmitChallenge() : setError('Please complete the required clinic name and address fields before submitting.')} disabled={saving || challengeLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">{challengeLoading ? 'Loading verification...' : 'Submit intake'} <ChevronRight className="h-4 w-4" /></button>}</div></div>
         </section>
         <p className="mt-6 text-center text-xs text-slate-400">Your progress is associated with this private link. Anyone with the link can view and edit the intake until it is submitted.</p>
+
+        {showChallenge && challenge && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4"><div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl"><div className="flex items-center gap-3"><div className="rounded-xl bg-teal-50 p-3"><LockKeyhole className="h-6 w-6 text-teal-700" /></div><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-700">Final verification</p><h2 className="mt-1 text-xl font-bold text-slate-900">Confirm you are human</h2></div></div><p className="mt-5 text-sm leading-6 text-slate-500">Answer this quick question to securely submit your clinic intake.</p><p className="mt-5 rounded-2xl bg-slate-100 px-5 py-4 text-center text-2xl font-bold text-slate-950">{challenge.question}</p><label className="mt-5 block"><span className="mb-2 block text-sm font-medium text-slate-700">Your answer</span><input autoFocus inputMode="numeric" value={challengeAnswer} onChange={(event) => setChallengeAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && challengeAnswer.trim()) save(true); }} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-lg font-semibold text-slate-900 outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10" /></label>{challengeError && <p className="mt-3 text-sm text-red-600">{challengeError}</p>}<div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setShowChallenge(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button><button type="button" onClick={() => save(true)} disabled={saving || !challengeAnswer.trim()} className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50">{saving ? 'Submitting...' : 'Verify and submit'}</button></div></div></div>}
       </main>
     </div>
   );
