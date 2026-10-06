@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { OrganizationProvider } from './contexts/OrganizationContext';
@@ -34,6 +34,8 @@ import SupplyCatalog from './components/SupplyCatalog';
 import MyDeliveries from './components/MyDeliveries';
 import DeliverySignature from './components/DeliverySignature';
 import TrainingCenter from './components/TrainingCenter';
+import ClientIntakes from './components/ClientIntakes';
+import PublicClientIntake from './components/PublicClientIntake';
 import ProtectedRoute from './components/ProtectedRoute';
 import './index.css';
 
@@ -86,6 +88,11 @@ const queryClient = new QueryClient({
   },
 });
 
+function PublicClientIntakeRoute() {
+  const { accessToken } = useParams();
+  return <PublicClientIntake accessToken={accessToken} />;
+}
+
 function App() {
   console.log('Tracker App: Mounting');
 
@@ -97,6 +104,7 @@ function App() {
             <HashRouter>
               <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/client-intake/:accessToken" element={<PublicClientIntakeRoute />} />
 
               <Route path="/" element={
                 <ProtectedRoute>
@@ -128,6 +136,7 @@ function App() {
                 } />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="tracker" element={<DeploymentTrackerMap />} />
+                <Route path="client-intakes" element={<ClientIntakes />} />
                 <Route path="documents" element={
                   <ProtectedRoute requireAdmin>
                     <Documents />

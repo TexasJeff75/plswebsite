@@ -95,6 +95,17 @@ export default function Layout() {
       type: 'section',
       label: 'Admin'
     });
+    if (['Proximity Admin', 'Proximity Staff', 'Super Admin'].includes(profile?.role)) {
+      navItems.push({
+        path: '/client-intakes',
+        label: 'Client Intakes',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5h6m-8 4h10m-10 4h7m-9 7h10a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        )
+      });
+    }
     navItems.push({
       path: '/reports',
       label: 'Reports',
