@@ -4,7 +4,8 @@ import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import {
   Link, Plus, X, Pencil, Trash2, Save, Power, TestTube2,
-  Building2, MapPin, CheckCircle2, XCircle, AlertCircle
+  Building2, MapPin, CheckCircle2, XCircle, AlertCircle,
+  DownloadCloud, Loader2, Sparkles, ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -26,6 +27,10 @@ export default function StratusMappingSettings() {
     is_active: true,
     notes: '',
   });
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -46,6 +51,35 @@ export default function StratusMappingSettings() {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadImportPreview() {
+    try {
+      setImportLoading(true);
+      setImportResult(null);
+      const data = await stratusMappingService.getUnmappedStratusData();
+      setImportPreview(data || []);
+      setShowImportPanel(true);
+    } catch (error) {
+      console.error('Error loading import preview:', error);
+      alert('Failed to load Stratus data preview: ' + error.message);
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function handleAutoImport() {
+    try {
+      setImportLoading(true);
+      const result = await stratusMappingService.importFromStratusData();
+      setImportResult(result);
+      await loadData();
+    } catch (error) {
+      console.error('Error importing from Stratus:', error);
+      alert('Failed to import: ' + error.message);
+    } finally {
+      setImportLoading(false);
     }
   }
 
@@ -169,14 +203,193 @@ export default function StratusMappingSettings() {
             Map StratusDX facility identifiers to your organizations and facilities
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Add Mapping
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadImportPreview}
+            disabled={importLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+          >
+            {importLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <DownloadCloud className="w-4 h-4" />
+            )}
+            Auto-Import from Stratus
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add Mapping
+          </button>
+        </div>
       </div>
+
+      {showImportPanel && (
+        <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-blue-400" />
+              <h4 className="text-lg font-semibold text-white">Auto-Import from Stratus API Data</h4>
+            </div>
+            <button
+              onClick={() => { setShowImportPanel(false); setImportResult(null); setImportPreview(null); }}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {importLoading && !importPreview && (
+            <div className="flex items-center gap-3 py-8 justify-center">
+              <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+              <span className="text-slate-400">Scanning Stratus API data for organizations and locations...</span>
+            </div>
+          )}
+
+          {importResult && (
+            <div className="space-y-4">
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  <span className="text-green-300 font-medium">Import Complete</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-900/50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-1">Organizations Created</p>
+                    <p className="text-xl font-bold text-green-400">{importResult.orgs_created}</p>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-1">Facilities Created</p>
+                    <p className="text-xl font-bold text-green-400">{importResult.facilities_created}</p>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-1">Mappings Created</p>
+                    <p className="text-xl font-bold text-green-400">{importResult.mappings_created}</p>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 mb-1">Orders Updated</p>
+                    <p className="text-xl font-bold text-blue-400">{importResult.orders_updated}</p>
+                  </div>
+                </div>
+                {importResult.orgs_existing > 0 && (
+                  <p className="text-slate-400 text-xs mt-3">
+                    {importResult.orgs_existing} organization(s) and {importResult.facilities_existing} facility/facilities already existed and were linked.
+                  </p>
+                )}
+                {importResult.details && importResult.details.length > 0 && (
+                  <div className="mt-3 max-h-40 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-xs text-slate-400">
+                        <tr>
+                          <th className="text-left py-1 pr-2">Organization</th>
+                          <th className="text-left py-1 pr-2">Location</th>
+                          <th className="text-right py-1">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importResult.details.map((d, i) => (
+                          <tr key={i} className="border-t border-slate-700/50">
+                            <td className="py-1 pr-2 text-white">{d.organization_name}</td>
+                            <td className="py-1 pr-2 text-slate-300">{d.location_name}</td>
+                            <td className="py-1 text-right">
+                              <span className={
+                                d.action === 'created'
+                                  ? 'text-green-400 text-xs'
+                                  : 'text-blue-400 text-xs'
+                              }>
+                                {d.action}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => { setShowImportPanel(false); setImportResult(null); setImportPreview(null); }}
+                className="px-4 py-2 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 rounded-lg transition-colors text-sm"
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          {!importLoading && !importResult && importPreview && importPreview.length > 0 && (
+            <div className="space-y-4">
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-blue-200 text-sm">
+                  Found <span className="font-bold text-white">{importPreview.length}</span> unique organization + location combinations in the synced Stratus API data.
+                  Clicking "Import" will automatically create organizations, facilities, and mappings for any that don't already exist.
+                </p>
+              </div>
+              <div className="max-h-72 overflow-y-auto border border-slate-700 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-900/50 text-xs text-slate-400 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2">Organization</th>
+                      <th className="text-left px-3 py-2">Location</th>
+                      <th className="text-left px-3 py-2">City, State</th>
+                      <th className="text-right px-3 py-2">Orders</th>
+                      <th className="text-center px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {importPreview.map((item, i) => (
+                      <tr key={i} className="hover:bg-slate-700/30">
+                        <td className="px-3 py-2 text-white">{item.organization_name}</td>
+                        <td className="px-3 py-2 text-slate-300">{item.location_name}</td>
+                        <td className="px-3 py-2 text-slate-400">{item.loc_city}, {item.loc_state}</td>
+                        <td className="px-3 py-2 text-right text-slate-300">{item.order_count}</td>
+                        <td className="px-3 py-2 text-center">
+                          {item.is_mapped ? (
+                            <span className="text-green-400 text-xs flex items-center justify-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Mapped
+                            </span>
+                          ) : (
+                            <span className="text-yellow-400 text-xs flex items-center justify-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> New
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-slate-400 text-xs">
+                  {importPreview.filter(p => !p.is_mapped).length} new entries will be created.
+                  {importPreview.filter(p => p.is_mapped).length} already mapped.
+                </p>
+                <button
+                  onClick={handleAutoImport}
+                  disabled={importLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-400 transition-colors font-medium disabled:opacity-50"
+                >
+                  {importLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4" />
+                  )}
+                  Import All
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!importLoading && !importResult && importPreview && importPreview.length === 0 && (
+            <div className="text-center py-8">
+              <CheckCircle2 className="w-10 h-10 text-green-400 mx-auto mb-3" />
+              <p className="text-slate-300">All Stratus organizations and locations are already mapped.</p>
+              <p className="text-slate-400 text-sm mt-1">Nothing new to import.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

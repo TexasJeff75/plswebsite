@@ -133,4 +133,20 @@ export const stratusMappingService = {
     if (error) throw error;
     return data;
   },
+
+  async importFromStratusData() {
+    const { data, error } = await supabase
+      .rpc('import_stratus_organizations_and_facilities');
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getUnmappedStratusData() {
+    const { data, error } = await supabase
+      .rpc('get_unmapped_stratus_orgs_and_locations');
+
+    if (error) throw error;
+    return data;
+  },
 };
