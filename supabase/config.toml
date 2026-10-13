@@ -1,0 +1,20 @@
+[functions.send-invitation-email]
+verify_jwt = false
+
+[functions.send-commission-report]
+verify_jwt = true
+
+[functions.explore-stratus-api]
+verify_jwt = false
+
+[functions.stratus-api-proxy]
+verify_jwt = true
+
+[functions.sync-stratus-orders]
+verify_jwt = false
+
+[functions.sync-stratus-confirmations]
+verify_jwt = false
+
+[functions.sync-stratus-results]
+verify_jwt = false

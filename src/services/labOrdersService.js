@@ -132,9 +132,9 @@ export const labOrdersService = {
     };
   },
 
-  async syncOrders() {
+  async syncAll() {
     const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-orders', {
+    const response = await fetch('/.netlify/functions/sync-stratus', {
       method: 'POST',
       headers,
     });
@@ -148,79 +148,33 @@ export const labOrdersService = {
       } catch {
         errorDetails = errorText;
       }
-      throw new Error(errorDetails || 'Failed to sync orders');
+      throw new Error(errorDetails || 'Failed to sync');
     }
 
     return await response.json();
+  },
+
+  async syncOrders() {
+    return this.syncAll();
   },
 
   async syncConfirmations() {
-    const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-confirmations', {
-      method: 'POST',
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorDetails;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetails = errorJson.details || errorJson.error || errorText;
-      } catch {
-        errorDetails = errorText;
-      }
-      throw new Error(errorDetails || 'Failed to sync confirmations');
-    }
-
-    return await response.json();
+    return { success: true, message: 'Confirmations are now included in the unified sync' };
   },
 
   async syncResults() {
-    const headers = await this._getSyncHeaders();
-    const response = await fetch('/.netlify/functions/sync-stratus-results', {
-      method: 'POST',
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorDetails;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetails = errorJson.details || errorJson.error || errorText;
-      } catch {
-        errorDetails = errorText;
-      }
-      throw new Error(errorDetails || 'Failed to sync results');
-    }
-
-    return await response.json();
-  },
-
-  async syncAll() {
-    const [ordersResult, confirmationsResult, resultsResult] = await Promise.allSettled([
-      this.syncOrders(),
-      this.syncConfirmations(),
-      this.syncResults(),
-    ]);
-
-    return {
-      orders: ordersResult.status === 'fulfilled' ? ordersResult.value : { error: ordersResult.reason },
-      confirmations: confirmationsResult.status === 'fulfilled' ? confirmationsResult.value : { error: confirmationsResult.reason },
-      results: resultsResult.status === 'fulfilled' ? resultsResult.value : { error: resultsResult.reason },
-    };
+    return { success: true, message: 'Results are now included in the unified sync' };
   },
 
   async getOrderStats(facilityId) {
     const { data: orders, error: ordersError } = await supabase
       .from('lab_orders')
-      .select('sync_status')
+      .select('sync_status,order_status,processed_at_utc')
       .eq('facility_id', facilityId);
 
     const { data: results, error: resultsError } = await supabase
       .from('lab_results')
-      .select('id')
+      .select('id,result_status,abnormal_flag,resulted_at_utc')
       .eq('facility_id', facilityId);
 
     if (ordersError || resultsError) {
@@ -232,8 +186,11 @@ export const labOrdersService = {
       pending: orders?.filter(o => o.sync_status === 'pending').length || 0,
       retrieved: orders?.filter(o => o.sync_status === 'retrieved').length || 0,
       acknowledged: orders?.filter(o => o.sync_status === 'acknowledged').length || 0,
+      synced: orders?.filter(o => o.sync_status === 'synced').length || 0,
       errors: orders?.filter(o => o.sync_status === 'error').length || 0,
       total_results: results?.length || 0,
+      abnormal_results: results?.filter(r => r.abnormal_flag && r.abnormal_flag !== 'Normal').length || 0,
+      finalized_results: results?.filter(r => r.result_status === 'Final' || r.result_status === 'finalized').length || 0,
     };
 
     return stats;

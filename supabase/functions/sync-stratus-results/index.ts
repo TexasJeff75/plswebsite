@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_12";
-const STRATUS_PASSWORD = "a9943167-93f1";
+const STRATUS_USERNAME = Deno.env.get("STRATUS_USERNAME") ?? "";
+const STRATUS_PASSWORD = Deno.env.get("STRATUS_PASSWORD") ?? "";
 
 const MAX_BATCHES = 50;
 const CONCURRENT_LIMIT = 3;

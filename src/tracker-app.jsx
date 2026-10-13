@@ -169,7 +169,11 @@ function App() {
                   <Route path="reference-data" element={<ReferenceData />} />
                   <Route path="supply-catalog" element={<SupplyCatalog />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
-                  <Route path="stratus-api-viewer" element={<StratusAPIViewer />} />
+                  <Route path="stratus-api-viewer" element={
+                    <ProtectedRoute requireAdmin>
+                      <StratusAPIViewer />
+                    </ProtectedRoute>
+                  } />
                 </Route>
               </Route>
 

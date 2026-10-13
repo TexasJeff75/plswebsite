@@ -1,6 +1,6 @@
 const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_USERNAME = process.env.STRATUS_USERNAME || "";
+const STRATUS_PASSWORD = process.env.STRATUS_PASSWORD || "";
 
 exports.handler = async (event, context) => {
   const corsHeaders = {

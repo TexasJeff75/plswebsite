@@ -330,6 +330,7 @@ export const AuthProvider = ({ children }) => {
     isCustomerAdmin,
     isCustomerViewer,
     isCourier,
+    isSuperAdmin,
     organizationId: activeProfile?.organization_id
   };
 

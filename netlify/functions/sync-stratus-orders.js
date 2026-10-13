@@ -1,6 +1,6 @@
 const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_USERNAME = process.env.STRATUS_USERNAME || "";
+const STRATUS_PASSWORD = process.env.STRATUS_PASSWORD || "";
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
