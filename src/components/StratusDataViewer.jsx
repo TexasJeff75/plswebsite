@@ -450,68 +450,239 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 
 function ExpandedDetail({ record, type, info }) {
   const rawData = type === 'orders' ? record.order_data : type === 'results' ? record.result_data : record.confirmation_data;
+  const [showRaw, setShowRaw] = useState(false);
+
+  const parsed = useMemo(() => parseRawData(rawData, type), [rawData, type]);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="space-y-3">
-        <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Record Details</h4>
-        <DetailRow label="Accession ID" value={info.accessionId} />
-        <DetailRow label="Stratus GUID" value={info.stratusGuid} />
-        <DetailRow label="StratusDX Facility" value={info.facilityName} />
-        <DetailRow label="StratusDX Org" value={info.orgName} />
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <InfoCard title="Identifiers">
+          <DetailRow label="Accession ID" value={info.accessionId} />
+          <DetailRow label="Stratus GUID" value={info.stratusGuid} />
+          {type === 'orders' && <DetailRow label="Order Status" value={record.order_status || parsed.order_status} />}
+          {type === 'results' && <DetailRow label="Result Status" value={record.result_status || parsed.result_status} />}
+          <DetailRow label="Sync Status" value={record.sync_status} />
+          {record.sync_error && <DetailRow label="Sync Error" value={record.sync_error} />}
+        </InfoCard>
+
+        <InfoCard title="StratusDX Source">
+          <DetailRow label="Facility Name" value={parsed.facility_name || info.facilityName} />
+          <DetailRow label="Facility ID" value={parsed.facility_id} />
+          <DetailRow label="Organization" value={parsed.organization_name || info.orgName} />
+          <DetailRow label="Organization ID" value={parsed.organization_id} />
+          <DetailRow label="Location" value={parsed.location_name || record.location_name} />
+        </InfoCard>
+
         {type === 'orders' && (
-          <>
-            <DetailRow label="Patient Initials" value={record.patient_initials} />
-            <DetailRow label="Provider" value={record.provider_name} />
-            <DetailRow label="Location" value={record.location_name} />
-            <DetailRow label="Order Status" value={record.order_status} />
-            {record.panels && record.panels.length > 0 && (
-              <div>
-                <p className="text-slate-500 text-xs mb-1">Panels</p>
-                <div className="flex flex-wrap gap-1">
-                  {record.panels.map((p, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs">{p}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          <InfoCard title="Patient & Provider">
+            <DetailRow label="Patient Initials" value={parsed.patient_initials || record.patient_initials} />
+            <DetailRow label="Patient Name" value={parsed.patient_name} />
+            <DetailRow label="Date of Birth" value={parsed.patient_dob} />
+            <DetailRow label="Gender" value={parsed.patient_gender} />
+            <DetailRow label="Provider" value={parsed.provider_name || record.provider_name} />
+            <DetailRow label="Provider NPI" value={parsed.provider_npi} />
+          </InfoCard>
         )}
+
         {type === 'results' && (
-          <>
-            <DetailRow label="Result Status" value={record.result_status} />
-            <DetailRow label="Result Value" value={record.result_value} />
-            <DetailRow label="Units" value={record.units} />
-            <DetailRow label="Reference Range" value={record.reference_range} />
-            <DetailRow label="Abnormal Flag" value={record.abnormal_flag} />
-            {record.test_results && record.test_results.length > 0 && (
-              <div>
-                <p className="text-slate-500 text-xs mb-1">Test Results ({record.test_results.length})</p>
-                <div className="space-y-1">
-                  {record.test_results.slice(0, 5).map((tr, i) => (
-                    <div key={i} className="text-xs text-slate-300 bg-slate-800 rounded px-2 py-1">
-                      {tr.test_name || tr.name}: {tr.value} {tr.units || ''}
-                      {tr.abnormal_flag && <span className="text-yellow-400 ml-1">({tr.abnormal_flag})</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          <InfoCard title="Result Summary">
+            <DetailRow label="Result Value" value={record.result_value || parsed.result_value} />
+            <DetailRow label="Units" value={record.units || parsed.units} />
+            <DetailRow label="Reference Range" value={record.reference_range || parsed.reference_range} />
+            <DetailRow label="Abnormal Flag" value={record.abnormal_flag || parsed.abnormal_flag} />
+            <DetailRow label="Resulted At" value={record.resulted_at_utc ? format(new Date(record.resulted_at_utc), 'MMM d, yyyy h:mm a') : parsed.resulted_at} />
+          </InfoCard>
         )}
+
         {type === 'confirmations' && (
-          <>
-            <DetailRow label="Received Time" value={record.received_time} />
-            <DetailRow label="HL7 Message" value={record.hl7_message ? record.hl7_message.substring(0, 200) + '...' : null} />
-          </>
+          <InfoCard title="Confirmation Details">
+            <DetailRow label="Received Time" value={record.received_time || parsed.received_time} />
+            <DetailRow label="Accession Number" value={record.accession_number} />
+            <DetailRow label="Message Type" value={parsed.message_type} />
+            <DetailRow label="Sending Facility" value={parsed.sending_facility} />
+          </InfoCard>
         )}
-        <DetailRow label="Sync Status" value={record.sync_status} />
-        {record.sync_error && <DetailRow label="Sync Error" value={record.sync_error} />}
       </div>
-      <div className="md:col-span-2">
-        <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-3">Raw Data (JSON)</h4>
-        <pre className="bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-300 overflow-auto max-h-80">
-          {JSON.stringify(rawData || record, null, 2)}
-        </pre>
+
+      {type === 'orders' && parsed.panels && parsed.panels.length > 0 && (
+        <DataTable
+          title="Panels Ordered"
+          columns={['Panel Name', 'Code', 'Description']}
+          rows={parsed.panels.map(p => [
+            p.name || p.panel_name || p || '--',
+            p.code || p.panel_code || '--',
+            p.description || '--',
+          ])}
+        />
+      )}
+
+      {type === 'orders' && parsed.tests && parsed.tests.length > 0 && (
+        <DataTable
+          title="Tests Ordered"
+          columns={['Test Name', 'Code', 'Method']}
+          rows={parsed.tests.map(t => [
+            t.name || t.test_name || '--',
+            t.code || t.test_code || '--',
+            t.method || t.test_method || '--',
+          ])}
+        />
+      )}
+
+      {type === 'results' && (
+        <>
+          {record.test_results && record.test_results.length > 0 && (
+            <DataTable
+              title="Individual Test Results"
+              columns={['Test Name', 'Value', 'Units', 'Reference Range', 'Abnormal']}
+              rows={record.test_results.map(tr => [
+                tr.test_name || tr.name || '--',
+                tr.value || tr.result_value || '--',
+                tr.units || '--',
+                tr.reference_range || tr.ref_range || '--',
+                tr.abnormal_flag || (tr.abnormal ? 'Yes' : ''),
+              ])}
+              highlightCol={4}
+            />
+          )}
+          {parsed.result_observations && parsed.result_observations.length > 0 && (
+            <DataTable
+              title="Result Observations"
+              columns={['Observation Name', 'Value', 'Units', 'Reference Range', 'Interpretation']}
+              rows={parsed.result_observations.map(obs => [
+                obs.name || obs.observation_name || obs.test_name || '--',
+                obs.value || obs.observation_value || '--',
+                obs.units || '--',
+                obs.reference_range || obs.ref_range || '--',
+                obs.interpretation || obs.abnormal_flag || '',
+              ])}
+              highlightCol={4}
+            />
+          )}
+        </>
+      )}
+
+      {type === 'confirmations' && record.hl7_message && (
+        <div>
+          <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">HL7 Message</h4>
+          <pre className="bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-300 overflow-auto max-h-40 whitespace-pre-wrap">
+            {record.hl7_message}
+          </pre>
+        </div>
+      )}
+
+      <div>
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          className="flex items-center gap-2 text-slate-400 hover:text-white text-xs font-medium transition-colors"
+        >
+          <ChevronRight className={`w-3 h-3 transition-transform ${showRaw ? 'rotate-90' : ''}`} />
+          {showRaw ? 'Hide' : 'Show'} Raw JSON
+        </button>
+        {showRaw && (
+          <pre className="bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-300 overflow-auto max-h-60 mt-2">
+            {JSON.stringify(rawData || record, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function parseRawData(rawData, type) {
+  if (!rawData || typeof rawData !== 'object') return {};
+  const d = rawData;
+  if (type === 'orders') {
+    return {
+      facility_name: d.facility_name || d.facilityName || d.facility?.name,
+      facility_id: d.facility_id || d.facilityId || d.facility?.id,
+      organization_name: d.organization_name || d.organizationName || d.organization?.name,
+      organization_id: d.organization_id || d.organizationId || d.organization?.id,
+      location_name: d.location_name || d.locationName || d.location?.name,
+      patient_initials: d.patient_initials || d.patientInitials,
+      patient_name: d.patient_name || d.patientName || d.patient?.name,
+      patient_dob: d.patient_dob || d.patientDOB || d.patient?.dob || d.patient?.date_of_birth,
+      patient_gender: d.patient_gender || d.patientGender || d.patient?.gender || d.patient?.sex,
+      provider_name: d.provider_name || d.providerName || d.provider?.name || d.ordering_provider?.name,
+      provider_npi: d.provider_npi || d.providerNpi || d.provider?.npi || d.ordering_provider?.npi,
+      order_status: d.order_status || d.orderStatus || d.status,
+      panels: extractArray(d.panels || d.panel_list || d.ordered_panels),
+      tests: extractArray(d.tests || d.test_list || d.ordered_tests),
+    };
+  }
+  if (type === 'results') {
+    return {
+      facility_name: d.facility_name || d.facilityName || d.facility?.name,
+      facility_id: d.facility_id || d.facilityId,
+      organization_name: d.organization_name || d.organizationName,
+      organization_id: d.organization_id || d.organizationId,
+      result_status: d.result_status || d.resultStatus || d.status,
+      result_value: d.result_value || d.resultValue || d.value,
+      units: d.units || d.unit,
+      reference_range: d.reference_range || d.referenceRange || d.ref_range,
+      abnormal_flag: d.abnormal_flag || d.abnormalFlag || d.abnormal,
+      resulted_at: d.resulted_at || d.resultedAt || d.result_date || d.resultDate,
+      result_observations: extractArray(d.observations || d.result_observations || d.results || d.test_results),
+    };
+  }
+  const hl7Segments = typeof d.hl7_message === 'string' ? d.hl7_message.split('|') : [];
+  return {
+    received_time: d.received_time || d.receivedTime,
+    message_type: d.message_type || d.messageType || (hl7Segments[0] ? hl7Segments[0].split('^')[0] : null),
+    sending_facility: d.sending_facility || d.sendingFacility || (hl7Segments[3] || null),
+    facility_name: d.facility_name || d.facilityName,
+    organization_name: d.organization_name || d.organizationName,
+  };
+}
+
+function extractArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') return val.split(',').map(s => ({ name: s.trim() }));
+  return [];
+}
+
+function InfoCard({ title, children }) {
+  return (
+    <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+      <h4 className="text-teal-400 text-xs font-semibold uppercase tracking-wider mb-3">{title}</h4>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function DataTable({ title, columns, rows, highlightCol }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div>
+      <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">{title}</h4>
+      <div className="bg-slate-900/50 border border-slate-700 rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-slate-900/80 border-b border-slate-700">
+            <tr>
+              {columns.map((col, i) => (
+                <th key={i} className="px-3 py-2 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map((row, ri) => (
+              <tr key={ri} className="hover:bg-slate-800/30">
+                {row.map((cell, ci) => (
+                  <td key={ci} className={`px-3 py-2 text-sm ${
+                    highlightCol !== undefined && ci === highlightCol && cell
+                      ? 'text-yellow-400 font-medium'
+                      : 'text-slate-300'
+                  }`}>
+                    {cell || '--'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
