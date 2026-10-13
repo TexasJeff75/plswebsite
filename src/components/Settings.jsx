@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { FileText, Database, Link as LinkIcon, Eye, Package } from 'lucide-react';
+import { FileText, Database, Link as LinkIcon, Eye, Package, FlaskConical } from 'lucide-react';
 
 const SETTINGS_NAV = [
   { path: '/settings/templates', label: 'Templates', icon: FileText },
   { path: '/settings/reference-data', label: 'Reference Data', icon: Database },
   { path: '/settings/supply-catalog', label: 'Supply Catalog', icon: Package },
   { path: '/settings/stratus-mappings', label: 'StratusDX Mappings', icon: LinkIcon },
-  { path: '/settings/stratus-api-viewer', label: 'StratusDX API Viewer', icon: Eye },
+  { path: '/settings/stratus-data', label: 'StratusDX Data', icon: FlaskConical },
+  { path: '/settings/stratus-api-viewer', label: 'API Viewer', icon: Eye },
 ];
 
 export default function Settings() {

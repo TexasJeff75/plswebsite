@@ -221,6 +221,62 @@ export async function getLabDataStats(organizationId = null) {
   };
 }
 
+export async function assignOrderToFacility(orderId, organizationId, facilityId = null) {
+  const updates = { organization_id: organizationId };
+  if (facilityId) updates.facility_id = facilityId;
+  const { data, error } = await supabase
+    .from('lab_orders')
+    .update(updates)
+    .eq('id', orderId)
+    .select('id, organization_id, facility_id')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function assignResultToFacility(resultId, organizationId, facilityId = null) {
+  const updates = { organization_id: organizationId };
+  if (facilityId) updates.facility_id = facilityId;
+  const { data, error } = await supabase
+    .from('lab_results')
+    .update(updates)
+    .eq('id', resultId)
+    .select('id, organization_id, facility_id')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function assignConfirmationToFacility(confirmationId, organizationId, facilityId = null) {
+  const updates = { organization_id: organizationId };
+  if (facilityId) updates.facility_id = facilityId;
+  const { data, error } = await supabase
+    .from('lab_order_confirmations')
+    .update(updates)
+    .eq('id', confirmationId)
+    .select('id, organization_id, facility_id')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function bulkAssignByAccession(accessionId, organizationId, facilityId = null) {
+  const updates = { organization_id: organizationId };
+  if (facilityId) updates.facility_id = facilityId;
+  const [ordersRes, resultsRes, confirmationsRes] = await Promise.all([
+    supabase.from('lab_orders').update(updates).eq('accession_id', accessionId).select('id'),
+    supabase.from('lab_results').update(updates).eq('accession_id', accessionId).select('id'),
+    supabase.from('lab_order_confirmations').update(updates).eq('accession_number', accessionId).select('id'),
+  ]);
+  const errors = [ordersRes.error, resultsRes.error, confirmationsRes.error].filter(Boolean);
+  if (errors.length > 0) throw errors[0];
+  return {
+    orders: ordersRes.data?.length || 0,
+    results: resultsRes.data?.length || 0,
+    confirmations: confirmationsRes.data?.length || 0,
+  };
+}
+
 export async function exploreStratusAPI(endpoint, method = 'GET', testParams = {}) {
   const response = await fetch('/.netlify/functions/explore-stratus-api', {
     method: 'POST',

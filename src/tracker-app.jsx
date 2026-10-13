@@ -24,6 +24,7 @@ import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
 import StratusMappingSettings from './components/StratusMappingSettings';
 import StratusAPIViewer from './components/StratusAPIViewer';
+import StratusDataViewer from './components/StratusDataViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import Commissions from './components/Commissions';
@@ -169,6 +170,7 @@ function App() {
                   <Route path="reference-data" element={<ReferenceData />} />
                   <Route path="supply-catalog" element={<SupplyCatalog />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
+                  <Route path="stratus-data" element={<StratusDataViewer />} />
                   <Route path="stratus-api-viewer" element={
                     <ProtectedRoute requireAdmin>
                       <StratusAPIViewer />
