@@ -10,7 +10,7 @@ import { stratusMappingService } from '../services/stratusMappingService';
 import { organizationsService } from '../services/organizationsService';
 import { facilitiesService } from '../services/facilitiesService';
 import {
-  FlaskConical, Search, Building2, MapPin, X, Save, Link2,
+  FlaskConical, Search, Building2, MapPin, X, Save, Link2, Plus,
   ChevronDown, ChevronRight, AlertTriangle, CheckCircle2,
   Loader2, Filter, RefreshCw, ArrowRightCircle, Beaker, FileCheck,
 } from 'lucide-react';
@@ -153,6 +153,8 @@ export default function StratusDataViewer() {
       facilityId: record.facility_id || '',
       createMapping: true,
       mappingType: 'exact',
+      createOrganization: false,
+      newOrganizationName: info.orgName || '',
     });
   }
 
@@ -164,17 +166,34 @@ export default function StratusDataViewer() {
   async function handleAssign() {
     if (!assignModal) return;
     const { record, type, organizationId, facilityId, info, createMapping, mappingType } = assignModal;
-    if (!organizationId) { showMessage('error', 'Please select an organization'); return; }
+    let resolvedOrganizationId = organizationId;
+    let resolvedFacilityId = facilityId;
     try {
-      if (type === 'orders') await assignOrderToFacility(record.id, organizationId, facilityId || null);
-      else if (type === 'results') await assignResultToFacility(record.id, organizationId, facilityId || null);
-      else await assignConfirmationToFacility(record.id, organizationId, facilityId || null);
+      if (assignModal.createOrganization) {
+        const organizationName = assignModal.newOrganizationName?.trim();
+        if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
+        const organization = await organizationsService.create({ name: organizationName, type: 'customer' });
+        resolvedOrganizationId = organization.id;
+        if (info.facilityName) {
+          const facility = await facilitiesService.create({
+            name: info.facilityName,
+            organization_id: resolvedOrganizationId,
+            status: 'Active',
+          });
+          resolvedFacilityId = facility.id;
+        }
+      }
+
+      if (!resolvedOrganizationId) { showMessage('error', 'Please select an organization'); return; }
+      if (type === 'orders') await assignOrderToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
+      else if (type === 'results') await assignResultToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
+      else await assignConfirmationToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
 
       if (createMapping && info.facilityName) {
         try {
           await stratusMappingService.createMapping({
-            organization_id: organizationId,
-            facility_id: facilityId || null,
+            organization_id: resolvedOrganizationId,
+            facility_id: resolvedFacilityId || null,
             stratus_facility_identifier: info.facilityName,
             stratus_organization_identifier: info.orgName || null,
             mapping_type: mappingType,
@@ -197,9 +216,24 @@ export default function StratusDataViewer() {
 
   async function handleBulkAssign(accessionId, info) {
     if (!assignModal) return;
-    const { organizationId, facilityId, createMapping, mappingType } = assignModal;
-    if (!organizationId) { showMessage('error', 'Please select an organization'); return; }
+    let { organizationId, facilityId, createMapping, mappingType } = assignModal;
     try {
+      if (assignModal.createOrganization) {
+        const organizationName = assignModal.newOrganizationName?.trim();
+        if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
+        const organization = await organizationsService.create({ name: organizationName, type: 'customer' });
+        organizationId = organization.id;
+        if (info.facilityName) {
+          const facility = await facilitiesService.create({
+            name: info.facilityName,
+            organization_id: organizationId,
+            status: 'Active',
+          });
+          facilityId = facility.id;
+        }
+      }
+
+      if (!organizationId) { showMessage('error', 'Please select an organization'); return; }
       const counts = await bulkAssignByAccession(accessionId, organizationId, facilityId || null);
       if (createMapping && info.facilityName) {
         try {
@@ -412,11 +446,17 @@ export default function StratusDataViewer() {
           onAssign={handleAssign}
           onBulkAssign={handleBulkAssign}
           onOrgChange={(orgId) => {
-            setAssignModal({ ...assignModal, organizationId: orgId, facilityId: '' });
+            setAssignModal({
+              ...assignModal,
+              organizationId: orgId === '__new__' ? '__new__' : orgId,
+              facilityId: '',
+              createOrganization: orgId === '__new__',
+            });
           }}
           onFacilityChange={(fId) => setAssignModal({ ...assignModal, facilityId: fId })}
           onToggleMapping={() => setAssignModal({ ...assignModal, createMapping: !assignModal.createMapping })}
           onMappingTypeChange={(mt) => setAssignModal({ ...assignModal, mappingType: mt })}
+          onNewOrganizationNameChange={(name) => setAssignModal({ ...assignModal, newOrganizationName: name })}
         />
       )}
     </div>
@@ -725,7 +765,7 @@ function DetailRow({ label, value }) {
   );
 }
 
-function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, onOrgChange, onFacilityChange, onToggleMapping, onMappingTypeChange }) {
+function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, onOrgChange, onFacilityChange, onToggleMapping, onMappingTypeChange, onNewOrganizationNameChange }) {
   const { record, type, info } = modal;
   const [facilities, setFacilities] = useState([]);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
@@ -807,10 +847,25 @@ function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, on
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-teal-500"
             >
               <option value="">Select organization...</option>
+              <option value="__new__">+ Create new organization</option>
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>{org.name}</option>
               ))}
             </select>
+            {modal.createOrganization && (
+              <div className="mt-3">
+                <label className="block text-slate-300 text-xs font-medium mb-1">New organization name</label>
+                <input
+                  type="text"
+                  value={modal.newOrganizationName}
+                  onChange={(e) => onNewOrganizationNameChange(e.target.value)}
+                  placeholder="e.g., Coastal Spine & Pain Institute"
+                  className="w-full bg-slate-900 border border-teal-500/40 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-teal-500"
+                  autoFocus
+                />
+                <p className="text-slate-400 text-xs mt-1">The detected facility will be created inside this organization.</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -818,7 +873,7 @@ function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, on
             <select
               value={modal.facilityId}
               onChange={(e) => onFacilityChange(e.target.value)}
-              disabled={!modal.organizationId || loadingFacilities}
+              disabled={!modal.organizationId || modal.createOrganization || loadingFacilities}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-teal-500 disabled:opacity-50"
             >
               <option value="">Organization level (all facilities)</option>
@@ -826,7 +881,9 @@ function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, on
                 <option key={f.id} value={f.id}>{f.name}</option>
               ))}
             </select>
-            {loadingFacilities && <p className="text-slate-500 text-xs mt-1">Loading facilities...</p>}
+            {modal.createOrganization ? (
+              <p className="text-teal-400 text-xs mt-1 flex items-center gap-1"><Plus className="w-3 h-3" /> {info.facilityName || 'Detected facility'} will be created automatically.</p>
+            ) : loadingFacilities && <p className="text-slate-500 text-xs mt-1">Loading facilities...</p>}
           </div>
 
           {info.facilityName && (
