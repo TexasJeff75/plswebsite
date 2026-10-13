@@ -74,6 +74,7 @@ export default function StratusDataViewer() {
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [assignModal, setAssignModal] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
+  const [assigning, setAssigning] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -163,8 +164,24 @@ export default function StratusDataViewer() {
     setTimeout(() => setActionMessage(null), 4000);
   }
 
+  async function resolveOrganization(name) {
+    const normalizedName = name.trim().toLowerCase();
+    const existing = organizations.find((organization) => organization.name?.trim().toLowerCase() === normalizedName);
+    if (existing) return existing;
+    return organizationsService.create({ name: name.trim(), type: 'customer' });
+  }
+
+  async function resolveFacility(name, organizationId) {
+    const facilities = await facilitiesService.getAll({ organization_id: organizationId });
+    const normalizedName = name.trim().toLowerCase();
+    const existing = facilities.find((facility) => facility.name?.trim().toLowerCase() === normalizedName);
+    if (existing) return existing;
+    return facilitiesService.create({ name: name.trim(), organization_id: organizationId, status: 'Active' });
+  }
+
   async function handleAssign() {
-    if (!assignModal) return;
+    if (assigning || !assignModal) return;
+    setAssigning(true);
     const { record, type, organizationId, facilityId, info, createMapping, mappingType } = assignModal;
     let resolvedOrganizationId = organizationId;
     let resolvedFacilityId = facilityId;
@@ -172,14 +189,10 @@ export default function StratusDataViewer() {
       if (assignModal.createOrganization) {
         const organizationName = assignModal.newOrganizationName?.trim();
         if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
-        const organization = await organizationsService.create({ name: organizationName, type: 'customer' });
+        const organization = await resolveOrganization(organizationName);
         resolvedOrganizationId = organization.id;
         if (info.facilityName) {
-          const facility = await facilitiesService.create({
-            name: info.facilityName,
-            organization_id: resolvedOrganizationId,
-            status: 'Active',
-          });
+          const facility = await resolveFacility(info.facilityName, resolvedOrganizationId);
           resolvedFacilityId = facility.id;
         }
       }
@@ -211,24 +224,23 @@ export default function StratusDataViewer() {
       loadData();
     } catch (err) {
       showMessage('error', 'Failed to assign: ' + err.message);
+    } finally {
+      setAssigning(false);
     }
   }
 
   async function handleBulkAssign(accessionId, info) {
-    if (!assignModal) return;
+    if (!assignModal || assigning) return;
+    setAssigning(true);
     let { organizationId, facilityId, createMapping, mappingType } = assignModal;
     try {
       if (assignModal.createOrganization) {
         const organizationName = assignModal.newOrganizationName?.trim();
         if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
-        const organization = await organizationsService.create({ name: organizationName, type: 'customer' });
+        const organization = await resolveOrganization(organizationName);
         organizationId = organization.id;
         if (info.facilityName) {
-          const facility = await facilitiesService.create({
-            name: info.facilityName,
-            organization_id: organizationId,
-            status: 'Active',
-          });
+          const facility = await resolveFacility(info.facilityName, organizationId);
           facilityId = facility.id;
         }
       }
@@ -257,6 +269,8 @@ export default function StratusDataViewer() {
       loadData();
     } catch (err) {
       showMessage('error', 'Bulk assign failed: ' + err.message);
+    } finally {
+      setAssigning(false);
     }
   }
 
@@ -445,6 +459,7 @@ export default function StratusDataViewer() {
           onClose={() => setAssignModal(null)}
           onAssign={handleAssign}
           onBulkAssign={handleBulkAssign}
+          assigning={assigning}
           onOrgChange={(orgId) => {
             setAssignModal({
               ...assignModal,
@@ -765,7 +780,7 @@ function DetailRow({ label, value }) {
   );
 }
 
-function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, onOrgChange, onFacilityChange, onToggleMapping, onMappingTypeChange, onNewOrganizationNameChange }) {
+function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, assigning, onOrgChange, onFacilityChange, onToggleMapping, onMappingTypeChange, onNewOrganizationNameChange }) {
   const { record, type, info } = modal;
   const [facilities, setFacilities] = useState([]);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
@@ -924,10 +939,11 @@ function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, on
           </button>
           <button
             onClick={() => mode === 'bulk' && info.accessionId ? onBulkAssign(info.accessionId, info) : onAssign()}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium"
+            disabled={assigning}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Save className="w-4 h-4" />
-            {mode === 'bulk' ? 'Bulk Assign' : 'Assign Record'}
+            {assigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {assigning ? 'Assigning...' : mode === 'bulk' ? 'Bulk Assign' : 'Assign Record'}
           </button>
         </div>
       </div>
