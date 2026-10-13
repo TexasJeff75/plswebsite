@@ -99,7 +99,7 @@ async function processResultWithRetry(
         }
       }
 
-      const { error: upsertError } = await supabaseClient
+      const { data: upsertedResult, error: upsertError } = await supabaseClient
         .from('lab_results')
         .upsert({
           stratus_guid: guid,
@@ -107,6 +107,7 @@ async function processResultWithRetry(
           organization_id: organizationId,
           facility_id: facilityId,
           accession_number: accessionNumber,
+          accession_id: accessionNumber,
           result_data: resultData,
           hl7_result: typeof resultData === 'string' ? resultData : null,
           sync_status: 'retrieved',
@@ -115,10 +116,56 @@ async function processResultWithRetry(
         }, {
           onConflict: 'stratus_guid',
           ignoreDuplicates: false
-        });
+        })
+        .select('id')
+        .single();
 
       if (upsertError) {
         throw new Error(`Upsert failed: ${upsertError.message}`);
+      }
+
+      const resultId = upsertedResult.id;
+
+      // Parse and insert observations from nested panels
+      await supabaseClient.from('stratus_result_observations').delete().eq('lab_result_id', resultId);
+
+      const panels = Array.isArray(resultData?.panels) ? resultData.panels : [];
+      const obsRows = [];
+      for (let pi = 0; pi < panels.length; pi++) {
+        const panel = panels[pi];
+        const results = Array.isArray(panel?.results) ? panel.results : [];
+        for (let ri = 0; ri < results.length; ri++) {
+          const r = results[ri];
+          const flag = r.result_flag || '';
+          obsRows.push({
+            lab_result_id: resultId,
+            lab_order_id: labOrderId,
+            test_code: r.test_code || null,
+            test_name: r.test_description || r.test_code || null,
+            loinc_code: r.loinc_code || null,
+            loinc_text: r.loinc_text || null,
+            result_value: r.result_value || null,
+            result_display: r.result_display || null,
+            result_flag: flag || null,
+            result_uom: r.test_uom || null,
+            result_comments: r.result_comments || null,
+            result_cutoffvalue: r.test_cutoffvalue || null,
+            result_medication: r.result_medication || null,
+            specimen_requirement: r.specimen_requirement || null,
+            cpt_code: r.cpt_code || null,
+            test_uom: r.test_uom || null,
+            test_description: r.test_description || null,
+            test_notes: r.test_notes || null,
+            is_abnormal: !!(flag && flag !== 'N' && flag !== '' && flag.toUpperCase() !== 'NORMAL'),
+            sort_order: pi * 1000 + ri,
+          });
+        }
+      }
+      if (obsRows.length > 0) {
+        const { error: obsErr } = await supabaseClient
+          .from('stratus_result_observations')
+          .insert(obsRows);
+        if (obsErr) console.error(`[${guid}] Observation insert error: ${obsErr.message}`);
       }
 
       console.log(`[${guid}] Acknowledging result...`);

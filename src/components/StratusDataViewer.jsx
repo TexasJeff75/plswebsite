@@ -3,6 +3,8 @@ import {
   getLabOrders, getLabResults, getLabConfirmations,
   assignOrderToFacility, assignResultToFacility, assignConfirmationToFacility,
   bulkAssignByAccession,
+  getOrderPanels, getOrderTests, getOrderDiagnosisCodes, getOrderMedications, getOrderInsurance,
+  getResultObservations,
 } from '../services/labDataService';
 import { stratusMappingService } from '../services/stratusMappingService';
 import { organizationsService } from '../services/organizationsService';
@@ -451,8 +453,47 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 function ExpandedDetail({ record, type, info }) {
   const rawData = type === 'orders' ? record.order_data : type === 'results' ? record.result_data : record.confirmation_data;
   const [showRaw, setShowRaw] = useState(false);
+  const [panels, setPanels] = useState([]);
+  const [tests, setTests] = useState([]);
+  const [dxCodes, setDxCodes] = useState([]);
+  const [medications, setMedications] = useState([]);
+  const [insurance, setInsurance] = useState([]);
+  const [observations, setObservations] = useState([]);
+  const [loadingRel, setLoadingRel] = useState(true);
 
-  const parsed = useMemo(() => parseRawData(rawData, type), [rawData, type]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRelational() {
+      setLoadingRel(true);
+      try {
+        if (type === 'orders') {
+          const [p, t, d, m, i] = await Promise.all([
+            getOrderPanels(record.id),
+            getOrderTests(record.id),
+            getOrderDiagnosisCodes(record.id),
+            getOrderMedications(record.id),
+            getOrderInsurance(record.id),
+          ]);
+          if (cancelled) return;
+          setPanels(p || []);
+          setTests(t || []);
+          setDxCodes(d || []);
+          setMedications(m || []);
+          setInsurance(i || []);
+        } else if (type === 'results') {
+          const obs = await getResultObservations(record.id);
+          if (cancelled) return;
+          setObservations(obs || []);
+        }
+      } catch (err) {
+        console.error('Error loading relational data:', err);
+      } finally {
+        if (!cancelled) setLoadingRel(false);
+      }
+    }
+    loadRelational();
+    return () => { cancelled = true; };
+  }, [record.id, type]);
 
   return (
     <div className="space-y-5">
@@ -460,106 +501,145 @@ function ExpandedDetail({ record, type, info }) {
         <InfoCard title="Identifiers">
           <DetailRow label="Accession ID" value={info.accessionId} />
           <DetailRow label="Stratus GUID" value={info.stratusGuid} />
-          {type === 'orders' && <DetailRow label="Order Status" value={record.order_status || parsed.order_status} />}
-          {type === 'results' && <DetailRow label="Result Status" value={record.result_status || parsed.result_status} />}
+          {type === 'orders' && <DetailRow label="Order Status" value={record.order_status} />}
+          {type === 'results' && <DetailRow label="Result Status" value={record.result_status} />}
           <DetailRow label="Sync Status" value={record.sync_status} />
           {record.sync_error && <DetailRow label="Sync Error" value={record.sync_error} />}
         </InfoCard>
 
         <InfoCard title="StratusDX Source">
-          <DetailRow label="Facility Name" value={parsed.facility_name || info.facilityName} />
-          <DetailRow label="Facility ID" value={parsed.facility_id} />
-          <DetailRow label="Organization" value={parsed.organization_name || info.orgName} />
-          <DetailRow label="Organization ID" value={parsed.organization_id} />
-          <DetailRow label="Location" value={parsed.location_name || record.location_name} />
+          <DetailRow label="Facility Name" value={record.location_name || info.facilityName} />
+          <DetailRow label="Organization" value={record.organization_name || info.orgName} />
+          {type === 'orders' && (
+            <>
+              <DetailRow label="Lab Name" value={record.lab_name} />
+              <DetailRow label="Lab CLIA" value={record.lab_clia} />
+              <DetailRow label="Lab Phone" value={record.lab_phone} />
+            </>
+          )}
         </InfoCard>
 
         {type === 'orders' && (
           <InfoCard title="Patient & Provider">
-            <DetailRow label="Patient Initials" value={parsed.patient_initials || record.patient_initials} />
-            <DetailRow label="Patient Name" value={parsed.patient_name} />
-            <DetailRow label="Date of Birth" value={parsed.patient_dob} />
-            <DetailRow label="Gender" value={parsed.patient_gender} />
-            <DetailRow label="Provider" value={parsed.provider_name || record.provider_name} />
-            <DetailRow label="Provider NPI" value={parsed.provider_npi} />
+            <DetailRow label="Patient Name" value={[record.patient_first_name, record.patient_last_name].filter(Boolean).join(' ')} />
+            <DetailRow label="Patient Initials" value={record.patient_initials} />
+            <DetailRow label="Date of Birth" value={record.patient_dob} />
+            <DetailRow label="Gender" value={record.patient_gender} />
+            <DetailRow label="Patient ID" value={record.patient_id} />
+            <DetailRow label="Provider" value={[record.provider_first_name, record.provider_last_name].filter(Boolean).join(' ')} />
+            <DetailRow label="Provider NPI" value={record.provider_npi} />
+          </InfoCard>
+        )}
+
+        {type === 'orders' && (
+          <InfoCard title="Order Timeline">
+            <DetailRow label="Collected" value={record.collected_datetime} />
+            <DetailRow label="Requisition" value={record.requisition_datetime} />
+            <DetailRow label="Received" value={record.received_datetime} />
+            <DetailRow label="Finalized" value={record.finalized_datetime} />
+            <DetailRow label="Requisition By" value={record.requisition_by} />
+            <DetailRow label="Comments" value={record.order_comments} />
           </InfoCard>
         )}
 
         {type === 'results' && (
           <InfoCard title="Result Summary">
-            <DetailRow label="Result Value" value={record.result_value || parsed.result_value} />
-            <DetailRow label="Units" value={record.units || parsed.units} />
-            <DetailRow label="Reference Range" value={record.reference_range || parsed.reference_range} />
-            <DetailRow label="Abnormal Flag" value={record.abnormal_flag || parsed.abnormal_flag} />
-            <DetailRow label="Resulted At" value={record.resulted_at_utc ? format(new Date(record.resulted_at_utc), 'MMM d, yyyy h:mm a') : parsed.resulted_at} />
+            <DetailRow label="Result Value" value={record.result_value} />
+            <DetailRow label="Units" value={record.units} />
+            <DetailRow label="Reference Range" value={record.reference_range} />
+            <DetailRow label="Abnormal Flag" value={record.abnormal_flag} />
+            <DetailRow label="Resulted At" value={record.resulted_at_utc ? format(new Date(record.resulted_at_utc), 'MMM d, yyyy h:mm a') : null} />
           </InfoCard>
         )}
 
         {type === 'confirmations' && (
           <InfoCard title="Confirmation Details">
-            <DetailRow label="Received Time" value={record.received_time || parsed.received_time} />
+            <DetailRow label="Received Time" value={record.received_time} />
             <DetailRow label="Accession Number" value={record.accession_number} />
-            <DetailRow label="Message Type" value={parsed.message_type} />
-            <DetailRow label="Sending Facility" value={parsed.sending_facility} />
           </InfoCard>
         )}
       </div>
 
-      {type === 'orders' && parsed.panels && parsed.panels.length > 0 && (
+      {loadingRel && (
+        <div className="flex items-center gap-2 text-slate-400 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading relational data...
+        </div>
+      )}
+
+      {!loadingRel && type === 'orders' && panels.length > 0 && (
         <DataTable
           title="Panels Ordered"
-          columns={['Panel Name', 'Code', 'Description']}
-          rows={parsed.panels.map(p => [
-            p.name || p.panel_name || p || '--',
-            p.code || p.panel_code || '--',
-            p.description || '--',
+          columns={['Panel Name', 'Test Method', 'CPT Code', 'Rapid Order', 'Specimen Type']}
+          rows={panels.map(p => [
+            p.panel_name || '--',
+            p.testmethod_name || '--',
+            p.cpt_code || '--',
+            p.rapid_order || '--',
+            p.specimen_type || '--',
           ])}
         />
       )}
 
-      {type === 'orders' && parsed.tests && parsed.tests.length > 0 && (
+      {!loadingRel && type === 'orders' && tests.length > 0 && (
         <DataTable
           title="Tests Ordered"
-          columns={['Test Name', 'Code', 'Method']}
-          rows={parsed.tests.map(t => [
-            t.name || t.test_name || '--',
-            t.code || t.test_code || '--',
-            t.method || t.test_method || '--',
+          columns={['Test Name', 'Code', 'LOINC', 'UOM']}
+          rows={tests.map(t => [
+            t.test_name || '--',
+            t.test_code || '--',
+            t.loinc_code || '--',
+            t.test_uom || '--',
           ])}
         />
       )}
 
-      {type === 'results' && (
-        <>
-          {record.test_results && record.test_results.length > 0 && (
-            <DataTable
-              title="Individual Test Results"
-              columns={['Test Name', 'Value', 'Units', 'Reference Range', 'Abnormal']}
-              rows={record.test_results.map(tr => [
-                tr.test_name || tr.name || '--',
-                tr.value || tr.result_value || '--',
-                tr.units || '--',
-                tr.reference_range || tr.ref_range || '--',
-                tr.abnormal_flag || (tr.abnormal ? 'Yes' : ''),
-              ])}
-              highlightCol={4}
-            />
-          )}
-          {parsed.result_observations && parsed.result_observations.length > 0 && (
-            <DataTable
-              title="Result Observations"
-              columns={['Observation Name', 'Value', 'Units', 'Reference Range', 'Interpretation']}
-              rows={parsed.result_observations.map(obs => [
-                obs.name || obs.observation_name || obs.test_name || '--',
-                obs.value || obs.observation_value || '--',
-                obs.units || '--',
-                obs.reference_range || obs.ref_range || '--',
-                obs.interpretation || obs.abnormal_flag || '',
-              ])}
-              highlightCol={4}
-            />
-          )}
-        </>
+      {!loadingRel && type === 'orders' && dxCodes.length > 0 && (
+        <DataTable
+          title="Diagnosis Codes"
+          columns={['Code', 'Name']}
+          rows={dxCodes.map(d => [d.code || '--', d.name || '--'])}
+        />
+      )}
+
+      {!loadingRel && type === 'orders' && medications.length > 0 && (
+        <DataTable
+          title="Medications"
+          columns={['Code', 'Name']}
+          rows={medications.map(m => [m.code || '--', m.name || '--'])}
+        />
+      )}
+
+      {!loadingRel && type === 'orders' && insurance.length > 0 && (
+        <DataTable
+          title="Insurance"
+          columns={['Type', 'Plan Name', 'Policy #', 'Group #', 'Insured Name', 'Payer']}
+          rows={insurance.map(ins => [
+            ins.insurance_type || '--',
+            ins.plan_name || '--',
+            ins.policy_number || '--',
+            ins.group_number || '--',
+            ins.insured_name || '--',
+            ins.payer_name || '--',
+          ])}
+        />
+      )}
+
+      {!loadingRel && type === 'results' && observations.length > 0 && (
+        <DataTable
+          title="Result Observations"
+          columns={['Test', 'Value', 'Display', 'Flag', 'Units', 'Cutoff', 'Abnormal']}
+          rows={observations.map(obs => [
+            obs.test_name || obs.test_code || '--',
+            obs.result_value || '--',
+            obs.result_display || '--',
+            obs.result_flag || '',
+            obs.result_uom || '--',
+            obs.result_cutoffvalue || '--',
+            obs.is_abnormal ? 'Yes' : '',
+          ])}
+          highlightCol={6}
+        />
       )}
 
       {type === 'confirmations' && record.hl7_message && (
@@ -587,59 +667,6 @@ function ExpandedDetail({ record, type, info }) {
       </div>
     </div>
   );
-}
-
-function parseRawData(rawData, type) {
-  if (!rawData || typeof rawData !== 'object') return {};
-  const d = rawData;
-  if (type === 'orders') {
-    return {
-      facility_name: d.facility_name || d.facilityName || d.facility?.name,
-      facility_id: d.facility_id || d.facilityId || d.facility?.id,
-      organization_name: d.organization_name || d.organizationName || d.organization?.name,
-      organization_id: d.organization_id || d.organizationId || d.organization?.id,
-      location_name: d.location_name || d.locationName || d.location?.name,
-      patient_initials: d.patient_initials || d.patientInitials,
-      patient_name: d.patient_name || d.patientName || d.patient?.name,
-      patient_dob: d.patient_dob || d.patientDOB || d.patient?.dob || d.patient?.date_of_birth,
-      patient_gender: d.patient_gender || d.patientGender || d.patient?.gender || d.patient?.sex,
-      provider_name: d.provider_name || d.providerName || d.provider?.name || d.ordering_provider?.name,
-      provider_npi: d.provider_npi || d.providerNpi || d.provider?.npi || d.ordering_provider?.npi,
-      order_status: d.order_status || d.orderStatus || d.status,
-      panels: extractArray(d.panels || d.panel_list || d.ordered_panels),
-      tests: extractArray(d.tests || d.test_list || d.ordered_tests),
-    };
-  }
-  if (type === 'results') {
-    return {
-      facility_name: d.facility_name || d.facilityName || d.facility?.name,
-      facility_id: d.facility_id || d.facilityId,
-      organization_name: d.organization_name || d.organizationName,
-      organization_id: d.organization_id || d.organizationId,
-      result_status: d.result_status || d.resultStatus || d.status,
-      result_value: d.result_value || d.resultValue || d.value,
-      units: d.units || d.unit,
-      reference_range: d.reference_range || d.referenceRange || d.ref_range,
-      abnormal_flag: d.abnormal_flag || d.abnormalFlag || d.abnormal,
-      resulted_at: d.resulted_at || d.resultedAt || d.result_date || d.resultDate,
-      result_observations: extractArray(d.observations || d.result_observations || d.results || d.test_results),
-    };
-  }
-  const hl7Segments = typeof d.hl7_message === 'string' ? d.hl7_message.split('|') : [];
-  return {
-    received_time: d.received_time || d.receivedTime,
-    message_type: d.message_type || d.messageType || (hl7Segments[0] ? hl7Segments[0].split('^')[0] : null),
-    sending_facility: d.sending_facility || d.sendingFacility || (hl7Segments[3] || null),
-    facility_name: d.facility_name || d.facilityName,
-    organization_name: d.organization_name || d.organizationName,
-  };
-}
-
-function extractArray(val) {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  if (typeof val === 'string') return val.split(',').map(s => ({ name: s.trim() }));
-  return [];
 }
 
 function InfoCard({ title, children }) {

@@ -277,6 +277,66 @@ export async function bulkAssignByAccession(accessionId, organizationId, facilit
   };
 }
 
+export async function getOrderPanels(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_order_panels')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('sort_order');
+  if (error) throw error;
+  return data;
+}
+
+export async function getOrderTests(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_order_tests')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('sort_order');
+  if (error) throw error;
+  return data;
+}
+
+export async function getOrderDiagnosisCodes(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_order_diagnosis_codes')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('sort_order');
+  if (error) throw error;
+  return data;
+}
+
+export async function getOrderMedications(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_order_medications')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('sort_order');
+  if (error) throw error;
+  return data;
+}
+
+export async function getOrderInsurance(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_order_insurance')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('insurance_type');
+  if (error) throw error;
+  return data;
+}
+
+export async function getResultObservations(resultId) {
+  const { data, error } = await supabase
+    .from('stratus_result_observations')
+    .select('*')
+    .eq('lab_result_id', resultId)
+    .order('sort_order');
+  if (error) throw error;
+  return data;
+}
+
 export async function exploreStratusAPI(endpoint, method = 'GET', testParams = {}) {
   const response = await fetch('/.netlify/functions/explore-stratus-api', {
     method: 'POST',
