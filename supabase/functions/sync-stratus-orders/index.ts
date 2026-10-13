@@ -201,6 +201,12 @@ async function processOrderWithRetry(
           requisition_by: order.requisition_by || null,
           order_comments: order.comments || null,
           custom_fields: Object.keys(customFields).length > 0 ? customFields : {},
+          // Status flags
+          is_canceled: !!(order.canceled_datetime && order.canceled_datetime.trim() !== ''),
+          is_rejected: !!(order.rejected_datetime && order.rejected_datetime.trim() !== ''),
+          is_finalized: !!(order.finalized_datetime && order.finalized_datetime.trim() !== ''),
+          canceled_at: (order.canceled_datetime && order.canceled_datetime.trim() !== '') ? order.canceled_datetime : null,
+          rejected_at: (order.rejected_datetime && order.rejected_datetime.trim() !== '') ? order.rejected_datetime : null,
         }, {
           onConflict: 'stratus_guid',
           ignoreDuplicates: false

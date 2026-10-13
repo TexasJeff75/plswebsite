@@ -113,6 +113,13 @@ async function processResultWithRetry(
           sync_status: 'retrieved',
           retrieved_at: new Date().toISOString(),
           result_date: new Date().toISOString(),
+          // Status flags from API order object
+          is_canceled: !!(resultData?.order?.canceled_datetime && String(resultData.order.canceled_datetime).trim() !== ''),
+          is_rejected: !!(resultData?.order?.rejected_datetime && String(resultData.order.rejected_datetime).trim() !== ''),
+          is_finalized: !!(resultData?.order?.finalized_datetime && String(resultData.order.finalized_datetime).trim() !== ''),
+          canceled_at: (resultData?.order?.canceled_datetime && String(resultData.order.canceled_datetime).trim() !== '') ? String(resultData.order.canceled_datetime) : null,
+          rejected_at: (resultData?.order?.rejected_datetime && String(resultData.order.rejected_datetime).trim() !== '') ? String(resultData.order.rejected_datetime) : null,
+          finalized_at: (resultData?.order?.finalized_datetime && String(resultData.order.finalized_datetime).trim() !== '') ? String(resultData.order.finalized_datetime) : null,
         }, {
           onConflict: 'stratus_guid',
           ignoreDuplicates: false
