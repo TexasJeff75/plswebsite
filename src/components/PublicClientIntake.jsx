@@ -196,7 +196,7 @@ export default function PublicClientIntake({ accessToken }) {
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <header className="border-b border-slate-800 bg-slate-950 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3"><div className="rounded-xl bg-teal-500/15 p-2"><ClipboardList className="h-6 w-6 text-teal-400" /></div><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-400">HealthSpan360 Reference Testing</p><h1 className="mt-1 text-lg font-semibold">New Clinic Onboarding</h1></div></div>
+          <div className="flex items-center gap-3"><div className="rounded-xl bg-teal-500/15 p-2"><ClipboardList className="h-6 w-6 text-teal-400" /></div><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-400">Proximity Lab Services</p><h1 className="mt-1 text-lg font-semibold">New Client Onboarding</h1></div></div>
           <div className="hidden items-center gap-2 text-sm text-slate-400 sm:flex"><ShieldCheck className="h-4 w-4 text-teal-400" /> Secure progress saving</div>
         </div>
       </header>
