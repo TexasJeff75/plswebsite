@@ -28,6 +28,7 @@ import StratusDataViewer from './components/StratusDataViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import Commissions from './components/Commissions';
+import Payables from './components/Payables';
 import Invoicing from './components/Invoicing';
 import SupplyOrders from './components/SupplyOrders';
 import SupplyOrderDetail from './components/SupplyOrderDetail';
@@ -128,6 +129,11 @@ function App() {
                 <Route path="commissions" element={
                   <ProtectedRoute requireAdmin>
                     <Commissions />
+                  </ProtectedRoute>
+                } />
+                <Route path="payables" element={
+                  <ProtectedRoute requireAdmin>
+                    <Payables />
                   </ProtectedRoute>
                 } />
                 <Route path="invoicing" element={
