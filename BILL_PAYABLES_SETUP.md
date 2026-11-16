@@ -95,3 +95,16 @@ Note: the tracker's open AP includes payments that are scheduled but not cleared
 2. Redeploy `bill-sync` (or paste the updated single-file version) so each sync also matches BILL payments to Pay Plan installments. Until then, the Forecast and Pay Plan tabs run the matching themselves when they open.
 
 How matching works: a BILL payment matches a planned installment when it is on the same bill, for the same amount (within $0.01), and its process date is within 3 days of the planned date. Matched installments show **Scheduled** with BILL's date, then **Paid** once BILL processes the payment. An installment with no match more than 3 days after its date shows **Missed**.
+
+## Phase 4: Email alerts
+
+1. Run `supabase/migrations/20261116220000_ap_alerts.sql` in the SQL Editor.
+2. Redeploy `bill-sync` with the latest code (paste the single-file version).
+
+After each completed sync (nightly or **Sync now**), every Super Admin gets one email listing new:
+
+- **Payment problems:** failed, held, expiring or escheated payments updated in the last 14 days.
+- **Missed installments:** Pay Plan payments not scheduled in BILL within 3 days of the planned date.
+- **Bills waiting on approval for more than 7 days.**
+
+Each alert is emailed once (a payment is alerted again if its status changes). No email is sent when there is nothing new. Alerts use the existing `RESEND_API_KEY` and `EMAIL_FROM` secrets; optionally set `TRACKER_URL` if the tracker moves off https://proximitylabservices.com. If an email fails, the sync still finishes and the alerts are retried on the next sync.

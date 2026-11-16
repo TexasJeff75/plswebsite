@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.93.1";
 import { BillClient, BillEnv, runSync, Store } from "./sync.ts";
+import { alertKeys, buildAlertEmail, PendingAlerts } from "./alerts.ts";
 
 // Syncs BILL accounts payable data into the ap_* tables (read-only to BILL).
 // Callers: a Super Admin ("Sync now" in the Payables tab), or the nightly
@@ -8,7 +9,8 @@ import { BillClient, BillEnv, runSync, Store } from "./sync.ts";
 //
 // Secrets: BILL_ENV (sandbox | production), BILL_CLIENT_ID, BILL_CLIENT_SECRET,
 // BILL_SYNC_CRON_SECRET. SUPABASE_URL, SUPABASE_ANON_KEY and
-// SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
+// SUPABASE_SERVICE_ROLE_KEY are provided by Supabase. Alert emails use the
+// existing RESEND_API_KEY and EMAIL_FROM; TRACKER_URL is optional.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +60,45 @@ function supabaseStore(db: SupabaseClient): Store {
       }
     },
   };
+}
+
+// Emails Super Admins one summary of new problems, then records them as sent.
+// Never fails the sync: problems are logged and the alerts are retried next run.
+async function sendAlerts(db: SupabaseClient): Promise<number> {
+  const { data, error } = await db.rpc("ap_pending_alerts");
+  if (error) {
+    console.error("Alert check skipped:", error.message);
+    return 0;
+  }
+  const alerts = data as PendingAlerts;
+  const keys = alertKeys(alerts);
+  if (!keys.length) return 0;
+
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey || !alerts.recipients?.length) {
+    console.error("Alerts not sent: missing RESEND_API_KEY or Super Admin email.");
+    return 0;
+  }
+
+  const email = buildAlertEmail(alerts, Deno.env.get("TRACKER_URL") ?? "https://proximitylabservices.com");
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: Deno.env.get("EMAIL_FROM") || "Proximity Lab Services <noreply@proximitylabservices.com>",
+      to: alerts.recipients,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    }),
+  });
+  if (!res.ok) {
+    console.error("Alert email failed:", res.status, await res.text().catch(() => ""));
+    return 0;
+  }
+  const { error: markError } = await db.rpc("ap_mark_alerts_sent", { p_keys: keys });
+  if (markError) console.error("Could not record sent alerts:", markError.message);
+  return keys.length;
 }
 
 Deno.serve(async (req: Request) => {
@@ -138,10 +179,15 @@ Deno.serve(async (req: Request) => {
     const { error: refreshError } = await admin.rpc("ap_refresh_pay_plans");
     if (refreshError) console.error("Pay plan refresh failed:", refreshError.message);
     const status = result.complete ? "succeeded" : "partial";
+    // Alert only once the data is complete, so half-synced runs do not send partial news.
+    const alertsSent = result.complete ? await sendAlerts(admin).catch((e) => {
+      console.error("Alerts failed:", e instanceof Error ? e.message : e);
+      return 0;
+    }) : 0;
     await admin.from("ap_sync_runs")
-      .update({ status, counts: result.counts, finished_at: new Date().toISOString() })
+      .update({ status, counts: { ...result.counts, alerts_sent: alertsSent }, finished_at: new Date().toISOString() })
       .eq("id", run.id);
-    return json({ runId: run.id, status, counts: result.counts, more: !result.complete });
+    return json({ runId: run.id, status, counts: result.counts, alertsSent, more: !result.complete });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await admin.from("ap_sync_runs")
