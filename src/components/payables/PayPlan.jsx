@@ -117,7 +117,7 @@ export default function PayPlan() {
         if (i.status === 'missed') items.push({ kind: 'missed', bill: b, installment: i });
       }
       if (b.plan) {
-        for (const p of b.payments) if (!p.linked) items.push({ kind: 'unlinked', bill: b, payment: p });
+        for (const p of b.payments) if (!p.linked && !p.before_plan) items.push({ kind: 'unlinked', bill: b, payment: p });
       }
     }
     return items;
