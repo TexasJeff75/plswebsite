@@ -108,3 +108,28 @@ After each completed sync (nightly or **Sync now**), every Super Admin gets one 
 - **Bills waiting on approval for more than 7 days.**
 
 Each alert is emailed once (a payment is alerted again if its status changes). No email is sent when there is nothing new. Alerts use the existing `RESEND_API_KEY` and `EMAIL_FROM` secrets; optionally set `TRACKER_URL` if the tracker moves off https://proximitylabservices.com. If an email fails, the sync still finishes and the alerts are retried on the next sync.
+
+## Phase 5: Weekly release to BILL
+
+Plans stay in the tracker until you release a week. **Release to BILL** on the Pay Plan tab creates that week's payments in BILL on their planned dates (or BILL's earliest date, if later). Nothing else in the plan is sent, so the plan stays easy to change when cash is tight.
+
+### Setup
+
+1. **Create a second BILL developer app with Full access** (production BILL, Settings, developer apps). BILL requires MFA with your phone for this scope. The app acts with the permissions of the BILL user who creates it: if that user's payments need approval in BILL, released payments wait in BILL's approvals until someone approves them.
+2. Run `supabase/migrations/20261116230000_ap_payment_release.sql` in the SQL Editor.
+3. In Supabase, Edge Functions → Secrets, add `BILL_PAY_CLIENT_ID` and `BILL_PAY_CLIENT_SECRET` from the Full access app. `BILL_ENV` is shared with the sync.
+4. Deploy the new `bill-pay` function (paste the single-file version, name it exactly `bill-pay`, keep Verify JWT on), and redeploy `bill-sync` (its BILL client gained a POST method used by bill-pay).
+
+### Safeguards
+
+- Super Admin only. The read-only sync app is unchanged; only `bill-pay` holds the Full access credentials.
+- Before sending, each bill is re-read from BILL. A payment larger than what BILL shows left to schedule is not sent.
+- BILL lists the bank accounts that can pay each vendor and the earliest date; unverified accounts cannot be chosen.
+- A release over $25,000 needs a second confirmation.
+- Every payment carries a unique BILL transaction number. If BILL does not answer, the tracker looks the number up before trying again, so a retry cannot pay twice.
+- Every release and cancel is logged in `ap_payment_actions` with who, when, amount, BILL payment ID and BILL's answer.
+- **Cancel in BILL** (the x next to a scheduled payment) works until BILL starts processing. After that, a payment can only be voided in BILL.
+
+### First test
+
+Release one small installment dated at least a few days out, confirm it appears in BILL (as scheduled, or waiting on approval), then cancel it from the tracker and confirm BILL shows it canceled.

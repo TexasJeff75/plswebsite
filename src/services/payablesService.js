@@ -91,6 +91,28 @@ export const payablesService = {
     if (error) throw error;
   },
 
+  // Weekly release (bill-pay function, separate full-access BILL app).
+  async releaseCheck(installmentIds) {
+    const { data, error } = await supabase.functions.invoke('bill-pay', { method: 'POST', body: { action: 'check', installmentIds } });
+    if (error) throw await functionError(error);
+    return data;
+  },
+
+  async releasePayments({ installmentIds, fundingAccountId, confirmLarge }) {
+    const { data, error } = await supabase.functions.invoke('bill-pay', {
+      method: 'POST',
+      body: { action: 'release', installmentIds, fundingAccountId, confirmLarge },
+    });
+    if (error) throw await functionError(error);
+    return data;
+  },
+
+  async cancelReleasedPayment(installmentId) {
+    const { data, error } = await supabase.functions.invoke('bill-pay', { method: 'POST', body: { action: 'cancel', installmentId } });
+    if (error) throw await functionError(error);
+    return data;
+  },
+
   // Removes all copied BILL data and pay plans (for switching sandbox to production).
   async clearBillData() {
     const { data, error } = await supabase.rpc('ap_clear_bill_data');

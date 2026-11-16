@@ -101,6 +101,45 @@ export class BillClient {
       throw new BillApiError(`BILL request failed (${path}): ${message}`, code, res.status);
     }
   }
+
+  // POST a v3 path. Unlike get(), a POST is only retried when BILL rejected it
+  // before doing anything (sign-in expired, too many concurrent requests).
+  // A server error or lost connection may have created the record anyway, so
+  // it is reported as UNKNOWN_OUTCOME for the caller to look up.
+  async post(path: string, body: unknown): Promise<any> {
+    let refreshed = false;
+    for (let attempt = 0; ; attempt++) {
+      const token = await this.getToken();
+      let res: Response;
+      try {
+        res = await this.fetchFn(`${this.hosts.api}${path}`, {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body ?? {}),
+        });
+      } catch (err) {
+        throw new BillApiError(`No response from BILL (${path}): ${err instanceof Error ? err.message : err}`, "UNKNOWN_OUTCOME");
+      }
+      if (res.ok) return res.json().catch(() => ({}));
+
+      const resBody = await res.json().catch(() => null);
+      const err = Array.isArray(resBody) ? resBody[0] : resBody;
+      const code: string | undefined = err?.code;
+      const message: string = err?.message ?? `HTTP ${res.status}`;
+
+      if (res.status === 401 && !refreshed) {
+        refreshed = true;
+        await this.getToken(true);
+        continue;
+      }
+      if (code === "BDC_1322" && attempt < MAX_RETRIES) {
+        await this.sleep(1000 * 2 ** attempt);
+        continue;
+      }
+      if (res.status >= 500) throw new BillApiError(`BILL did not confirm (${path}): ${message}`, "UNKNOWN_OUTCOME", res.status);
+      throw new BillApiError(message, code, res.status);
+    }
+  }
 }
 
 // ── Mapping BILL records to table rows ──────────────────────────────────────
