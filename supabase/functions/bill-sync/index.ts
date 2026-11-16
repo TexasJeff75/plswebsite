@@ -13,7 +13,10 @@ import { BillClient, BillEnv, runSync, Store } from "./sync.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, X-Cron-Secret",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey, X-Cron-Secret, X-Region, " +
+    "X-Supabase-Client-Platform, X-Supabase-Client-Platform-Version, " +
+    "X-Supabase-Client-Runtime, X-Supabase-Client-Runtime-Version",
 };
 
 // Stop starting new pages after this long; the caller runs again to continue.
@@ -58,7 +61,15 @@ function supabaseStore(db: SupabaseClient): Store {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    // Allow whatever headers the browser asks for: supabase-js adds new
+    // X-Supabase-Client-* headers over time, and a missing one blocks the call.
+    const requested = req.headers.get("Access-Control-Request-Headers");
+    return new Response(null, {
+      status: 200,
+      headers: { ...corsHeaders, ...(requested ? { "Access-Control-Allow-Headers": requested } : {}) },
+    });
+  }
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
