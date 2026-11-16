@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarClock, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
-import { money } from './format';
+import { billUrl, money } from './format';
 import { daysLate, iso } from './installments';
 import PlanEditor from './PlanEditor';
 import ReleaseDialog from './ReleaseDialog';
@@ -22,6 +22,15 @@ const FILTERS = [
   { id: 'hold', label: 'On hold' },
   { id: 'review', label: 'Needs review' },
 ];
+
+function BillLink({ bill, children }) {
+  return (
+    <a href={billUrl(bill.id)} target="_blank" rel="noopener noreferrer" title="Open this bill in BILL"
+      className="inline-flex items-center gap-1 hover:text-teal-300 hover:underline">
+      {children}<ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+    </a>
+  );
+}
 
 const day = (d) => (d ? format(parseISO(d), 'MMM d, yyyy') : '');
 const shortDay = (d) => (d ? format(parseISO(d), 'EEE MMM d') : '');
@@ -216,7 +225,7 @@ export default function PayPlan() {
             {attention.map((a, idx) => (
               <li key={idx} className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-700 bg-slate-900/40 px-3 py-2">
                 <span className="text-slate-200">
-                  <span className="font-medium">{a.bill.vendor_name}</span> <span className="text-slate-400">· {a.bill.invoice_number || 'No invoice #'}</span>
+                  <span className="font-medium">{a.bill.vendor_name}</span> <span className="text-slate-400">· <BillLink bill={a.bill}>{a.bill.invoice_number || 'No invoice #'}</BillLink></span>
                   <span className="block text-slate-300">
                     {a.kind === 'review' && a.text}
                     {a.kind === 'missed' && `Payment ${a.installment.seq} of ${money(a.installment.amount, { cents: true })} was planned for ${day(a.installment.planned_date)} and is not in BILL.`}
@@ -330,7 +339,7 @@ export default function PayPlan() {
                         className="h-4 w-4 rounded border-slate-500 bg-slate-900 accent-teal-500" />
                     </td>
                     <td className="px-3 py-2">{b.vendor_name}</td>
-                    <td className="px-3 py-2 text-slate-400">{b.invoice_number || ''}</td>
+                    <td className="px-3 py-2 text-slate-400"><BillLink bill={b}>{b.invoice_number || 'Open'}</BillLink></td>
                     <td className={`whitespace-nowrap px-3 py-2 ${pastDue ? 'text-red-300' : ''}`}>{day(b.due_date)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(b.still_owed, { cents: true })}</td>
                     <td className="px-3 py-2">
@@ -395,7 +404,7 @@ export default function PayPlan() {
                         <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                           <span className="text-slate-200">
                             <span className="tabular-nums text-slate-400">{shortDay(r.date)}</span> · {r.bill.vendor_name}
-                            <span className="text-slate-400"> · {r.bill.invoice_number || 'No invoice #'} · {r.seq} of {r.total}</span>
+                            <span className="text-slate-400"> · <BillLink bill={r.bill}>{r.bill.invoice_number || 'No invoice #'}</BillLink> · {r.seq} of {r.total}</span>
                             {late > 0 && <span className="ml-2 text-xs text-amber-300">{late} {late === 1 ? 'day' : 'days'} late</span>}
                             {r.release_problem && !r.matched_payment_id && (
                               <span className="block text-xs text-amber-300">Last release did not go through: {r.release_problem}</span>
