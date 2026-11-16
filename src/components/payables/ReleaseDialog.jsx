@@ -22,13 +22,19 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
   const [confirmLarge, setConfirmLarge] = useState(false);
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState(null);
+  const [defaultBankId, setDefaultBankId] = useState(null);
+  const [savingDefault, setSavingDefault] = useState(false);
 
   const ids = useMemo(() => week.rows.filter((r) => !r.matched_payment_id).map((r) => r.id), [week]);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([payablesService.releaseCheck(ids), payablesService.getForecast()])
-      .then(([c, f]) => {
+    Promise.all([
+      payablesService.releaseCheck(ids),
+      payablesService.getForecast(),
+      payablesService.getDefaultFundingAccount().catch(() => null),
+    ])
+      .then(([c, f, savedDefault]) => {
         if (cancelled) return;
         setCheck(c);
         setForecastWeek((f.weeks || []).find((w) => w.week_start === week.start) || null);
@@ -40,7 +46,10 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
           const a = accounts.find((x) => x.id === b.id);
           return (a?.usable === 'yes' ? 0 : a?.usable === 'maybe' ? 2 : 4) + (a?.defaultPayables ? 0 : 1);
         };
-        const best = [...offered].sort((x, y) => rank(x) - rank(y))[0];
+        setDefaultBankId(savedDefault);
+        // Your chosen default comes first, as long as BILL offers it and it is not blocked.
+        const saved = offered.find((b) => b.id === savedDefault && accounts.find((a) => a.id === b.id)?.usable !== 'no');
+        const best = saved || [...offered].sort((x, y) => rank(x) - rank(y))[0];
         if (best) setBankId(best.id);
       })
       .catch((err) => { if (!cancelled) setError(err.message); });
@@ -68,6 +77,18 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
   const chosen = rows.filter((r) => r.ok && selected[r.installment.id]);
   const total = chosen.reduce((s, r) => s + Number(r.installment.amount), 0);
   const large = total > LARGE_BATCH;
+
+  async function makeDefault() {
+    setSavingDefault(true);
+    try {
+      await payablesService.setDefaultFundingAccount(bankId);
+      setDefaultBankId(bankId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingDefault(false);
+    }
+  }
 
   async function release() {
     setSending(true);
@@ -128,6 +149,7 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
 
               <label htmlFor="release-bank" className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-slate-400">Pay from</span>
+                <span className="flex flex-wrap items-center gap-3">
                 <select id="release-bank" value={bankId} onChange={(e) => setBankId(e.target.value)}
                   className="w-full max-w-sm rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none">
                   {banks.map((b) => {
@@ -137,6 +159,14 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
                   })}
                   {!banks.length && <option value="">No bank account available</option>}
                 </select>
+                {bankId && bankId === defaultBankId && <span className="text-xs text-teal-300">Your default</span>}
+                {bankId && bankId !== defaultBankId && (
+                  <button type="button" onClick={makeDefault} disabled={savingDefault}
+                    className="text-xs text-teal-400 hover:text-teal-300 disabled:opacity-50">
+                    {savingDefault ? 'Saving…' : 'Make default'}
+                  </button>
+                )}
+                </span>
               </label>
 
               {(bankBlocked || chosenAccount?.usable === 'maybe' || funding?.problems?.length > 0) && (

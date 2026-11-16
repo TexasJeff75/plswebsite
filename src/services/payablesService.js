@@ -107,6 +107,17 @@ export const payablesService = {
     return data;
   },
 
+  async getDefaultFundingAccount() {
+    const { data, error } = await supabase.from('ap_settings').select('default_funding_account_id').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data?.default_funding_account_id || null;
+  },
+
+  async setDefaultFundingAccount(fundingAccountId) {
+    const { error } = await supabase.rpc('ap_set_default_funding_account', { p_funding_account_id: fundingAccountId });
+    if (error) throw error;
+  },
+
   async cancelReleasedPayment(installmentId) {
     const { data, error } = await supabase.functions.invoke('bill-pay', { method: 'POST', body: { action: 'cancel', installmentId } });
     if (error) throw await functionError(error);
