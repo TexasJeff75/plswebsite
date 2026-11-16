@@ -210,6 +210,7 @@ export default function PayPlan() {
   const selectedBills = bills.filter((b) => selected.has(b.id));
   const withDates = selectedBills.filter((b) => b.plan && b.plan.plan_type !== 'hold' && b.plan.installments.some((i) => i.status === 'planned' || i.status === 'missed')).length;
   const bulkButton = 'inline-flex items-center gap-1 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50';
+  const selectedTotal = selectedBills.reduce((sum, b) => sum + (Number(b.still_owed) || 0), 0);
   const selectedOwed = selectedBills.reduce((sum, b) => sum + Math.max(Number(b.due_amount) || 0, 0), 0);
   const replacing = selectedBills.filter((b) => b.plan && b.plan.installments.some((i) => i.status === 'planned' || i.status === 'missed')).length;
   const BULK_DONE = { plan: 'planned', hold: 'put on hold', unhold: 'taken off hold', review: 'marked for review', clear_review: 'cleared from review' };
@@ -289,7 +290,9 @@ export default function PayPlan() {
           <div className="mb-3 rounded-lg border border-teal-500/40 bg-teal-500/5 p-3">
             {!bulkStep && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-sm font-medium text-teal-200">{selected.size} selected</span>
+                <span className="mr-1 text-sm font-medium text-teal-200">
+                  {selected.size} selected · <span className="tabular-nums">{money(selectedTotal, { cents: true })}</span> still owed
+                </span>
                 <button type="button" disabled={busy} onClick={() => { setPlanDate(today ? iso(fridayOnOrAfter(parseISO(today))) : ''); setBulkStep('plan'); }} className={bulkButton}><CalendarCheck className="h-3.5 w-3.5" />Plan for one day</button>
                 <button type="button" disabled={busy} onClick={() => setBulkStep('hold')} className={bulkButton}><PauseCircle className="h-3.5 w-3.5" />Put on hold</button>
                 <button type="button" disabled={busy} onClick={() => runBulk('unhold')} className={bulkButton}>Remove hold</button>
