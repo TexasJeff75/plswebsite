@@ -53,18 +53,33 @@ select cron.schedule(
 );
 ```
 
-## Switching to production
+## Switching to production (Phase 3)
 
-1. Create the production developer app (step 1) with **Accounting data access**.
-2. Change `BILL_ENV` to `production` and replace `BILL_CLIENT_ID` and `BILL_CLIENT_SECRET`.
-3. Clear the sandbox data so it does not mix with real data:
+Before you start, run `supabase/migrations/20261116210000_ap_data_source_guard.sql` in the SQL Editor and redeploy `bill-sync` with the latest code. Together they stop sandbox and production data from ever mixing.
 
-```sql
-truncate ap_bill_lines, ap_payment_bills, ap_bills, ap_payments, ap_vendors,
-         ap_vendor_credits, ap_classifications, ap_sync_state, ap_sync_runs;
-```
+1. **Create the production developer app.** Sign in to the production BILL web app (https://login.us.bill.com/neo/login) as an admin and create a developer app with **Accounting data access**. Copy the client ID and client secret.
+2. **Swap the secrets.** In Supabase, Edge Functions → Secrets, set `BILL_ENV` to `production` and replace `BILL_CLIENT_ID` and `BILL_CLIENT_SECRET` with the production values.
+3. **Sync once.** On the Payables page click **Sync now**. It stops with "Data source mismatch" because the saved data is from the sandbox. This is expected.
+4. **Clear the sandbox data.** Click **Clear BILL data**, then confirm. This removes the copied sandbox data and every pay plan (they belong to sandbox bills). Cash cushion settings are kept.
+5. **Run the first production sync.** Click **Sync now** again. A large account can take several rounds; the page keeps going until it is done. The header badge now reads **Production data**.
+6. **Check the numbers against BILL** (see below).
+7. **Schedule the nightly sync** (step 5 above) if you have not already.
 
-4. Click **Sync now**, then check that the open AP total matches BILL.
+If you prefer SQL to the button, step 4 is: `select ap_clear_bill_data();` run while signed in as a Super Admin, or truncate the tables listed in that function.
+
+### Checking the numbers against BILL
+
+Compare these after the first production sync. Small differences usually mean BILL changed something after the sync; click **Sync now** and compare again.
+
+| Check | In the tracker | In BILL |
+|---|---|---|
+| Open AP total | Forecast tab, **Open AP** | Bills list, total of all unpaid bills (or the AP aging report) |
+| Past due | Forecast tab, **Past due** | AP aging report, everything past due |
+| One vendor's balance | Spend tab, click the vendor, **Open balance** | That vendor's page, open balance |
+| Last month's bills | Spend tab, **This month** or a custom range, **Billed** basis | Bills list filtered to that month's bill dates |
+| Scheduled payments | Forecast tab, the **Scheduled in BILL** part of each week | Payments list, scheduled payments |
+
+Note: the tracker's open AP includes payments that are scheduled but not cleared yet, because that money has not left the bank. If BILL's report leaves scheduled payments out, subtract the Forecast's scheduled amounts before comparing.
 
 ## How the sync works
 
