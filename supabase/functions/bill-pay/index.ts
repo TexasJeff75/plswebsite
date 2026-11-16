@@ -6,10 +6,11 @@ import { cancelInstallment, checkInstallments, Installment, PayStore, releaseIns
 // Weekly release: creates scheduled payments in BILL for planned installments,
 // and cancels them while BILL has not started processing. Super Admin only.
 //
-// Uses a separate BILL developer app with Full access (the bill-sync app stays
-// read-only). Secrets: BILL_PAY_CLIENT_ID, BILL_PAY_CLIENT_SECRET, plus the
-// shared BILL_ENV. SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY
-// are provided by Supabase.
+// Uses BILL_PAY_CLIENT_ID and BILL_PAY_CLIENT_SECRET if set (a separate Full
+// access app), otherwise the same BILL_CLIENT_ID and BILL_CLIENT_SECRET as
+// bill-sync. Either way the app must have Full access to create payments.
+// BILL_ENV is shared. SUPABASE_URL, SUPABASE_ANON_KEY and
+// SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 //
 // POST body: { action: "check", installmentIds }
 //            { action: "release", installmentIds, fundingAccountId, confirmLarge }
@@ -125,10 +126,10 @@ Deno.serve(async (req: Request) => {
   if (roleError || !isSuperAdmin) return json({ error: "Only Super Admin can release payments" }, 403);
 
   const env = (Deno.env.get("BILL_ENV") ?? "sandbox") as BillEnv;
-  const clientId = Deno.env.get("BILL_PAY_CLIENT_ID");
-  const clientSecret = Deno.env.get("BILL_PAY_CLIENT_SECRET");
+  const clientId = Deno.env.get("BILL_PAY_CLIENT_ID") || Deno.env.get("BILL_CLIENT_ID");
+  const clientSecret = Deno.env.get("BILL_PAY_CLIENT_SECRET") || Deno.env.get("BILL_CLIENT_SECRET");
   if (!clientId || !clientSecret || !["sandbox", "production"].includes(env)) {
-    return json({ error: "Payment release is not set up. Add BILL_PAY_CLIENT_ID and BILL_PAY_CLIENT_SECRET (a Full access BILL app) to the function secrets." }, 500);
+    return json({ error: "Payment release is not set up. Add BILL_CLIENT_ID and BILL_CLIENT_SECRET (a BILL app with Full access) to the function secrets." }, 500);
   }
 
   const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");

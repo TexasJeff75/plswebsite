@@ -115,9 +115,9 @@ Plans stay in the tracker until you release a week. **Release to BILL** on the P
 
 ### Setup
 
-1. **Create a second BILL developer app with Full access** (production BILL, Settings, developer apps). BILL requires MFA with your phone for this scope. The app acts with the permissions of the BILL user who creates it: if that user's payments need approval in BILL, released payments wait in BILL's approvals until someone approves them.
+1. **Make sure a BILL developer app with Full access is available.** By default `bill-pay` uses the same `BILL_CLIENT_ID` and `BILL_CLIENT_SECRET` as the sync, so that app needs Full access (an Accounting data access app cannot create payments, and an app's access level cannot be changed after it is created). To keep the sync read-only instead, create a second app with Full access and set `BILL_PAY_CLIENT_ID` and `BILL_PAY_CLIENT_SECRET`; `bill-pay` uses those when present. BILL requires MFA with your phone for Full access. The app acts with the permissions of the BILL user who creates it: if that user's payments need approval in BILL, released payments wait in BILL's approvals until someone approves them.
 2. Run `supabase/migrations/20261116230000_ap_payment_release.sql` in the SQL Editor.
-3. In Supabase, Edge Functions → Secrets, add `BILL_PAY_CLIENT_ID` and `BILL_PAY_CLIENT_SECRET` from the Full access app. `BILL_ENV` is shared with the sync.
+3. Only if you created a separate Full access app: in Supabase, Edge Functions → Secrets, add `BILL_PAY_CLIENT_ID` and `BILL_PAY_CLIENT_SECRET`. `BILL_ENV` is shared with the sync.
 4. Deploy the new `bill-pay` function (paste the single-file version, name it exactly `bill-pay`, keep Verify JWT on), and redeploy `bill-sync` (its BILL client gained a POST method used by bill-pay).
 
 ### Safeguards
