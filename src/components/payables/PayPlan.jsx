@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarClock, Link2, Loader2, Search, Send, Unlink, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { money } from './format';
 import { daysLate, iso } from './installments';
@@ -65,6 +65,10 @@ export default function PayPlan() {
   const [actionError, setActionError] = useState('');
   const [releasing, setReleasing] = useState(null); // week being released
   const [cancelling, setCancelling] = useState(null); // installment id awaiting confirmation
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkStep, setBulkStep] = useState(null); // 'hold' | 'review' while confirming
+  const [reviewNote, setReviewNote] = useState('');
+  const [bulkResult, setBulkResult] = useState(null);
 
   async function load() {
     try {
@@ -90,6 +94,34 @@ export default function PayPlan() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function runBulk(action) {
+    setBusy(true);
+    setActionError('');
+    setBulkResult(null);
+    try {
+      const ids = [...selected];
+      const result = await payablesService.bulkUpdateBills(ids, action, action === 'review' ? reviewNote : null);
+      const names = Object.fromEntries(bills.map((b) => [b.id, `${b.vendor_name} · ${b.invoice_number || 'No invoice #'}`]));
+      setBulkResult({ action, updated: result.updated, skipped: (result.skipped || []).map((x) => ({ ...x, name: names[x.bill_id] || x.bill_id })) });
+      setSelected(new Set());
+      setBulkStep(null);
+      setReviewNote('');
+      await load();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleOne(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
   async function cancelRelease(installmentId) {
@@ -123,15 +155,17 @@ export default function PayPlan() {
     return items;
   }, [bills]);
 
+  useEffect(() => { setSelected(new Set()); setBulkStep(null); }, [filter, search]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return bills.filter((b) => {
-      if (Number(b.still_owed) <= 0 && filter !== 'planned') return false;
+      if (Number(b.still_owed) <= 0 && filter !== 'planned' && !(filter === 'review' && b.review_flag)) return false;
       if (q && !`${b.vendor_name} ${b.invoice_number}`.toLowerCase().includes(q)) return false;
       if (filter === 'none') return !b.plan && Number(b.due_amount) > 0;
       if (filter === 'planned') return b.plan && b.plan.plan_type !== 'hold';
       if (filter === 'hold') return b.plan?.plan_type === 'hold';
-      if (filter === 'review') return (b.plan?.review_reasons?.length || 0) > 0;
+      if (filter === 'review') return (b.plan?.review_reasons?.length || 0) > 0 || !!b.review_flag;
       return true;
     });
   }, [bills, filter, search]);
@@ -160,6 +194,11 @@ export default function PayPlan() {
   if (!data) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;
 
   const notPlanned = bills.filter((b) => !b.plan && Number(b.due_amount) > 0);
+  const allShownSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
+  const selectedBills = bills.filter((b) => selected.has(b.id));
+  const withDates = selectedBills.filter((b) => b.plan && b.plan.plan_type !== 'hold' && b.plan.installments.some((i) => i.status === 'planned' || i.status === 'missed')).length;
+  const bulkButton = 'inline-flex items-center gap-1 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50';
+  const BULK_DONE = { hold: 'put on hold', unhold: 'taken off hold', review: 'marked for review', clear_review: 'cleared from review' };
 
   return (
     <div className="space-y-6">
@@ -219,24 +258,88 @@ export default function PayPlan() {
             </label>
           </div>
         </div>
+        {bulkResult && (
+          <div className="mb-3 rounded-lg border border-slate-600 bg-slate-900/60 p-3 text-sm text-slate-200">
+            <div className="flex items-start justify-between gap-2">
+              <span>{bulkResult.updated} {bulkResult.updated === 1 ? 'bill' : 'bills'} {BULK_DONE[bulkResult.action]}.{bulkResult.skipped.length ? ` ${bulkResult.skipped.length} skipped:` : ''}</span>
+              <button type="button" onClick={() => setBulkResult(null)} className="text-xs text-slate-400 hover:text-white">Dismiss</button>
+            </div>
+            {bulkResult.skipped.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-xs text-amber-200">
+                {bulkResult.skipped.map((x) => <li key={x.bill_id}>{x.name}: {x.reason}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+        {selected.size > 0 && (
+          <div className="mb-3 rounded-lg border border-teal-500/40 bg-teal-500/5 p-3">
+            {!bulkStep && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-sm font-medium text-teal-200">{selected.size} selected</span>
+                <button type="button" disabled={busy} onClick={() => setBulkStep('hold')} className={bulkButton}><PauseCircle className="h-3.5 w-3.5" />Put on hold</button>
+                <button type="button" disabled={busy} onClick={() => runBulk('unhold')} className={bulkButton}>Remove hold</button>
+                <button type="button" disabled={busy} onClick={() => setBulkStep('review')} className={bulkButton}><Flag className="h-3.5 w-3.5" />Mark needs review</button>
+                <button type="button" disabled={busy} onClick={() => runBulk('clear_review')} className={bulkButton}>Clear review</button>
+                <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-slate-400 hover:text-white">Clear selection</button>
+              </div>
+            )}
+            {bulkStep === 'hold' && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-slate-200">
+                  Put {selected.size} {selected.size === 1 ? 'bill' : 'bills'} on hold?
+                  {withDates > 0 && ` ${withDates} ${withDates === 1 ? 'has' : 'have'} planned dates that will be removed.`}
+                  {' '}Payments already scheduled in BILL are not changed, so those bills are skipped.
+                </span>
+                <button type="button" disabled={busy} onClick={() => runBulk('hold')}
+                  className="rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50">{busy ? 'Saving…' : 'Put on hold'}</button>
+                <button type="button" onClick={() => setBulkStep(null)} className="px-2 text-xs text-slate-400 hover:text-white">Back</button>
+              </div>
+            )}
+            {bulkStep === 'review' && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label htmlFor="review-note" className="text-slate-200">Mark {selected.size} for review. Note (optional):</label>
+                <input id="review-note" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} maxLength={300} placeholder="e.g. check amount with vendor"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white focus:border-teal-500 focus:outline-none" />
+                <button type="button" disabled={busy} onClick={() => runBulk('review')}
+                  className="rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50">{busy ? 'Saving…' : 'Mark needs review'}</button>
+                <button type="button" onClick={() => setBulkStep(null)} className="px-2 text-xs text-slate-400 hover:text-white">Back</button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="overflow-x-auto rounded-lg border border-slate-700">
           <table className="w-full text-sm">
             <thead className="bg-slate-800 text-left text-xs uppercase tracking-wider text-slate-400">
-              <tr><th className="px-3 py-2">Vendor</th><th className="px-3 py-2">Invoice</th><th className="px-3 py-2">Due</th><th className="px-3 py-2 text-right">Still owed</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Next payment</th><th className="px-3 py-2" /></tr>
+              <tr>
+                <th className="w-8 px-3 py-2">
+                  <input type="checkbox" aria-label="Select all shown bills" checked={allShownSelected} disabled={!filtered.length}
+                    onChange={() => setSelected(allShownSelected ? new Set() : new Set(filtered.map((b) => b.id)))}
+                    className="h-4 w-4 rounded border-slate-500 bg-slate-900 accent-teal-500" />
+                </th>
+                <th className="px-3 py-2">Vendor</th><th className="px-3 py-2">Invoice</th><th className="px-3 py-2">Due</th><th className="px-3 py-2 text-right">Still owed</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Next payment</th><th className="px-3 py-2" />
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filtered.map((b) => {
                 const next = nextOpenInstallment(b);
                 const pastDue = b.due_date && today && b.due_date < today;
                 return (
-                  <tr key={b.id} className="text-slate-200">
+                  <tr key={b.id} className={`text-slate-200 ${selected.has(b.id) ? 'bg-teal-500/5' : ''}`}>
+                    <td className="px-3 py-2">
+                      <input type="checkbox" aria-label={`Select ${b.vendor_name} ${b.invoice_number || ''}`} checked={selected.has(b.id)} onChange={() => toggleOne(b.id)}
+                        className="h-4 w-4 rounded border-slate-500 bg-slate-900 accent-teal-500" />
+                    </td>
                     <td className="px-3 py-2">{b.vendor_name}</td>
                     <td className="px-3 py-2 text-slate-400">{b.invoice_number || ''}</td>
                     <td className={`whitespace-nowrap px-3 py-2 ${pastDue ? 'text-red-300' : ''}`}>{day(b.due_date)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(b.still_owed, { cents: true })}</td>
                     <td className="px-3 py-2">
                       {planSummary(b)}
-                      {(b.plan?.review_reasons?.length || 0) > 0 && <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-300">Review</span>}
+                      {((b.plan?.review_reasons?.length || 0) > 0 || b.review_flag) && (
+                        <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-300"
+                          title={[...(b.plan?.review_reasons || []), b.review_flag ? `Marked for review${b.review_flag.note ? `: ${b.review_flag.note}` : ''}` : null].filter(Boolean).join('\n')}>Review</span>
+                      )}
+                      {b.review_flag?.note && <span className="block text-xs text-amber-200/80">{b.review_flag.note}</span>}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">
                       {next ? (
@@ -255,7 +358,7 @@ export default function PayPlan() {
                   </tr>
                 );
               })}
-              {!filtered.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No bills match.</td></tr>}
+              {!filtered.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">No bills match.</td></tr>}
             </tbody>
           </table>
         </div>
