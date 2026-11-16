@@ -120,6 +120,9 @@ Deno.serve(async (req: Request) => {
   try {
     const client = new BillClient(clientId, clientSecret, env);
     const result = await runSync(client, supabaseStore(admin), Date.now() + TIME_BUDGET_MS);
+    // Match newly synced BILL payments to Pay Plan installments.
+    const { error: refreshError } = await admin.rpc("ap_refresh_pay_plans");
+    if (refreshError) console.error("Pay plan refresh failed:", refreshError.message);
     const status = result.complete ? "succeeded" : "partial";
     await admin.from("ap_sync_runs")
       .update({ status, counts: result.counts, finished_at: new Date().toISOString() })

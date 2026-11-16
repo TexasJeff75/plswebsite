@@ -73,3 +73,10 @@ truncate ap_bill_lines, ap_payment_bills, ap_bills, ap_payments, ap_vendors,
 - Archived records are fetched in a second pass so archived bills drop out of the reports.
 - Tax IDs and bank account details are never copied.
 - Every run is recorded in `ap_sync_runs` with its counts and any error.
+
+## Phase 2: Pay Plan and Forecast
+
+1. Run `supabase/migrations/20261116200000_create_ap_pay_plans_and_forecast.sql` in the SQL Editor. It only adds new tables and functions.
+2. Redeploy `bill-sync` (or paste the updated single-file version) so each sync also matches BILL payments to Pay Plan installments. Until then, the Forecast and Pay Plan tabs run the matching themselves when they open.
+
+How matching works: a BILL payment matches a planned installment when it is on the same bill, for the same amount (within $0.01), and its process date is within 3 days of the planned date. Matched installments show **Scheduled** with BILL's date, then **Paid** once BILL processes the payment. An installment with no match more than 3 days after its date shows **Missed**.

@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, Landmark, Loader2, Lock, RefreshCw } from 'lucide-react';
+import { AlertCircle, BarChart3, CalendarClock, Landmark, Loader2, Lock, RefreshCw, TrendingDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { payablesService } from '../services/payablesService';
 import SpendDashboard from './payables/SpendDashboard';
+import ForecastDashboard from './payables/ForecastDashboard';
+import PayPlan from './payables/PayPlan';
+
+const TABS = [
+  { id: 'spend', label: 'Spend', icon: BarChart3 },
+  { id: 'forecast', label: 'Forecast', icon: TrendingDown },
+  { id: 'plan', label: 'Pay Plan', icon: CalendarClock },
+];
 
 const SYNC_LABELS = {
   succeeded: 'Up to date',
@@ -20,6 +28,7 @@ export default function Payables() {
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncError, setSyncError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useState('spend');
 
   const isAllowed = profile?.role === 'Super Admin';
 
@@ -132,7 +141,21 @@ export default function Payables() {
         </div>
       )}
 
-      {options && hasData && <SpendDashboard key={refreshKey} options={options} />}
+      {options && hasData && (
+        <>
+          <div className="flex gap-1 border-b border-slate-700" role="tablist">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+                className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium ${tab === id ? 'border-teal-400 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                <Icon className="h-4 w-4" />{label}
+              </button>
+            ))}
+          </div>
+          {tab === 'spend' && <SpendDashboard key={`spend-${refreshKey}`} options={options} />}
+          {tab === 'forecast' && <ForecastDashboard key={`forecast-${refreshKey}`} />}
+          {tab === 'plan' && <PayPlan key={`plan-${refreshKey}`} />}
+        </>
+      )}
     </div>
   );
 }

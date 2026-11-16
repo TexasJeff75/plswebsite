@@ -40,6 +40,57 @@ export const payablesService = {
     return data;
   },
 
+  // Matches synced BILL payments to Pay Plan installments and updates statuses.
+  async refreshPayPlans() {
+    const { error } = await supabase.rpc('ap_refresh_pay_plans');
+    if (error) throw error;
+  },
+
+  async getForecast() {
+    const { data, error } = await supabase.rpc('ap_forecast');
+    if (error) throw error;
+    return data;
+  },
+
+  async getPayPlanView() {
+    const { data, error } = await supabase.rpc('ap_pay_plan_view');
+    if (error) throw error;
+    return data;
+  },
+
+  async savePayPlan({ billId, planType, installments, notes }) {
+    const { data, error } = await supabase.rpc('ap_save_pay_plan', {
+      p_bill_id: billId,
+      p_plan_type: planType,
+      p_installments: installments,
+      p_notes: notes || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async deletePayPlan(billId) {
+    const { error } = await supabase.rpc('ap_delete_pay_plan', { p_bill_id: billId });
+    if (error) throw error;
+  },
+
+  // Pass paymentId = null to unlink.
+  async linkInstallment(installmentId, paymentId) {
+    const { error } = await supabase.rpc('ap_link_installment', {
+      p_installment_id: installmentId,
+      p_payment_id: paymentId,
+    });
+    if (error) throw error;
+  },
+
+  async saveCashSettings({ startingCash, minCash }) {
+    const { error } = await supabase.rpc('ap_save_settings', {
+      p_starting_cash: startingCash === '' || startingCash === null ? null : Number(startingCash),
+      p_min_cash: minCash === '' || minCash === null ? null : Number(minCash),
+    });
+    if (error) throw error;
+  },
+
   // Runs the bill-sync function until it reports nothing left to copy.
   // A first sync of a large BILL account can take several rounds.
   async runSync(onProgress) {
