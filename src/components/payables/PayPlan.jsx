@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarClock, Link2, Loader2, Search, Unlink } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Link2, Loader2, Search, Send, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { money } from './format';
 import { daysLate, iso } from './installments';
 import PlanEditor from './PlanEditor';
+import ReleaseDialog from './ReleaseDialog';
 
 const STATUS_STYLES = {
   planned: 'bg-sky-500/15 text-sky-300',
@@ -25,7 +26,10 @@ const FILTERS = [
 const day = (d) => (d ? format(parseISO(d), 'MMM d, yyyy') : '');
 const shortDay = (d) => (d ? format(parseISO(d), 'EEE MMM d') : '');
 
-function StatusChip({ status }) {
+function StatusChip({ status, paymentStatus }) {
+  if (status === 'scheduled' && paymentStatus === 'WAITING_ON_APPROVAL') {
+    return <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-300">Waiting on approval in BILL</span>;
+  }
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status] || 'bg-slate-700 text-slate-300'}`}>{STATUS_LABELS[status] || status}</span>;
 }
 
@@ -59,6 +63,8 @@ export default function PayPlan() {
   const [linking, setLinking] = useState(null); // { bill, payment }
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [releasing, setReleasing] = useState(null); // week being released
+  const [cancelling, setCancelling] = useState(null); // installment id awaiting confirmation
 
   async function load() {
     try {
@@ -78,6 +84,20 @@ export default function PayPlan() {
     try {
       await payablesService.linkInstallment(installmentId, paymentId);
       setLinking(null);
+      await load();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelRelease(installmentId) {
+    setBusy(true);
+    setActionError('');
+    try {
+      await payablesService.cancelReleasedPayment(installmentId);
+      setCancelling(null);
       await load();
     } catch (err) {
       setActionError(err.message);
@@ -144,8 +164,8 @@ export default function PayPlan() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-slate-400">
-        Plan when each bill will be paid, then schedule each payment in BILL. After the next sync, payments in BILL are matched to the plan
-        when the bill and amount match and the date is within 3 days.
+        Plan when each bill will be paid, then release each week to BILL when you are ready to pay it. Payments you schedule in BILL
+        yourself are matched to the plan after the next sync when the bill and amount match and the date is within 3 days.
       </p>
 
       {actionError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{actionError}</div>}
@@ -243,7 +263,7 @@ export default function PayPlan() {
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
         <h3 className="mb-1 text-base font-semibold text-white">Weekly pay list</h3>
-        <p className="mb-3 text-xs text-slate-500">Planned payments to schedule in BILL, by week. Scheduled ones are already in BILL and show BILL's date.</p>
+        <p className="mb-3 text-xs text-slate-500">Planned payments by week. Release a week to create its payments in BILL; released and scheduled ones show BILL's date and can be canceled until BILL starts processing.</p>
         {payWeeks.length ? (
           <div className="space-y-4">
             {payWeeks.map((w) => {
@@ -253,8 +273,16 @@ export default function PayPlan() {
                 <div key={w.start}>
                   <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-700 pb-1">
                     <span className="text-sm font-semibold text-slate-200">Week of {format(parseISO(w.start), 'MMM d')}</span>
-                    <span className="text-xs text-slate-400 tabular-nums">
-                      {money(total, { cents: true })} total{toSchedule ? ` · ${money(toSchedule, { cents: true })} still to schedule in BILL` : ''}
+                    <span className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs text-slate-400 tabular-nums">
+                        {money(total, { cents: true })} total{toSchedule ? ` · ${money(toSchedule, { cents: true })} still to schedule in BILL` : ''}
+                      </span>
+                      {toSchedule > 0 && (
+                        <button type="button" onClick={() => setReleasing(w)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-teal-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-teal-400">
+                          <Send className="h-3.5 w-3.5" />Release to BILL
+                        </button>
+                      )}
                     </span>
                   </div>
                   <ul className="divide-y divide-slate-800 text-sm">
@@ -266,10 +294,27 @@ export default function PayPlan() {
                             <span className="tabular-nums text-slate-400">{shortDay(r.date)}</span> · {r.bill.vendor_name}
                             <span className="text-slate-400"> · {r.bill.invoice_number || 'No invoice #'} · {r.seq} of {r.total}</span>
                             {late > 0 && <span className="ml-2 text-xs text-amber-300">{late} {late === 1 ? 'day' : 'days'} late</span>}
+                            {r.release_problem && !r.matched_payment_id && (
+                              <span className="block text-xs text-amber-300">Last release did not go through: {r.release_problem}</span>
+                            )}
                           </span>
                           <span className="flex items-center gap-2">
                             <span className="tabular-nums text-white">{money(r.amount, { cents: true })}</span>
-                            <StatusChip status={r.status} />
+                            <StatusChip status={r.status} paymentStatus={r.payment_status} />
+                            {r.status === 'scheduled' && r.matched_payment_id && cancelling !== r.id && (
+                              <button type="button" disabled={busy} onClick={() => setCancelling(r.id)} title="Cancel this payment in BILL"
+                                className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-red-300" aria-label="Cancel payment in BILL">
+                                <XCircle className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {cancelling === r.id && (
+                              <span className="flex items-center gap-1 text-xs">
+                                <span className="text-slate-300">Cancel in BILL?</span>
+                                <button type="button" disabled={busy} onClick={() => cancelRelease(r.id)}
+                                  className="rounded bg-red-500/20 px-2 py-0.5 text-red-200 hover:bg-red-500/30">{busy ? 'Canceling…' : 'Yes, cancel'}</button>
+                                <button type="button" onClick={() => setCancelling(null)} className="px-1 text-slate-400 hover:text-white">Keep</button>
+                              </span>
+                            )}
                             {r.matched_by === 'manual' && (
                               <button type="button" disabled={busy} onClick={() => link(r.id, null)} title="Unlink this BILL payment"
                                 className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-white" aria-label="Unlink payment">
@@ -287,6 +332,10 @@ export default function PayPlan() {
           </div>
         ) : <p className="text-sm text-slate-500">No planned payments yet. Use Plan on a bill above to add one.</p>}
       </section>
+
+      {releasing && (
+        <ReleaseDialog week={releasing} onClose={() => setReleasing(null)} onDone={async () => { setReleasing(null); await load(); }} />
+      )}
 
       {editing && (
         <PlanEditor bill={editing} today={today} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }} />
