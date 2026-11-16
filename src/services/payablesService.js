@@ -76,7 +76,14 @@ export const payablesService = {
     return data;
   },
 
-  async deletePayPlan(billId) {
+  // Each bill gets one planned payment on plannedDate for what is still owed.
+  async bulkPlanBills(billIds, plannedDate) {
+    const { data, error } = await supabase.rpc('ap_bulk_plan_bills', { p_bill_ids: billIds, p_planned_date: plannedDate });
+    if (error) throw error;
+    return data;
+  },
+
+    async deletePayPlan(billId) {
     const { error } = await supabase.rpc('ap_delete_pay_plan', { p_bill_id: billId });
     if (error) throw error;
   },

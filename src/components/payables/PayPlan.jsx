@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { billUrl, money } from './format';
-import { daysLate, iso } from './installments';
+import { daysLate, fridayOnOrAfter, iso } from './installments';
 import PlanEditor from './PlanEditor';
 import ReleaseDialog from './ReleaseDialog';
 
@@ -77,6 +77,7 @@ export default function PayPlan() {
   const [selected, setSelected] = useState(() => new Set());
   const [bulkStep, setBulkStep] = useState(null); // 'hold' | 'review' while confirming
   const [reviewNote, setReviewNote] = useState('');
+  const [planDate, setPlanDate] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
 
   async function load() {
@@ -111,9 +112,11 @@ export default function PayPlan() {
     setBulkResult(null);
     try {
       const ids = [...selected];
-      const result = await payablesService.bulkUpdateBills(ids, action, action === 'review' ? reviewNote : null);
+      const result = action === 'plan'
+        ? await payablesService.bulkPlanBills(ids, planDate)
+        : await payablesService.bulkUpdateBills(ids, action, action === 'review' ? reviewNote : null);
       const names = Object.fromEntries(bills.map((b) => [b.id, `${b.vendor_name} · ${b.invoice_number || 'No invoice #'}`]));
-      setBulkResult({ action, updated: result.updated, skipped: (result.skipped || []).map((x) => ({ ...x, name: names[x.bill_id] || x.bill_id })) });
+      setBulkResult({ action, date: planDate, total: result.total, updated: result.updated, skipped: (result.skipped || []).map((x) => ({ ...x, name: names[x.bill_id] || x.bill_id })) });
       setSelected(new Set());
       setBulkStep(null);
       setReviewNote('');
@@ -207,7 +210,9 @@ export default function PayPlan() {
   const selectedBills = bills.filter((b) => selected.has(b.id));
   const withDates = selectedBills.filter((b) => b.plan && b.plan.plan_type !== 'hold' && b.plan.installments.some((i) => i.status === 'planned' || i.status === 'missed')).length;
   const bulkButton = 'inline-flex items-center gap-1 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50';
-  const BULK_DONE = { hold: 'put on hold', unhold: 'taken off hold', review: 'marked for review', clear_review: 'cleared from review' };
+  const selectedOwed = selectedBills.reduce((sum, b) => sum + Math.max(Number(b.due_amount) || 0, 0), 0);
+  const replacing = selectedBills.filter((b) => b.plan && b.plan.installments.some((i) => i.status === 'planned' || i.status === 'missed')).length;
+  const BULK_DONE = { plan: 'planned', hold: 'put on hold', unhold: 'taken off hold', review: 'marked for review', clear_review: 'cleared from review' };
 
   return (
     <div className="space-y-6">
@@ -270,7 +275,7 @@ export default function PayPlan() {
         {bulkResult && (
           <div className="mb-3 rounded-lg border border-slate-600 bg-slate-900/60 p-3 text-sm text-slate-200">
             <div className="flex items-start justify-between gap-2">
-              <span>{bulkResult.updated} {bulkResult.updated === 1 ? 'bill' : 'bills'} {BULK_DONE[bulkResult.action]}.{bulkResult.skipped.length ? ` ${bulkResult.skipped.length} skipped:` : ''}</span>
+              <span>{bulkResult.updated} {bulkResult.updated === 1 ? 'bill' : 'bills'} {BULK_DONE[bulkResult.action]}{bulkResult.action === 'plan' && bulkResult.updated ? ` for ${day(bulkResult.date)}, ${money(bulkResult.total, { cents: true })} total` : ''}.{bulkResult.skipped.length ? ` ${bulkResult.skipped.length} skipped:` : ''}</span>
               <button type="button" onClick={() => setBulkResult(null)} className="text-xs text-slate-400 hover:text-white">Dismiss</button>
             </div>
             {bulkResult.skipped.length > 0 && (
@@ -285,11 +290,27 @@ export default function PayPlan() {
             {!bulkStep && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="mr-1 text-sm font-medium text-teal-200">{selected.size} selected</span>
+                <button type="button" disabled={busy} onClick={() => { setPlanDate(today ? iso(fridayOnOrAfter(parseISO(today))) : ''); setBulkStep('plan'); }} className={bulkButton}><CalendarCheck className="h-3.5 w-3.5" />Plan for one day</button>
                 <button type="button" disabled={busy} onClick={() => setBulkStep('hold')} className={bulkButton}><PauseCircle className="h-3.5 w-3.5" />Put on hold</button>
                 <button type="button" disabled={busy} onClick={() => runBulk('unhold')} className={bulkButton}>Remove hold</button>
                 <button type="button" disabled={busy} onClick={() => setBulkStep('review')} className={bulkButton}><Flag className="h-3.5 w-3.5" />Mark needs review</button>
                 <button type="button" disabled={busy} onClick={() => runBulk('clear_review')} className={bulkButton}>Clear review</button>
                 <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-slate-400 hover:text-white">Clear selection</button>
+              </div>
+            )}
+            {bulkStep === 'plan' && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label htmlFor="plan-one-day" className="text-slate-200">Pay {selected.size} {selected.size === 1 ? 'bill' : 'bills'} in full on</label>
+                <input id="plan-one-day" type="date" value={planDate} min={today || undefined} onChange={(e) => setPlanDate(e.target.value)}
+                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white focus:border-teal-500 focus:outline-none [color-scheme:dark]" />
+                <span className="text-slate-300">
+                  About {money(selectedOwed, { cents: true })}.
+                  {replacing > 0 && ` Planned dates on ${replacing} ${replacing === 1 ? 'bill' : 'bills'} will be replaced.`}
+                  {' '}Release that week to BILL when you are ready.
+                </span>
+                <button type="button" disabled={busy || !planDate || (today && planDate < today)} onClick={() => runBulk('plan')}
+                  className="rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50">{busy ? 'Saving…' : 'Plan payments'}</button>
+                <button type="button" onClick={() => setBulkStep(null)} className="px-2 text-xs text-slate-400 hover:text-white">Back</button>
               </div>
             )}
             {bulkStep === 'hold' && (
