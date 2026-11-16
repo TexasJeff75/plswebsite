@@ -91,6 +91,13 @@ export const payablesService = {
     if (error) throw error;
   },
 
+  // Removes all copied BILL data and pay plans (for switching sandbox to production).
+  async clearBillData() {
+    const { data, error } = await supabase.rpc('ap_clear_bill_data');
+    if (error) throw error;
+    return data;
+  },
+
   // Runs the bill-sync function until it reports nothing left to copy.
   // A first sync of a large BILL account can take several rounds.
   async runSync(onProgress) {

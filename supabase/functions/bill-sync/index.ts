@@ -117,6 +117,20 @@ Deno.serve(async (req: Request) => {
     .select("id").single();
   if (runError) return json({ error: runError.message }, 500);
 
+  // Never mix sandbox and production data. Skipped if the guard migration is not applied yet.
+  const { data: source, error: sourceError } = await admin.rpc("ap_record_data_source", { p_env: env });
+  if (sourceError) {
+    console.error("Data source check skipped:", sourceError.message);
+  } else if (typeof source === "string" && source.startsWith("mismatch:")) {
+    const saved = source.slice("mismatch:".length);
+    const message = `Data source mismatch: the saved payables data came from the BILL ${saved}, ` +
+      `but the connection is now set to ${env}. Click "Clear BILL data" on the Payables page, then sync again.`;
+    await admin.from("ap_sync_runs")
+      .update({ status: "failed", error: message, finished_at: new Date().toISOString() })
+      .eq("id", run.id);
+    return json({ runId: run.id, status: "failed", error: message }, 409);
+  }
+
   try {
     const client = new BillClient(clientId, clientSecret, env);
     const result = await runSync(client, supabaseStore(admin), Date.now() + TIME_BUDGET_MS);

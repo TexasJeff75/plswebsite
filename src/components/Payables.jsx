@@ -29,6 +29,8 @@ export default function Payables() {
   const [syncError, setSyncError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [tab, setTab] = useState('spend');
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const isAllowed = profile?.role === 'Super Admin';
 
@@ -60,6 +62,21 @@ export default function Payables() {
     }
   }
 
+  async function handleClear() {
+    setClearing(true);
+    setSyncError('');
+    try {
+      await payablesService.clearBillData();
+      setConfirmClear(false);
+      await loadOptions();
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setSyncError(err.message);
+    } finally {
+      setClearing(false);
+    }
+  }
+
   if (!isAllowed) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -78,6 +95,9 @@ export default function Payables() {
   const lastSuccess = options?.last_success;
   const hasData = (options?.vendors?.length || 0) > 0;
   const syncedRecords = syncProgress ? Object.values(syncProgress.totals).reduce((a, b) => a + b, 0) : 0;
+  const dataEnv = options?.data_source_env;
+  const shownError = syncError || (!syncing && lastSync?.status === 'failed' ? lastSync.error : '');
+  const sourceMismatch = !!shownError && shownError.startsWith('Data source mismatch');
 
   return (
     <div className="space-y-6">
@@ -88,7 +108,14 @@ export default function Payables() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Payables</h1>
-            <p className="text-slate-400 text-sm">Accounts payable from BILL · read-only</p>
+            <p className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
+              Accounts payable from BILL · read-only
+              {dataEnv && (
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dataEnv === 'production' ? 'bg-teal-500/15 text-teal-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                  {dataEnv === 'production' ? 'Production data' : 'Sandbox data'}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
@@ -114,12 +141,31 @@ export default function Payables() {
         </div>
       </div>
 
-      {(syncError || (!syncing && lastSync?.status === 'failed' && lastSync.error)) && (
+      {shownError && (
         <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
-          <div>
+          <div className="min-w-0">
             <p className="font-medium text-red-100">The BILL sync did not finish.</p>
-            <p className="mt-1">{syncError || lastSync.error}</p>
+            <p className="mt-1">{shownError}</p>
+            {sourceMismatch && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {!confirmClear ? (
+                  <button type="button" onClick={() => setConfirmClear(true)}
+                    className="rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-medium text-red-100 hover:bg-red-500/20">
+                    Clear BILL data
+                  </button>
+                ) : (
+                  <>
+                    <span className="text-red-100">This removes all copied BILL data and every pay plan. Cash cushion settings are kept. Continue?</span>
+                    <button type="button" onClick={handleClear} disabled={clearing}
+                      className="inline-flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-400 disabled:opacity-60">
+                      {clearing && <Loader2 className="h-3 w-3 animate-spin" />}Clear data
+                    </button>
+                    <button type="button" onClick={() => setConfirmClear(false)} className="px-2 text-xs text-red-200 hover:text-white">Cancel</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
