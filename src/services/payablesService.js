@@ -69,6 +69,13 @@ export const payablesService = {
     return data;
   },
 
+  // action: 'hold' | 'unhold' | 'review' | 'clear_review'. Returns { updated, skipped: [{ bill_id, reason }] }.
+  async bulkUpdateBills(billIds, action, note) {
+    const { data, error } = await supabase.rpc('ap_bulk_update_bills', { p_bill_ids: billIds, p_action: action, p_note: note || null });
+    if (error) throw error;
+    return data;
+  },
+
   async deletePayPlan(billId) {
     const { error } = await supabase.rpc('ap_delete_pay_plan', { p_bill_id: billId });
     if (error) throw error;
