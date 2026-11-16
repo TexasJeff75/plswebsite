@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { AlertTriangle, CheckCircle2, Loader2, Send, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Landmark, Loader2, Send, X } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { money } from './format';
 
@@ -33,8 +33,15 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
         setCheck(c);
         setForecastWeek((f.weeks || []).find((w) => w.week_start === week.start) || null);
         setSelected(Object.fromEntries(c.rows.map((r) => [r.installment.id, r.ok])));
-        const firstBank = c.rows.flatMap((r) => r.banks).find((b) => b.available);
-        if (firstBank) setBankId(firstBank.id);
+        // Prefer an account BILL says the tracker's user can pay from, then the default payables account.
+        const offered = c.rows.flatMap((r) => r.banks).filter((b) => b.available);
+        const accounts = c.funding?.accounts || [];
+        const rank = (b) => {
+          const a = accounts.find((x) => x.id === b.id);
+          return (a?.usable === 'yes' ? 0 : a?.usable === 'maybe' ? 2 : 4) + (a?.defaultPayables ? 0 : 1);
+        };
+        const best = [...offered].sort((x, y) => rank(x) - rank(y))[0];
+        if (best) setBankId(best.id);
       })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
@@ -54,6 +61,10 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
     const problem = r.problem || (bank && !bank.available ? bank.reason || 'This bank account cannot pay this vendor.' : null) || (!bank && r.ok ? 'BILL did not offer this bank account for this vendor.' : null);
     return { ...r, processDate, problem, ok: !problem, laterThanPlanned: processDate > r.installment.planned_date && r.installment.planned_date >= check.today };
   });
+  const funding = check?.funding;
+  const accountFor = (id) => (funding?.accounts || []).find((a) => a.id === id);
+  const chosenAccount = accountFor(bankId);
+  const bankBlocked = chosenAccount?.usable === 'no' || funding?.payOnline === false;
   const chosen = rows.filter((r) => r.ok && selected[r.installment.id]);
   const total = chosen.reduce((s, r) => s + Number(r.installment.amount), 0);
   const large = total > LARGE_BATCH;
@@ -119,10 +130,42 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
                 <span className="text-xs font-medium text-slate-400">Pay from</span>
                 <select id="release-bank" value={bankId} onChange={(e) => setBankId(e.target.value)}
                   className="w-full max-w-sm rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none">
-                  {banks.map((b) => <option key={b.id} value={b.id} disabled={!b.available}>{b.name || b.id}{b.available ? '' : ` (${b.reason || 'not available'})`}</option>)}
+                  {banks.map((b) => {
+                    const acct = accountFor(b.id);
+                    const note = !b.available ? b.reason || 'not available' : acct?.usable === 'no' ? 'not usable by the tracker' : acct?.usable === 'maybe' ? 'check access' : '';
+                    return <option key={b.id} value={b.id} disabled={!b.available}>{acct?.label || b.name || b.id}{note ? ` (${note})` : ''}</option>;
+                  })}
                   {!banks.length && <option value="">No bank account available</option>}
                 </select>
               </label>
+
+              {(bankBlocked || chosenAccount?.usable === 'maybe' || funding?.problems?.length > 0) && (
+                <div className={`rounded-lg border p-3 text-sm ${bankBlocked ? 'border-red-500/40 bg-red-500/10 text-red-100' : 'border-amber-500/40 bg-amber-500/10 text-amber-100'}`}>
+                  {chosenAccount?.reason && <p className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{chosenAccount.reason}</p>}
+                  {(funding?.problems || []).map((p) => <p key={p} className="mt-1 flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{p}</p>)}
+                </div>
+              )}
+
+              {funding?.accounts?.length > 0 && (
+                <details className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm" open={bankBlocked}>
+                  <summary className="flex cursor-pointer items-center gap-2 text-slate-300"><Landmark className="h-4 w-4" />Bank accounts in BILL</summary>
+                  <ul className="mt-2 space-y-1">
+                    {funding.accounts.map((a) => (
+                      <li key={a.id} className="flex flex-wrap justify-between gap-2 border-t border-slate-700/60 pt-1">
+                        <span className="text-slate-200">{a.label}{a.defaultPayables ? <span className="ml-2 text-xs text-slate-400">default for payables</span> : null}</span>
+                        <span className="text-xs">
+                          <span className={a.status === 'VERIFIED' ? 'text-teal-300' : 'text-red-300'}>Account {String(a.status || 'unknown').toLowerCase().replace(/_/g, ' ')}</span>
+                          <span className="text-slate-500"> · </span>
+                          <span className={a.userStatus === 'VERIFIED' ? 'text-teal-300' : a.usable === 'maybe' ? 'text-amber-300' : 'text-red-300'}>
+                            Tracker's BILL user {a.userStatus ? String(a.userStatus).toLowerCase() : 'not listed'}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500">The tracker pays as the BILL user who created the developer app. That user must be authorized on the bank account in BILL.</p>
+                </details>
+              )}
 
               <div className="overflow-x-auto rounded-lg border border-slate-700">
                 <table className="w-full text-sm">
@@ -202,7 +245,7 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
           ) : (
             <>
               <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Cancel</button>
-              <button type="button" onClick={release} disabled={sending || !check || !chosen.length || !bankId || (large && !confirmLarge)}
+              <button type="button" onClick={release} disabled={sending || !check || !chosen.length || !bankId || bankBlocked || (large && !confirmLarge)}
                 className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50">
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Release {chosen.length} {chosen.length === 1 ? 'payment' : 'payments'} to BILL

@@ -93,6 +93,96 @@ export async function checkInstallments(client: BillClient, store: PayStore, ids
   return rows;
 }
 
+// ── Bank account check ──────────────────────────────────────────────────────
+// What BILL says about each bank account for the BILL user the tracker acts
+// as (the user who created the developer app). Only the last 4 digits of an
+// account number ever leave this function.
+
+export interface FundingAccount {
+  id: string;
+  label: string;
+  status: string | null;
+  defaultPayables: boolean;
+  accessToAdmins: boolean;
+  userStatus: string | null; // this user's authorization on the account, null if not listed
+  usable: "yes" | "maybe" | "no";
+  reason: string | null;
+}
+
+export interface FundingCheck {
+  payOnline: boolean | null;
+  accounts: FundingAccount[];
+  problems: string[];
+}
+
+const last4 = (n: unknown) => (typeof n === "string" && n.length >= 4 ? n.slice(-4) : "");
+
+export async function checkFunding(client: BillClient): Promise<FundingCheck> {
+  const problems: string[] = [];
+  let payOnline: boolean | null = null;
+  try {
+    const perms = await client.get("/v3/funding-accounts/permissions", {});
+    payOnline = typeof perms?.user?.payOnline === "boolean" ? perms.user.payOnline : null;
+    if (payOnline === false) problems.push("BILL says the user behind the tracker cannot make online payments. Check that user's role in BILL.");
+  } catch (err) {
+    problems.push(`Could not read payment permissions: ${err instanceof Error ? err.message : err}`);
+  }
+
+  let banks: any[] = [];
+  try {
+    banks = (await client.get("/v3/funding-accounts/banks", { max: "100", filters: "archived:eq:false" }))?.results ?? [];
+  } catch (err) {
+    problems.push(`Could not read bank accounts: ${err instanceof Error ? err.message : err}`);
+  }
+
+  const mine = new Map<string, string>();
+  try {
+    const rows = (await client.get("/v3/funding-accounts/banks/users", { currentUser: "true", max: "100" }))?.results ?? [];
+    for (const r of rows) if (!r.archived) mine.set(r.bankAccountId, r.verificationStatus);
+  } catch (err) {
+    problems.push(`Could not read bank account users: ${err instanceof Error ? err.message : err}`);
+  }
+
+  const accounts = banks.map((b): FundingAccount => {
+    const userStatus = mine.get(b.id) ?? null;
+    let usable: FundingAccount["usable"] = "yes";
+    let reason: string | null = null;
+    if (b.status !== "VERIFIED") {
+      usable = "no";
+      reason = `The bank account is ${String(b.status ?? "not verified").toLowerCase().replace(/_/g, " ")} in BILL.`;
+    } else if (userStatus === "VERIFIED") {
+      usable = "yes";
+    } else if (userStatus === "NOMINATED") {
+      usable = "no";
+      reason = "The BILL user behind the tracker was added to this account but has not finished BILL's identity check (look for BILL's email).";
+    } else if (userStatus) {
+      usable = "no";
+      reason = "The BILL user behind the tracker is not verified on this account. Add them under the account's users in BILL.";
+    } else if (b.accessToAdmins) {
+      usable = "maybe";
+      reason = "The BILL user behind the tracker is not listed on this account. It works only if that user is a BILL administrator.";
+    } else {
+      usable = "no";
+      reason = "The BILL user behind the tracker is not authorized on this account. Add them under the account's users in BILL.";
+    }
+    return {
+      id: b.id,
+      label: [b.bankName || "Bank account", last4(b.accountNumber) ? `****${last4(b.accountNumber)}` : ""].filter(Boolean).join(" "),
+      status: b.status ?? null,
+      defaultPayables: !!b.default?.payables,
+      accessToAdmins: !!b.accessToAdmins,
+      userStatus,
+      usable,
+      reason,
+    };
+  });
+
+  if (banks.length && !accounts.some((a) => a.usable !== "no")) {
+    problems.push("None of your BILL bank accounts can be used by the BILL user behind the tracker. See each account below.");
+  }
+  return { payOnline, accounts, problems };
+}
+
 export interface ReleaseResult {
   installmentId: string;
   status: "sent" | "failed" | "unknown" | "skipped";

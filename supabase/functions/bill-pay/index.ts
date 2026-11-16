@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.93.1";
 import { BillClient, BillEnv, mapBill, mapBillLines, mapPayment, mapPaymentBills } from "../bill-sync/sync.ts";
-import { cancelInstallment, checkInstallments, Installment, PayStore, releaseInstallments } from "./release.ts";
+import { cancelInstallment, checkFunding, checkInstallments, Installment, PayStore, releaseInstallments } from "./release.ts";
 
 // Weekly release: creates scheduled payments in BILL for planned installments,
 // and cancels them while BILL has not started processing. Super Admin only.
@@ -153,7 +153,8 @@ Deno.serve(async (req: Request) => {
     if (body.action === "check") {
       const ids: string[] = Array.isArray(body.installmentIds) ? body.installmentIds : [];
       if (!ids.length) return json({ error: "Choose at least one payment" }, 400);
-      return json({ rows: await checkInstallments(client, store, ids), today });
+      const [rows, funding] = await Promise.all([checkInstallments(client, store, ids), checkFunding(client)]);
+      return json({ rows, funding, today });
     }
     if (body.action === "release") {
       const ids: string[] = Array.isArray(body.installmentIds) ? body.installmentIds : [];
