@@ -133,3 +133,15 @@ Plans stay in the tracker until you release a week. **Release to BILL** on the P
 ### First test
 
 Release one small installment dated at least a few days out, confirm it appears in BILL (as scheduled, or waiting on approval), then cancel it from the tracker and confirm BILL shows it canceled.
+
+## Cash Flow tab
+
+A week-by-week cash grid (weeks start on Sunday), like a cash flow spreadsheet.
+
+- **Vendor and people payments** come from BILL and the Pay Plan: paid (yellow), scheduled in BILL (teal), and planned but not yet in BILL (blue). Overdue planned payments count in the current week. Change them on the Pay Plan tab.
+- **Other lines** (cash collected, payroll, rent, loans, credit card) are typed into the grid. Click a cell to change it. The repeat button fills the same amount every 1 to 4 weeks. Add, rename or delete lines from the grid.
+- **Balances.** Set the opening balance and the week it applies to. Each week then starts with last week's actual ending if one is entered, otherwise the forecast ending. Enter actual endings from the bank each week.
+- **People vs vendors.** Hover a vendor row and click the people icon to move it between the People and Vendors groups.
+- Open bills with no pay plan are shown on their own row and are not counted, so plan or hold them on the Pay Plan tab.
+
+Migration: `20261117120000_ap_cash_flow.sql`.
