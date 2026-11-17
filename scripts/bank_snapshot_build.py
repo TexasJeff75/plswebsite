@@ -10,6 +10,8 @@ raw.json holds BankBridge answers for account ****5761:
   categories: get_spending_summary group_by=category (last 30 days)
   payees:     get_spending_summary group_by=merchant, limit=100 (last 30 days)
   recurring:  get_recurring_charges answer
+  deposits:   [{date, amount}] every POSTED money-in transaction on ****5761 (list_transactions
+              category TRANSFER_IN and INCOME) from the first weekly week on; amount positive
 out.json is the body to POST to the cash-import function ({"bank_snapshot": {...}}).
 """
 import json, re, sys, datetime
@@ -42,7 +44,13 @@ for m in sorted(raw['months'], key=lambda x: x['month'], reverse=True):
     months.append({'month': m['month'], 'income': m['income'], 'expenses': m['expenses'], 'net': m['net'], 'partial': bool(m.get('partial_month')),
       'top_in': [{'name': src(r['source']), 'amount': r['amount']} for r in m['top_income_sources']],
       'top_out': [{'name': CAT.get(r['category'], r['category']), 'amount': r['amount']} for r in m['top_expense_categories']]})
-weekly = sorted([{'week_start': monday(g['group']), 'total': g['total'], 'count': g['transaction_count']} for g in raw['weekly']['groups']], key=lambda x: x['week_start'])
+wk = {monday(g['group']): {'week_start': monday(g['group']), 'total': g['total'], 'count': g['transaction_count'], 'deposits': 0} for g in raw['weekly']['groups']}
+first = min(wk) if wk else None
+for t in raw.get('deposits', []):
+    dt = datetime.date.fromisoformat(t['date']); mon = (dt - datetime.timedelta(days=dt.weekday())).isoformat()
+    if first and mon < first: continue
+    w = wk.setdefault(mon, {'week_start': mon, 'total': 0, 'count': 0, 'deposits': 0}); w['deposits'] += abs(float(t['amount']))
+weekly = sorted(({**w, 'deposits': round(w['deposits'], 2)} for w in wk.values()), key=lambda x: x['week_start'])
 cats = [{'category': CAT.get(g['group'], g['group']), 'total': g['total'], 'count': g['transaction_count']} for g in raw['categories']['groups']]
 by = {}
 for g in raw['payees']['groups']:

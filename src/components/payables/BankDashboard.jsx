@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { money } from './format';
@@ -112,15 +112,17 @@ export default function BankDashboard() {
         <Kpi title="Net for the month" value={m ? signed(m.net) : '·'} tone={m ? (m.net < 0 ? 'bad' : 'good') : undefined} note={m?.partial ? 'Month still in progress' : 'Whole month'} />
       </div>
 
-      <Section title="Money out each week" sub="Posted payments, weeks Monday to Sunday. The current week is still filling in.">
+      <Section title="Money in and out each week" sub="Posted deposits (including transfers in) and posted payments, weeks Monday to Sunday. The current week is still filling in.">
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weekly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#475569' }} minTickGap={12} />
               <YAxis tickFormatter={compactMoney} tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} width={52} />
-              <Tooltip formatter={(v) => [money(v), 'Paid out']} labelFormatter={(l) => `Week of ${l}`} contentStyle={tooltipStyle} labelStyle={{ color: '#e2e8f0' }} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
-              <Bar dataKey="total" fill="#2dd4bf" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive={false} />
+              <Tooltip formatter={(v, name) => [money(v), name]} labelFormatter={(l) => `Week of ${l}`} contentStyle={tooltipStyle} labelStyle={{ color: '#e2e8f0' }} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+              <Legend wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
+              <Bar dataKey="deposits" name="Deposits in" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+              <Bar dataKey="total" name="Money out" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={24} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>
