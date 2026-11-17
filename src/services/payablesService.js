@@ -138,6 +138,55 @@ export const payablesService = {
     return data;
   },
 
+  // ── Cash flow (weekly grid, weeks start on Sunday) ──
+  async getCashFlow({ from, to }) {
+    const { data, error } = await supabase.rpc('ap_cash_flow', { p_from: from, p_to: to });
+    if (error) throw error;
+    return data;
+  },
+
+  async getCashSettings() {
+    const { data, error } = await supabase.from('ap_settings').select('starting_cash, starting_cash_week, min_cash').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data || {};
+  },
+
+  async saveCashStart({ amount, week, minCash }) {
+    const { error } = await supabase.rpc('ap_set_cash_start', {
+      p_amount: amount === '' || amount === null ? null : Number(amount),
+      p_week: week || null,
+      p_min_cash: minCash === '' || minCash === null ? null : Number(minCash),
+    });
+    if (error) throw error;
+  },
+
+  async saveCashLine({ id, name, direction }) {
+    const { data, error } = await supabase.rpc('ap_save_cash_line', { p_id: id || null, p_name: name, p_direction: direction });
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteCashLine(id) {
+    const { error } = await supabase.rpc('ap_delete_cash_line', { p_id: id });
+    if (error) throw error;
+  },
+
+  // amounts: [{ week_start, amount }]; 0 or empty clears a week.
+  async setCashAmounts(lineId, amounts) {
+    const { error } = await supabase.rpc('ap_set_cash_amounts', { p_line_id: lineId, p_amounts: amounts });
+    if (error) throw error;
+  },
+
+  async setCashActual(week, amount) {
+    const { error } = await supabase.rpc('ap_set_cash_actual', { p_week: week, p_amount: amount === '' || amount === null ? null : Number(amount) });
+    if (error) throw error;
+  },
+
+  async setVendorGroup(vendorId, group) {
+    const { error } = await supabase.rpc('ap_set_vendor_group', { p_vendor_id: vendorId, p_group: group });
+    if (error) throw error;
+  },
+
   // Removes all copied BILL data and pay plans (for switching sandbox to production).
   async clearBillData() {
     const { data, error } = await supabase.rpc('ap_clear_bill_data');

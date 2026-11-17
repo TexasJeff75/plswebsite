@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, BarChart3, CalendarClock, Landmark, Loader2, Lock, RefreshCw, TrendingDown } from 'lucide-react';
+import { AlertCircle, BarChart3, CalendarClock, Landmark, Wallet, Loader2, Lock, RefreshCw, TrendingDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { payablesService } from '../services/payablesService';
 import SpendDashboard from './payables/SpendDashboard';
 import ForecastDashboard from './payables/ForecastDashboard';
 import PayPlan from './payables/PayPlan';
+import CashFlow from './payables/CashFlow';
 
 const TABS = [
   { id: 'spend', label: 'Spend', icon: BarChart3 },
   { id: 'forecast', label: 'Forecast', icon: TrendingDown },
   { id: 'plan', label: 'Pay Plan', icon: CalendarClock },
+  { id: 'cash', label: 'Cash Flow', icon: Wallet },
 ];
 
 const SYNC_LABELS = {
@@ -200,6 +202,7 @@ export default function Payables() {
           {tab === 'spend' && <SpendDashboard key={`spend-${refreshKey}`} options={options} />}
           {tab === 'forecast' && <ForecastDashboard key={`forecast-${refreshKey}`} />}
           {tab === 'plan' && <PayPlan key={`plan-${refreshKey}`} />}
+          {tab === 'cash' && <CashFlow key={`cash-${refreshKey}`} />}
         </>
       )}
     </div>
