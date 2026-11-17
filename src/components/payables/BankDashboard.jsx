@@ -54,6 +54,46 @@ function AmountList({ rows, empty }) {
   );
 }
 
+// Monthly totals under the chart. Clicking a row picks that month for the cards above.
+function MonthTotals({ months, selected, onSelect }) {
+  if (!months.length) return null;
+  const sum = (k) => months.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+  const totalNet = sum('net');
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-700 text-left text-xs uppercase tracking-wide text-slate-400">
+            <th className="py-2 pr-3 font-medium">Month</th>
+            <th className="py-2 px-3 text-right font-medium">Money in</th>
+            <th className="py-2 px-3 text-right font-medium">Money out</th>
+            <th className="py-2 pl-3 text-right font-medium">Net cash</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((x) => (
+            <tr key={x.month} onClick={() => onSelect(x.month)}
+              className={`cursor-pointer border-b border-slate-800 hover:bg-slate-800/60 ${x.month === selected ? 'bg-slate-800/80' : ''}`}>
+              <td className="py-2 pr-3 text-slate-200">{monthName(x.month)}{x.partial ? <span className="ml-1 text-xs text-slate-500">(so far)</span> : null}</td>
+              <td className="py-2 px-3 text-right tabular-nums text-emerald-400">{money(x.income)}</td>
+              <td className="py-2 px-3 text-right tabular-nums text-rose-400">{money(x.expenses)}</td>
+              <td className={`py-2 pl-3 text-right tabular-nums ${Number(x.net) < 0 ? 'text-orange-400' : 'text-sky-400'}`}>{signed(x.net)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="font-semibold text-white">
+            <td className="py-2 pr-3">Total, {months.length} months</td>
+            <td className="py-2 px-3 text-right tabular-nums">{money(sum('income'))}</td>
+            <td className="py-2 px-3 text-right tabular-nums">{money(sum('expenses'))}</td>
+            <td className={`py-2 pl-3 text-right tabular-nums ${totalNet < 0 ? 'text-orange-400' : 'text-sky-400'}`}>{signed(totalNet)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 const tooltipStyle = { background: '#0f172a', border: '1px solid #334155', borderRadius: 8 };
 
 export default function BankDashboard() {
@@ -134,6 +174,7 @@ export default function BankDashboard() {
           </ResponsiveContainer>
         </div>
         <p className="mt-2 text-xs text-slate-500">Net cash is deposits minus money out (blue when positive, orange when negative). The balance line (right scale) is worked out backward from today&apos;s bank balance.</p>
+        <MonthTotals months={d.months || []} selected={m?.month} onSelect={setMonth} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
