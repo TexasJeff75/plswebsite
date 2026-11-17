@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { money } from './format';
@@ -51,6 +51,46 @@ function AmountList({ rows, empty }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// Monthly totals under the chart. Clicking a row picks that month for the cards above.
+function MonthTotals({ months, selected, onSelect }) {
+  if (!months.length) return null;
+  const sum = (k) => months.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+  const totalNet = sum('net');
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-700 text-left text-xs uppercase tracking-wide text-slate-400">
+            <th className="py-2 pr-3 font-medium">Month</th>
+            <th className="py-2 px-3 text-right font-medium">Money in</th>
+            <th className="py-2 px-3 text-right font-medium">Money out</th>
+            <th className="py-2 pl-3 text-right font-medium">Net cash</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((x) => (
+            <tr key={x.month} onClick={() => onSelect(x.month)}
+              className={`cursor-pointer border-b border-slate-800 hover:bg-slate-800/60 ${x.month === selected ? 'bg-slate-800/80' : ''}`}>
+              <td className="py-2 pr-3 text-slate-200">{monthName(x.month)}{x.partial ? <span className="ml-1 text-xs text-slate-500">(so far)</span> : null}</td>
+              <td className="py-2 px-3 text-right tabular-nums text-emerald-400">{money(x.income)}</td>
+              <td className="py-2 px-3 text-right tabular-nums text-rose-400">{money(x.expenses)}</td>
+              <td className={`py-2 pl-3 text-right tabular-nums ${Number(x.net) < 0 ? 'text-orange-400' : 'text-sky-400'}`}>{signed(x.net)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="font-semibold text-white">
+            <td className="py-2 pr-3">Total, {months.length} months</td>
+            <td className="py-2 px-3 text-right tabular-nums">{money(sum('income'))}</td>
+            <td className="py-2 px-3 text-right tabular-nums">{money(sum('expenses'))}</td>
+            <td className={`py-2 pl-3 text-right tabular-nums ${totalNet < 0 ? 'text-orange-400' : 'text-sky-400'}`}>{signed(totalNet)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -112,20 +152,29 @@ export default function BankDashboard() {
         <Kpi title="Net for the month" value={m ? signed(m.net) : '·'} tone={m ? (m.net < 0 ? 'bad' : 'good') : undefined} note={m?.partial ? 'Month still in progress' : 'Whole month'} />
       </div>
 
-      <Section title="Money in and out each week" sub="Posted deposits (including transfers in) and posted payments, weeks Monday to Sunday. The current week is still filling in.">
-        <div className="h-64">
+      <Section title="Money in and out each week" sub="Posted deposits (including transfers in), posted payments and the net of the two, with the ****5761 balance at the end of each week. Weeks run Monday to Sunday; the last point is the balance now.">
+        <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weekly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <ComposedChart data={weekly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#475569' }} minTickGap={12} />
-              <YAxis tickFormatter={compactMoney} tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} width={52} />
-              <Tooltip formatter={(v, name) => [money(v), name]} labelFormatter={(l) => `Week of ${l}`} contentStyle={tooltipStyle} labelStyle={{ color: '#e2e8f0' }} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+              <YAxis yAxisId="flow" tickFormatter={compactMoney} tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} width={52} />
+              <YAxis yAxisId="bal" orientation="right" tickFormatter={compactMoney} tick={{ fill: '#facc15', fontSize: 12 }} tickLine={false} axisLine={false} width={52} />
+              <Tooltip formatter={(v, name) => [name === 'Net cash' ? signed(v) : money(v), name]}
+                labelFormatter={(l, items) => (items?.[0]?.payload?.ending_is_now ? `Week of ${l} (balance is now)` : `Week of ${l}`)}
+                contentStyle={tooltipStyle} labelStyle={{ color: '#e2e8f0' }} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
               <Legend wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
-              <Bar dataKey="deposits" name="Deposits in" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={24} isAnimationActive={false} />
-              <Bar dataKey="total" name="Money out" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={24} isAnimationActive={false} />
-            </BarChart>
+              <Bar yAxisId="flow" dataKey="deposits" name="Deposits in" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="total" name="Money out" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="net" name="Net cash" fill="#38bdf8" radius={[3, 3, 0, 0]} maxBarSize={18} isAnimationActive={false}>
+                {weekly.map((w) => <Cell key={w.week_start} fill={Number(w.net) < 0 ? '#fb923c' : '#38bdf8'} />)}
+              </Bar>
+              <Line yAxisId="bal" dataKey="ending_balance" name="Balance" stroke="#facc15" strokeWidth={2.5} dot={{ r: 3, fill: '#facc15' }} connectNulls isAnimationActive={false} />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
+        <p className="mt-2 text-xs text-slate-500">Net cash is deposits minus money out (blue when positive, orange when negative). The balance line (right scale) is worked out backward from today&apos;s bank balance.</p>
+        <MonthTotals months={d.months || []} selected={m?.month} onSelect={setMonth} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
