@@ -4,7 +4,11 @@ export function money(n, opts = {}) {
   }).format(Number(n) || 0);
 }
 
-// Opens the bill in BILL's web app (BILL redirects to the signed-in user's org).
+// Opens the bill in BILL's web app. Matches the address BILL shows for a bill:
+// https://app02.us.bill.com/neo/bills/<bill id>?orgId=<BILL organization id>
+const BILL_WEB = 'https://app02.us.bill.com';
+const BILL_ORG_ID = '00802BUTYMLZPZH1dcx4';
+
 export function billUrl(billId) {
-  return `https://app.bill.com/bill?id=${encodeURIComponent(billId)}`;
+  return `${BILL_WEB}/neo/bills/${encodeURIComponent(billId)}?orgId=${BILL_ORG_ID}`;
 }
