@@ -21,7 +21,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.93.1";
 // Secrets: CASH_IMPORT_KEY. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are
 // provided by Supabase.
 
-const ALLOWED_LINES = ["Cash Collected", "Payroll"];
+const ALLOWED_LINES = ["Cash Collected", "Payroll", "Gusto Fees"];
 const MAX_ROWS = 20;
 const MAX_AMOUNT = 10_000_000;
 
