@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarCheck, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Unlink, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Trash2, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { billUrl, money } from './format';
 import { daysLate, fridayOnOrAfter, iso } from './installments';
@@ -74,6 +74,7 @@ export default function PayPlan() {
   const [actionError, setActionError] = useState('');
   const [releasing, setReleasing] = useState(null); // week being released
   const [cancelling, setCancelling] = useState(null); // installment id awaiting confirmation
+  const [removing, setRemoving] = useState(null); // installment id awaiting "remove from plan" confirmation
   const [selected, setSelected] = useState(() => new Set());
   const [bulkStep, setBulkStep] = useState(null); // 'hold' | 'review' while confirming
   const [reviewNote, setReviewNote] = useState('');
@@ -134,6 +135,20 @@ export default function PayPlan() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  }
+
+  async function removeFromPlan(installmentId) {
+    setBusy(true);
+    setActionError('');
+    try {
+      await payablesService.removeInstallment(installmentId);
+      setRemoving(null);
+      await load();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function cancelRelease(installmentId) {
@@ -438,10 +453,24 @@ export default function PayPlan() {
                             <span className="tabular-nums text-white">{money(r.amount, { cents: true })}</span>
                             <StatusChip status={r.status} paymentStatus={r.payment_status} />
                             {r.status === 'scheduled' && r.matched_payment_id && cancelling !== r.id && (
-                              <button type="button" disabled={busy} onClick={() => setCancelling(r.id)} title="Cancel this payment in BILL"
+                              <button type="button" disabled={busy} onClick={() => { setRemoving(null); setCancelling(r.id); }} title="Cancel this payment in BILL"
                                 className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-red-300" aria-label="Cancel payment in BILL">
                                 <XCircle className="h-3.5 w-3.5" />
                               </button>
+                            )}
+                            {(r.status === 'planned' || r.status === 'missed') && !r.matched_payment_id && removing !== r.id && (
+                              <button type="button" disabled={busy} onClick={() => { setCancelling(null); setRemoving(r.id); }} title="Remove this payment from the plan"
+                                className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-red-300" aria-label={`Remove ${r.bill.vendor_name} payment from the plan`}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {removing === r.id && (
+                              <span className="flex items-center gap-1 text-xs">
+                                <span className="text-slate-300">Remove from plan?</span>
+                                <button type="button" disabled={busy} onClick={() => removeFromPlan(r.id)}
+                                  className="rounded bg-red-500/20 px-2 py-0.5 text-red-200 hover:bg-red-500/30">{busy ? 'Removing…' : 'Yes, remove'}</button>
+                                <button type="button" onClick={() => setRemoving(null)} className="px-1 text-slate-400 hover:text-white">Keep</button>
+                              </span>
                             )}
                             {cancelling === r.id && (
                               <span className="flex items-center gap-1 text-xs">

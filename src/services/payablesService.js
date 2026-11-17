@@ -83,7 +83,14 @@ export const payablesService = {
     return data;
   },
 
-    async deletePayPlan(billId) {
+    // Takes one planned payment (not yet in BILL) off its bill's plan.
+  async removeInstallment(installmentId) {
+    const { data, error } = await supabase.rpc('ap_remove_installment', { p_installment_id: installmentId });
+    if (error) throw error;
+    return data;
+  },
+
+  async deletePayPlan(billId) {
     const { error } = await supabase.rpc('ap_delete_pay_plan', { p_bill_id: billId });
     if (error) throw error;
   },
