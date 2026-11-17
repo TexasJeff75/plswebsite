@@ -152,9 +152,10 @@ A daily task reads the bank account and sends that week's actuals to the `cash-i
 
 - **Cash Collected:** all money into the BILL bank account for each finished week (Sunday to Saturday), including transfers in.
 - **Payroll:** the Gusto net, tax and reimbursement charges, for any week where payroll has posted. Other weeks keep their forecast.
+- **Gusto Fees:** the Gusto monthly fee, 401(k) fee, REPLEN top-ups and contribution charges.
 - **Actual ending:** the bank balance at the end of each finished week (Saturday).
 
-The function can only write those two lines and the weekly actual ending, only for Sunday weeks, and only amounts up to 10,000,000. It needs its own key.
+The function can only write those three lines and the weekly actual ending, only for Sunday weeks, and only amounts up to 10,000,000. It needs its own key.
 
 Setup:
 1. Make a random key of at least 24 characters (for example from a password manager). Add it as the function secret `CASH_IMPORT_KEY`.
