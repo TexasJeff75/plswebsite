@@ -7,12 +7,14 @@ import SpendDashboard from './payables/SpendDashboard';
 import ForecastDashboard from './payables/ForecastDashboard';
 import PayPlan from './payables/PayPlan';
 import CashFlow from './payables/CashFlow';
+import BankDashboard from './payables/BankDashboard';
 
 const TABS = [
   { id: 'spend', label: 'Spend', icon: BarChart3 },
   { id: 'forecast', label: 'Forecast', icon: TrendingDown },
   { id: 'plan', label: 'Pay Plan', icon: CalendarClock },
   { id: 'cash', label: 'Cash Flow', icon: Wallet },
+  { id: 'bank', label: 'Bank', icon: Landmark },
 ];
 
 const SYNC_LABELS = {
@@ -203,6 +205,7 @@ export default function Payables() {
           {tab === 'forecast' && <ForecastDashboard key={`forecast-${refreshKey}`} />}
           {tab === 'plan' && <PayPlan key={`plan-${refreshKey}`} />}
           {tab === 'cash' && <CashFlow key={`cash-${refreshKey}`} />}
+          {tab === 'bank' && <BankDashboard key={`bank-${refreshKey}`} />}
         </>
       )}
     </div>
