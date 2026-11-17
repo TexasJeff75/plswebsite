@@ -12,6 +12,9 @@ raw.json holds BankBridge answers for account ****5761:
   recurring:  get_recurring_charges answer
   deposits:   [{date, amount}] every POSTED money-in transaction on ****5761 (list_transactions
               category TRANSFER_IN and INCOME) from the first weekly week on; amount positive
+  since_monday: sum of the amounts of ALL transactions on ****5761 (posted AND pending) dated this
+              week's Monday through today, as BankBridge gives them (positive = money out). The
+              current balance includes pending items, so balance + since_monday = last Sunday's ending.
 out.json is the body to POST to the cash-import function ({"bank_snapshot": {...}}).
 """
 import json, re, sys, datetime
@@ -51,6 +54,20 @@ for t in raw.get('deposits', []):
     if first and mon < first: continue
     w = wk.setdefault(mon, {'week_start': mon, 'total': 0, 'count': 0, 'deposits': 0}); w['deposits'] += abs(float(t['amount']))
 weekly = sorted(({**w, 'deposits': round(w['deposits'], 2)} for w in wk.values()), key=lambda x: x['week_start'])
+for w in weekly:
+    w['net'] = round(w['deposits'] - w['total'], 2)
+# Ending balance of each week, walked back from today's balance (which includes pending items).
+acct_now = next(a for a in raw['accounts']['accounts'] if a['mask'] == '5761')['current_balance']
+today = datetime.date.fromisoformat(raw['as_of'])
+this_monday = (today - datetime.timedelta(days=today.weekday())).isoformat()
+if 'since_monday' in raw:
+    end = round(acct_now + float(raw['since_monday']), 2)   # last Sunday's ending
+    for w in reversed(weekly):
+        if w['week_start'] >= this_monday:
+            w['ending_balance'] = round(acct_now, 2); w['ending_is_now'] = True
+            continue
+        w['ending_balance'] = end
+        end = round(end - w['net'], 2)
 cats = [{'category': CAT.get(g['group'], g['group']), 'total': g['total'], 'count': g['transaction_count']} for g in raw['categories']['groups']]
 by = {}
 for g in raw['payees']['groups']:
