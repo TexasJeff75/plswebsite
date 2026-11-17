@@ -83,7 +83,7 @@ export const payablesService = {
     return data;
   },
 
-    // Takes one planned payment (not yet in BILL) off its bill's plan.
+  // Takes one planned payment (not yet in BILL) off its bill's plan.
   async removeInstallment(installmentId) {
     const { data, error } = await supabase.rpc('ap_remove_installment', { p_installment_id: installmentId });
     if (error) throw error;
