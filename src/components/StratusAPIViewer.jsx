@@ -98,6 +98,7 @@ export default function StratusAPIViewer() {
       const response = await fetch(proxyUrl, {
         method,
         headers: {
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -309,6 +310,8 @@ export default function StratusAPIViewer() {
     ];
 
     const results = [];
+    const { data: { session: explorerSession } } = await supabase.auth.getSession();
+    const authHeaders = explorerSession ? { Authorization: `Bearer ${explorerSession.access_token}` } : {};
 
     for (const config of testConfigs) {
       try {
@@ -327,7 +330,7 @@ export default function StratusAPIViewer() {
 
         const url = `/.netlify/functions/stratus-api-proxy?${queryParams.toString()}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: authHeaders });
 
         if (response.ok) {
           const data = await response.json();

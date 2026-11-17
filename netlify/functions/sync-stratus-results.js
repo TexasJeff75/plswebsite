@@ -1,3 +1,4 @@
+const { requireSuperAdmin } = require('../lib/requireSuperAdmin.cjs');
 const STRATUS_BASE_URL = "https://testapi.stratusdx.net/interface";
 const STRATUS_USERNAME = process.env.STRATUS_USERNAME || "";
 const STRATUS_PASSWORD = process.env.STRATUS_PASSWORD || "";
@@ -80,6 +81,16 @@ async function supabaseUpdate(table, query, data, userToken) {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
+  }
+
+  // Only signed-in Super Admins may use this function (it holds the StratusDX login).
+  const access = await requireSuperAdmin(event);
+  if (!access.ok) {
+    return {
+      statusCode: access.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: access.error, details: access.error }),
+    };
   }
 
   if (event.httpMethod !== 'POST') {

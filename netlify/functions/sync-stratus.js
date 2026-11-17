@@ -1,3 +1,4 @@
+const { requireSuperAdmin } = require('../lib/requireSuperAdmin.cjs');
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -292,6 +293,16 @@ async function fetchResultsForOrder(accessionId, token, mapping) {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
+  }
+
+  // Only signed-in Super Admins may use this function (it holds the StratusDX login).
+  const access = await requireSuperAdmin(event);
+  if (!access.ok) {
+    return {
+      statusCode: access.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: access.error, details: access.error }),
+    };
   }
 
   if (event.httpMethod !== 'POST') {

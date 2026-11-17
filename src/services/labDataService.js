@@ -344,9 +344,12 @@ export async function getResultObservations(resultId) {
 }
 
 export async function exploreStratusAPI(endpoint, method = 'GET', testParams = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Your session has expired. Please refresh the page and sign in again.');
   const response = await fetch('/.netlify/functions/explore-stratus-api', {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
