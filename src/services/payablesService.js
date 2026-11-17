@@ -194,6 +194,13 @@ export const payablesService = {
     if (error) throw error;
   },
 
+  // Newest daily snapshot of the operating bank account (Bank tab).
+  async getBankSnapshot(last4 = '5761') {
+    const { data, error } = await supabase.rpc('ap_bank_snapshot_latest', { p_account_last4: last4 });
+    if (error) throw error;
+    return data;
+  },
+
   // Removes all copied BILL data and pay plans (for switching sandbox to production).
   async clearBillData() {
     const { data, error } = await supabase.rpc('ap_clear_bill_data');

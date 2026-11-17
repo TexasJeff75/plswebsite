@@ -163,3 +163,9 @@ Setup:
 3. Save the same key where the daily task can send it as the `x-cash-import-key` header. Never paste it into a chat or a file.
 
 To stop automatic updates, delete the `CASH_IMPORT_KEY` secret or change it.
+
+## Bank tab
+
+The Bank tab shows the operating account (****5761): balance, money in and out by month (last 6 months), money out each week, spending by type and top payees for the last 30 days, and recurring charges. The tracker can't read the bank itself, so the daily bank update builds a snapshot with `scripts/bank_snapshot_build.py` from BankBridge answers and sends it to `cash-import` as `bank_snapshot`. Snapshots are kept 90 days in `ap_bank_snapshots`; the tab shows the newest.
+
+Migration: `20261118090000_ap_bank_snapshots.sql`. Redeploy `cash-import` after it.

@@ -16,7 +16,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.93.1";
 // POST body: { "amounts": [ { "line": "Payroll", "week_start": "2026-11-15", "amount": 20662.46 } ],
 //              "actuals": [ { "week_start": "2026-11-08", "actual_ending": 21291.49 } ],
 //              "source": "daily bank update" }
-// Either list may be left out, but not both.
+// Either list may be left out, but not both, unless a bank snapshot is sent:
+//   "bank_snapshot": { "account_last4": "5761", "data": { ...balance, months, weekly, ... } }
+// A snapshot (at most 200 KB) is stored in ap_bank_snapshots for the Bank tab;
+// snapshots older than 90 days for that account are removed.
 //
 // Secrets: CASH_IMPORT_KEY. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are
 // provided by Supabase.
@@ -50,12 +53,26 @@ function sundayError(week: string): string | null {
 }
 
 // Returns the clean rows and actuals, or an error message.
-export function validate(body: unknown): { rows: Row[]; actuals: Actual[] } | { error: string } {
+export type Snapshot = { account_last4: string; data: Record<string, unknown> };
+const MAX_SNAPSHOT_BYTES = 200_000;
+
+export function validate(body: unknown): { rows: Row[]; actuals: Actual[]; snapshot: Snapshot | null } | { error: string } {
+  const rawSnap = (body as { bank_snapshot?: unknown })?.bank_snapshot;
+  let snapshot: Snapshot | null = null;
+  if (rawSnap !== undefined) {
+    const sn = rawSnap as { account_last4?: unknown; data?: unknown };
+    if (!sn || typeof sn !== "object") return { error: "bank_snapshot must be an object" };
+    const last4 = String(sn.account_last4 ?? "");
+    if (!/^[0-9]{4}$/.test(last4)) return { error: "bank_snapshot.account_last4 must be 4 digits" };
+    if (!sn.data || typeof sn.data !== "object" || Array.isArray(sn.data)) return { error: "bank_snapshot.data must be an object" };
+    if (new TextEncoder().encode(JSON.stringify(sn.data)).length > MAX_SNAPSHOT_BYTES) return { error: "bank_snapshot.data is larger than 200 KB" };
+    snapshot = { account_last4: last4, data: sn.data as Record<string, unknown> };
+  }
   const rawList = (body as { amounts?: unknown })?.amounts;
   const rawActuals = (body as { actuals?: unknown })?.actuals;
   const list = rawList === undefined ? [] : rawList;
   const actualList = rawActuals === undefined ? [] : rawActuals;
-  if (!Array.isArray(list) || !Array.isArray(actualList) || list.length + actualList.length === 0) {
+  if (!Array.isArray(list) || !Array.isArray(actualList) || (list.length + actualList.length === 0 && !snapshot)) {
     return { error: "Send amounts: a list of { line, week_start, amount }, and/or actuals: a list of { week_start, actual_ending }" };
   }
   if (list.length > MAX_ROWS) return { error: `Send at most ${MAX_ROWS} amounts at a time` };
@@ -89,7 +106,7 @@ export function validate(body: unknown): { rows: Row[]; actuals: Actual[] } | { 
     seen.add(key);
     rows.push({ line, week_start: week, amount: Math.round(amount * 100) / 100 });
   }
-  return { rows, actuals };
+  return { rows, actuals, snapshot };
 }
 
 Deno.serve(async (req: Request) => {
@@ -134,6 +151,15 @@ Deno.serve(async (req: Request) => {
       { onConflict: "week_start" },
     );
     results.push({ line: "Actual ending", week_start: a.week_start, amount: a.actual_ending, result: error ? `error: ${error.message}` : "saved" });
+  }
+  if (checked.snapshot) {
+    const sn = checked.snapshot;
+    const { error } = await db.from("ap_bank_snapshots").insert({ account_last4: sn.account_last4, data: sn.data });
+    results.push({ line: "Bank snapshot", week_start: "", amount: 0, result: error ? `error: ${error.message}` : "saved" });
+    if (!error) {
+      const cutoff = new Date(Date.now() - 90 * 864e5).toISOString();
+      await db.from("ap_bank_snapshots").delete().eq("account_last4", sn.account_last4).lt("taken_at", cutoff);
+    }
   }
   const failed = results.filter((r) => r.result.startsWith("error")).length;
   return json({ results, saved: results.length - failed, failed }, failed ? 207 : 200);
