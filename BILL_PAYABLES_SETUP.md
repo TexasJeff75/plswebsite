@@ -145,3 +145,19 @@ A week-by-week cash grid (weeks start on Sunday), like a cash flow spreadsheet.
 - Open bills with no pay plan are shown on their own row and are not counted, so plan or hold them on the Pay Plan tab.
 
 Migration: `20261117120000_ap_cash_flow.sql`.
+
+### Automatic bank updates (cash-import function)
+
+A daily task reads the bank account and sends that week's actuals to the `cash-import` function, which updates the Cash Flow tab:
+
+- **Cash Collected:** all money into the BILL bank account for each finished week (Sunday to Saturday), including transfers in.
+- **Payroll:** the Gusto net, tax and reimbursement charges, for any week where payroll has posted. Other weeks keep their forecast.
+
+The function can only write those two lines, only for Sunday weeks, and only amounts from 0 to 10,000,000. It needs its own key.
+
+Setup:
+1. Make a random key of at least 24 characters (for example from a password manager). Add it as the function secret `CASH_IMPORT_KEY`.
+2. Create the function `cash-import` by pasting `supabase/functions/cash-import/index.ts`. Turn **Verify JWT off** for this function: the caller has no user session, and the key protects it instead.
+3. Save the same key where the daily task can send it as the `x-cash-import-key` header. Never paste it into a chat or a file.
+
+To stop automatic updates, delete the `CASH_IMPORT_KEY` secret or change it.
