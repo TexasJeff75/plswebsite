@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  getLabOrders, getLabResults, getLabConfirmations,
-  assignOrderToFacility, assignResultToFacility, assignConfirmationToFacility,
+  getLabOrders, getLabResults,
+  assignOrderToFacility, assignResultToFacility,
   bulkAssignByAccession,
   getOrderPanels, getOrderTests, getOrderDiagnosisCodes, getOrderMedications, getOrderInsurance,
   getResultObservations,
@@ -12,7 +12,7 @@ import { facilitiesService } from '../services/facilitiesService';
 import {
   FlaskConical, Search, Building2, MapPin, X, Save, Link2, Plus,
   ChevronDown, ChevronRight, AlertTriangle, CheckCircle2,
-  Loader2, Filter, RefreshCw, ArrowRightCircle, Beaker, FileCheck,
+  Loader2, Filter, RefreshCw, ArrowRightCircle, Beaker,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -52,20 +52,13 @@ function extractStratusInfo(record, type) {
       stratusGuid: record.stratus_guid || '',
     };
   }
-  const cd = record.confirmation_data || {};
-  return {
-    facilityName: cd.location_name || cd.facility_name || cd.facility?.name || '',
-    orgName: cd.organization_name || cd.organization?.name || '',
-    accessionId: record.accession_number || '',
-    stratusGuid: record.stratus_guid || '',
-  };
+  return { facilityName: '', orgName: '', accessionId: record.accession_number || '', stratusGuid: record.stratus_guid || '' };
 }
 
 export default function StratusDataViewer() {
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
   const [results, setResults] = useState([]);
-  const [confirmations, setConfirmations] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [mappings, setMappings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,16 +72,14 @@ export default function StratusDataViewer() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [o, r, c, orgs, maps] = await Promise.all([
+      const [o, r, orgs, maps] = await Promise.all([
         getLabOrders(),
         getLabResults(),
-        getLabConfirmations(),
         organizationsService.getAll(),
         stratusMappingService.getMappings(),
       ]);
       setOrders(o || []);
       setResults(r || []);
-      setConfirmations(c || []);
       setOrganizations(orgs || []);
       setMappings(maps || []);
     } catch (err) {
@@ -110,7 +101,7 @@ export default function StratusDataViewer() {
   }, [mappings]);
 
   const currentData = useMemo(() => {
-    let data = activeTab === 'orders' ? orders : activeTab === 'results' ? results : confirmations;
+    let data = activeTab === 'orders' ? orders : results;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       data = data.filter(item => {
@@ -129,16 +120,14 @@ export default function StratusDataViewer() {
       data = data.filter(item => !item.facility_id);
     }
     return data;
-  }, [activeTab, orders, results, confirmations, searchTerm, filterUnmapped]);
+  }, [activeTab, orders, results, searchTerm, filterUnmapped]);
 
   const stats = useMemo(() => ({
     totalOrders: orders.length,
     unmappedOrders: orders.filter(o => !o.facility_id).length,
     totalResults: results.length,
     unmappedResults: results.filter(r => !r.facility_id).length,
-    totalConfirmations: confirmations.length,
-    unmappedConfirmations: confirmations.filter(c => !c.facility_id).length,
-  }), [orders, results, confirmations]);
+  }), [orders, results]);
 
   function toggleRow(id) {
     const next = new Set(expandedRows);
@@ -199,8 +188,7 @@ export default function StratusDataViewer() {
 
       if (!resolvedOrganizationId) { showMessage('error', 'Please select an organization'); return; }
       if (type === 'orders') await assignOrderToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
-      else if (type === 'results') await assignResultToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
-      else await assignConfirmationToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
+      else await assignResultToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
 
       if (createMapping && info.facilityName) {
         try {
@@ -258,12 +246,12 @@ export default function StratusDataViewer() {
             is_active: true,
             notes: 'Auto-created from Stratus Data Viewer (bulk by accession)',
           });
-          showMessage('success', `${counts.orders + counts.results + counts.confirmations} records assigned and mapping created for "${info.facilityName}"`);
+          showMessage('success', `${counts.orders + counts.results} records assigned and mapping created for "${info.facilityName}"`);
         } catch (mapErr) {
-          showMessage('success', `${counts.orders + counts.results + counts.confirmations} records assigned. Mapping already exists.`);
+          showMessage('success', `${counts.orders + counts.results} records assigned. Mapping already exists.`);
         }
       } else {
-        showMessage('success', `Assigned ${counts.orders} orders, ${counts.results} results, ${counts.confirmations} confirmations`);
+        showMessage('success', `Assigned ${counts.orders} orders and ${counts.results} results`);
       }
       setAssignModal(null);
       loadData();
@@ -291,13 +279,11 @@ export default function StratusDataViewer() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Orders" value={stats.totalOrders} icon={FlaskConical} color="text-teal-400" />
         <StatCard label="Unmapped" value={stats.unmappedOrders} icon={AlertTriangle} color="text-yellow-400" />
         <StatCard label="Results" value={stats.totalResults} icon={Beaker} color="text-blue-400" />
         <StatCard label="Unmapped" value={stats.unmappedResults} icon={AlertTriangle} color="text-yellow-400" />
-        <StatCard label="Confirmations" value={stats.totalConfirmations} icon={FileCheck} color="text-purple-400" />
-        <StatCard label="Unmapped" value={stats.unmappedConfirmations} icon={AlertTriangle} color="text-yellow-400" />
       </div>
 
       {actionMessage && (
@@ -315,7 +301,6 @@ export default function StratusDataViewer() {
         <div className="flex gap-1 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
           <TabButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon={FlaskConical} label="Orders" count={stats.totalOrders} />
           <TabButton active={activeTab === 'results'} onClick={() => setActiveTab('results')} icon={Beaker} label="Results" count={stats.totalResults} />
-          <TabButton active={activeTab === 'confirmations'} onClick={() => setActiveTab('confirmations')} icon={FileCheck} label="Confirmations" count={stats.totalConfirmations} />
         </div>
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -506,7 +491,7 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 }
 
 function ExpandedDetail({ record, type, info }) {
-  const rawData = type === 'orders' ? record.order_data : type === 'results' ? record.result_data : record.confirmation_data;
+  const rawData = type === 'orders' ? record.order_data : record.result_data;
   const [showRaw, setShowRaw] = useState(false);
   const [panels, setPanels] = useState([]);
   const [tests, setTests] = useState([]);
@@ -607,12 +592,6 @@ function ExpandedDetail({ record, type, info }) {
           </InfoCard>
         )}
 
-        {type === 'confirmations' && (
-          <InfoCard title="Confirmation Details">
-            <DetailRow label="Received Time" value={record.received_time} />
-            <DetailRow label="Accession Number" value={record.accession_number} />
-          </InfoCard>
-        )}
       </div>
 
       {loadingRel && (
@@ -695,15 +674,6 @@ function ExpandedDetail({ record, type, info }) {
           ])}
           highlightCol={6}
         />
-      )}
-
-      {type === 'confirmations' && record.hl7_message && (
-        <div>
-          <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">HL7 Message</h4>
-          <pre className="bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-300 overflow-auto max-h-40 whitespace-pre-wrap">
-            {record.hl7_message}
-          </pre>
-        </div>
       )}
 
       <div>
@@ -816,7 +786,7 @@ function AssignModal({ modal, organizations, onClose, onAssign, onBulkAssign, as
           <div>
             <h2 className="text-lg font-semibold text-white">Assign Record</h2>
             <p className="text-slate-400 text-sm mt-0.5">
-              {type === 'orders' ? 'Lab Order' : type === 'results' ? 'Lab Result' : 'Confirmation'} &middot; {info.accessionId || info.stratusGuid}
+              {type === 'orders' ? 'Lab Order' : 'Lab Result'} &middot; {info.accessionId || info.stratusGuid}
             </p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">

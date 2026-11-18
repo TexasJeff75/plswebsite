@@ -3,7 +3,7 @@ import { labOrdersService } from '../../services/labOrdersService';
 import {
   FlaskConical, RefreshCw, CheckCircle2, XCircle, Clock,
   AlertTriangle, FileText, Download, ChevronDown, ChevronRight,
-  Beaker, ClipboardCheck, Activity, User, Building2, Stethoscope,
+  Beaker, Activity, User, Building2, Stethoscope,
   ZapOff, TrendingUp
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -36,7 +36,6 @@ function getTurnaroundHours(processedAt, resultedAt) {
 export default function LabOrdersTab({ facility }) {
   const [activeView, setActiveView] = useState('orders');
   const [orders, setOrders] = useState([]);
-  const [confirmations, setConfirmations] = useState([]);
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,15 +50,13 @@ export default function LabOrdersTab({ facility }) {
   async function loadData() {
     try {
       setLoading(true);
-      const [ordersData, confirmationsData, resultsData, statsData] = await Promise.all([
+      const [ordersData, resultsData, statsData] = await Promise.all([
         labOrdersService.getOrders({ facility_id: facility.id }),
-        labOrdersService.getConfirmations({ facility_id: facility.id }),
         labOrdersService.getResults({ facility_id: facility.id }),
         labOrdersService.getOrderStats(facility.id)
       ]);
 
       setOrders(ordersData);
-      setConfirmations(confirmationsData);
       setResults(resultsData);
       setStats(statsData);
     } catch (error) {
@@ -187,17 +184,6 @@ export default function LabOrdersTab({ facility }) {
           >
             <Beaker className="w-4 h-4" />
             Orders ({orders.length})
-          </button>
-          <button
-            onClick={() => setActiveView('confirmations')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeView === 'confirmations'
-                ? 'text-teal-400 border-teal-400'
-                : 'text-slate-400 border-transparent hover:text-white hover:border-slate-600'
-            }`}
-          >
-            <ClipboardCheck className="w-4 h-4" />
-            Confirmations ({confirmations.length})
           </button>
           <button
             onClick={() => setActiveView('results')}
@@ -405,71 +391,6 @@ export default function LabOrdersTab({ facility }) {
                           </pre>
                         </div>
                       )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {activeView === 'confirmations' && (
-        <div className="space-y-3">
-          {confirmations.length === 0 ? (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <ClipboardCheck className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">No confirmations found</p>
-            </div>
-          ) : (
-            confirmations.map((confirmation) => {
-              const statusBadge = getSyncBadge(confirmation.sync_status);
-              const StatusIcon = statusBadge.icon;
-              const isExpanded = expandedOrder === confirmation.id;
-
-              return (
-                <div key={confirmation.id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                  <div
-                    onClick={() => setExpandedOrder(isExpanded ? null : confirmation.id)}
-                    className="p-4 cursor-pointer hover:bg-slate-700/30 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <p className="text-white font-medium">
-                              {confirmation.accession_number || 'Confirmation'}
-                            </p>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge.color} flex items-center gap-1`}>
-                              <StatusIcon className="w-3 h-3" />
-                              {statusBadge.label}
-                            </span>
-                          </div>
-                          <p className="text-slate-400 text-sm mt-1">
-                            Received: {confirmation.received_time || format(new Date(confirmation.created_at), 'MMM d, yyyy h:mm a')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-slate-700 p-4 bg-slate-900/30">
-                      <div className="space-y-3">
-                        {confirmation.hl7_message && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-2">HL7 Message</p>
-                            <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
-                              {confirmation.hl7_message}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   )}
                 </div>
