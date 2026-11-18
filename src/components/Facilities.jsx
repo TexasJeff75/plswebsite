@@ -50,7 +50,7 @@ export default function Facilities() {
   async function loadOrganizations() {
     try {
       const data = await organizationsService.getAll();
-      setOrganizations(data.filter(org => org.type === 'customer'));
+      setOrganizations(data.filter(org => org.type === 'customer' && !org.archived_at));
     } catch (error) {
       console.error('Error loading organizations:', error);
     }
@@ -81,7 +81,7 @@ export default function Facilities() {
         appliedFilters.organization_id = selectedOrganization.id;
       }
 
-      const data = await facilitiesService.getAll(appliedFilters);
+      const data = await facilitiesService.getAll({ ...appliedFilters, hideArchived: true });
       setFacilities(data);
     } catch (error) {
       console.error('Error loading facilities:', error);
@@ -93,7 +93,7 @@ export default function Facilities() {
   async function loadStats() {
     try {
       setStatsLoading(true);
-      const appliedFilters = {};
+      const appliedFilters = { hideArchived: true };
 
       if (filters.project_id) {
         appliedFilters.project_id = filters.project_id;

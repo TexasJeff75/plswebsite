@@ -6,7 +6,7 @@ export const facilitiesService = {
       .from('facilities')
       .select(`
         *,
-        organization:organizations(id, name),
+        organization:organizations(id, name, archived_at),
         project:projects(id, name),
         milestones(id, name, status, phase, milestone_order, priority),
         equipment(id, status),
@@ -38,7 +38,8 @@ export const facilitiesService = {
     const { data, error } = await query;
 
     if (error) throw error;
-    return data;
+    // hideArchived: leave out facilities of archived organizations.
+    return filters.hideArchived ? (data || []).filter((f) => !f.organization?.archived_at) : data;
   },
 
   async getById(id) {
