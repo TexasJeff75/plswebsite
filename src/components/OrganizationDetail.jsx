@@ -130,7 +130,8 @@ export default function OrganizationDetail() {
       mini_lab_network: { label: 'Network', color: 'bg-teal-600' },
       hosted_lab: { label: 'Hosted', color: 'bg-blue-600' },
       hybrid: { label: 'Hybrid', color: 'bg-cyan-600' },
-      prospect: { label: 'Prospect', color: 'bg-slate-600' }
+      prospect: { label: 'Prospect', color: 'bg-slate-600' },
+      customer_site: { label: 'Customer Site', color: 'bg-violet-600' }
     };
     return badges[clientType] || badges.mini_lab_network;
   };

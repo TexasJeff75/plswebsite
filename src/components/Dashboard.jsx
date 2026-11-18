@@ -144,7 +144,8 @@ export default function Dashboard() {
       mini_lab_network: { label: 'NETWORK', color: 'bg-teal-600' },
       hosted_lab: { label: 'HOSTED', color: 'bg-blue-600' },
       hybrid: { label: 'HYBRID', color: 'bg-cyan-600' },
-      prospect: { label: 'PROSPECT', color: 'bg-slate-600' }
+      prospect: { label: 'PROSPECT', color: 'bg-slate-600' },
+      customer_site: { label: 'CUSTOMER SITE', color: 'bg-violet-600' }
     };
     return badges[clientType] || badges.mini_lab_network;
   };
@@ -162,6 +163,7 @@ export default function Dashboard() {
     mini_lab_network: '#14b8a6',
     hosted_lab: '#3b82f6',
     hybrid: '#06b6d4',
+    customer_site: '#8b5cf6',
     standard: '#64748b'
   };
 
