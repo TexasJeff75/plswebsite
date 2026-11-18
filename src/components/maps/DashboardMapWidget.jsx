@@ -20,7 +20,7 @@ export default function DashboardMapWidget() {
 
   async function loadFacilities() {
     try {
-      const data = await facilitiesService.getAll();
+      const data = await facilitiesService.getAll({ hideArchived: true });
       setFacilities(data);
       const withCoords = data.filter(f => f.latitude && f.longitude).length;
       setStats({ total: data.length, withCoords });
