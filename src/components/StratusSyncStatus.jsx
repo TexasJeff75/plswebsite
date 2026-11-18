@@ -7,7 +7,6 @@ import { labOrdersService } from '../services/labOrdersService';
 // StratusDX Sync: shows how far the LIS Integration API import has got and
 // lets a Super Admin run it now. The import also runs every 5 minutes.
 
-const MAX_ROUNDS = 15;
 
 function when(ts) {
   if (!ts) return 'Never';
@@ -46,22 +45,31 @@ export default function StratusSyncStatus() {
 
   useEffect(() => { load(); }, [load]);
 
+  // While an import still has work to do, refresh the status every 30 seconds.
+  const notCaughtUp = Boolean(checkpoint?.last_sync_summary?.more);
+  useEffect(() => {
+    if (!notCaughtUp) return undefined;
+    const id = setInterval(load, 30000);
+    return () => clearInterval(id);
+  }, [notCaughtUp, load]);
+
   async function runNow() {
     setRunning(true);
     setRunError(null);
-    const totals = { rounds: 0, saved: 0, unchanged: 0, failed: 0 };
-    setProgress({ ...totals });
+    setProgress(null);
     try {
-      for (let i = 0; i < MAX_ROUNDS; i++) {
-        const result = await labOrdersService.syncAll();
-        const s = result.summary || {};
-        totals.rounds += 1;
-        totals.saved += s.total_processed || 0;
-        totals.unchanged += s.unchanged || 0;
-        totals.failed += s.errors || 0;
-        setProgress({ ...totals, more: s.more });
-        if (!s.more) break;
+      const result = await labOrdersService.syncAll();
+      const r = result.summary || {};
+      let text;
+      if (result.busy) {
+        text = 'An import is already running, most likely the background catch-up. This page refreshes on its own every 30 seconds.';
+      } else {
+        text = `Saved ${r.total_processed || 0} orders, ${r.unchanged || 0} unchanged, ${r.errors || 0} failed.`;
+        if (result.background_started) text += ' The rest is now importing in the background (up to 15 minutes at a time). This page refreshes on its own every 30 seconds.';
+        else if (r.more) text += ' There is more to import; the schedule will carry on.';
+        else text += ' Caught up.';
       }
+      setProgress({ text });
     } catch (err) {
       setRunError(err.message);
     } finally {
@@ -95,11 +103,7 @@ export default function StratusSyncStatus() {
       </div>
 
       {progress && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-sm text-slate-300">
-          {running ? 'Working' : 'Finished'}: {progress.rounds} round{progress.rounds === 1 ? '' : 's'},{' '}
-          {progress.saved} orders saved, {progress.unchanged} unchanged, {progress.failed} failed.
-          {!running && progress.more && ' There is more to import; the schedule will carry on, or press Run now again.'}
-        </div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-sm text-slate-300">{progress.text}</div>
       )}
 
       {runError && (
@@ -119,7 +123,7 @@ export default function StratusSyncStatus() {
             {hasRun && !s.errors ? <CheckCircle2 className="w-4 h-4 text-teal-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
             <span className="text-slate-300">
               {hasRun
-                ? `Last run: ${when(checkpoint?.last_sync_run_at)}, ${s.trigger === 'schedule' ? 'by the schedule' : 'started by hand'}.`
+                ? `Last run: ${when(checkpoint?.last_sync_run_at)}, ${{ schedule: 'by the schedule', background: 'by the background catch-up' }[s.trigger] || 'started by hand'}.`
                 : 'The new import has not run yet.'}
             </span>
           </div>
@@ -137,7 +141,7 @@ export default function StratusSyncStatus() {
             {s.window && <div><dt className="text-slate-400">Last date window</dt><dd className="text-white">{s.window}</dd></div>}
             {s.api_rows_listed !== undefined && (
               <div>
-                <dt className="text-slate-400">Orders StratusDX returned in the last run</dt>
+                <dt className="text-slate-400">Orders StratusDX listed in the last run</dt>
                 <dd className="text-white">
                   {s.api_rows_listed}
                   {s.api_rows_filtered ? ` (${s.api_rows_filtered} older than the saved point or without a date)` : ''}
