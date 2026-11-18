@@ -226,6 +226,16 @@ export default function StratusSyncStatus() {
                 </dd>
               </div>
             )}
+            {s.recheck && (
+              <div>
+                <dt className="text-slate-400">Weekly re-check of orders still pending after 14 days (last run)</dt>
+                <dd className="text-white">
+                  {s.recheck.checked} re-checked, {s.recheck.gained_dates} now have dates
+                  {s.recheck.failed ? `, ${s.recheck.failed} failed` : ''}
+                  {s.recheck.waiting != null ? ` · ${Number(s.recheck.waiting).toLocaleString()} waiting` : ''}
+                </dd>
+              </div>
+            )}
             {s.repeated_accessions !== undefined && (
               <div>
                 <dt className="text-slate-400">Accession numbers listed more than once (last run)</dt>
