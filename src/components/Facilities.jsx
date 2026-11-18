@@ -659,8 +659,8 @@ export default function Facilities() {
                       <td className="py-4 px-4">
                         {facility.complexity_level ? (
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                            facility.complexity_level === 'high' ? 'bg-red-500/20 text-red-400' :
-                            facility.complexity_level === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                            facility.complexity_level === 'High Complexity' ? 'bg-red-500/20 text-red-400' :
+                            facility.complexity_level === 'Moderate Complexity' ? 'bg-amber-500/20 text-amber-400' :
                             'bg-green-500/20 text-green-400'
                           }`}>
                             {facility.complexity_level}
@@ -804,6 +804,8 @@ function AddFacilityModal({ organizations, onClose, onCreated }) {
     try {
       await facilitiesService.create({
         ...formData,
+        // The Configuration choice is the facility's CLIA complexity level too.
+        complexity_level: { waived: 'CLIA Waived', moderate: 'Moderate Complexity', high: 'High Complexity' }[formData.site_configuration] || 'CLIA Waived',
         projected_go_live: formData.projected_go_live || null,
         status: 'Planning',
         phase: 'Phase 1'

@@ -19,6 +19,14 @@ import ContactsTab from './facility-tabs/ContactsTab';
 import FacilityMapEmbed from './maps/FacilityMapEmbed';
 import SupplyOrdersTab from './facility-tabs/SupplyOrdersTab';
 
+const COMPLEXITY_LEVELS = ['CLIA Waived', 'Moderate Complexity', 'High Complexity'];
+
+function complexityClass(level) {
+  if (level === 'Moderate Complexity') return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+  if (level === 'High Complexity') return 'bg-red-500/20 text-red-400 border-red-500/30';
+  return 'bg-green-500/20 text-green-400 border-green-500/30';
+}
+
 // A plain date ('2026-12-14') read as local time, so it doesn't show a day early.
 function localDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
@@ -126,6 +134,27 @@ export default function FacilityDetail() {
     } catch (err) {
       console.error('Error saving dates:', err);
       alert('Failed to save dates: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Complexity level drives the template items and LIS package, so the older
+  // site_configuration field is kept in step, and each change is recorded.
+  async function saveComplexity(level) {
+    if (!level || level === facility.complexity_level) return;
+    setSaving(true);
+    try {
+      const history = Array.isArray(facility.complexity_level_history) ? facility.complexity_level_history : [];
+      await facilitiesService.update(id, {
+        complexity_level: level,
+        site_configuration: { 'CLIA Waived': 'waived', 'Moderate Complexity': 'moderate', 'High Complexity': 'high' }[level],
+        complexity_level_history: [...history, { level, from: facility.complexity_level || null, date: new Date().toISOString() }],
+      });
+      await loadFacility();
+    } catch (err) {
+      console.error('Error saving complexity level:', err);
+      alert('Failed to save complexity level: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -283,14 +312,21 @@ export default function FacilityDetail() {
           </div>
           <div className="bg-slate-800 rounded-lg px-4 py-3 border-2 border-teal-500/30 shadow-lg shadow-teal-500/10">
             <p className="text-slate-400 text-xs font-medium mb-1">Complexity Level</p>
-            <span className={`inline-block px-3 py-1 rounded text-xs font-bold ${
-              facility.complexity_level === 'CLIA Waived' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-              facility.complexity_level === 'Moderate Complexity' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-              facility.complexity_level === 'High Complexity' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-              'bg-green-500/20 text-green-400 border border-green-500/30'
-            }`}>
-              {facility.complexity_level || 'CLIA Waived'}
-            </span>
+            {isEditor ? (
+              <select
+                value={facility.complexity_level || 'CLIA Waived'}
+                onChange={(e) => saveComplexity(e.target.value)}
+                disabled={saving}
+                aria-label="Complexity level"
+                className={`px-2 py-1 rounded text-xs font-bold bg-slate-900 border cursor-pointer disabled:opacity-50 ${complexityClass(facility.complexity_level)}`}
+              >
+                {COMPLEXITY_LEVELS.map((level) => <option key={level} value={level}>{level}</option>)}
+              </select>
+            ) : (
+              <span className={`inline-block px-3 py-1 rounded text-xs font-bold border ${complexityClass(facility.complexity_level)}`}>
+                {facility.complexity_level || 'CLIA Waived'}
+              </span>
+            )}
           </div>
           <div className="bg-slate-800 rounded-lg px-4 py-3 border-2 border-teal-500/30 shadow-lg shadow-teal-500/10">
             <p className="text-slate-400 text-xs font-medium mb-1">Overall Status</p>
