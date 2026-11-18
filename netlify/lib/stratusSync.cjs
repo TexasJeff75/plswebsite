@@ -430,6 +430,7 @@ async function saveOrder(db, api, listRow, existing) {
   return {
     finalizedWithoutResults: finalized && results.length === 0,
     hasProgress: ['receivedDatetime', 'finalizedDatetime', 'canceledDatetime', 'rejectedDatetime'].some((k) => hasValue(detail[k])),
+    resultsSaved: results.length,
   };
 }
 
@@ -639,10 +640,17 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
     steps.push(step);
   }
 
-  // Once caught up, spend a short slice re-checking older pending orders.
+  // Once caught up, spend a short slice re-checking older pending orders and
+  // finalized orders with no results.
   let recheck = null;
   if (step.caughtUp && Date.now() < deadline - 3000) {
-    recheck = await recheckPending(db, api, Math.min(deadline - 1000, Date.now() + RECHECK_MAX_MS));
+    try {
+      recheck = await recheckPending(db, api, Math.min(deadline - 1000, Date.now() + RECHECK_MAX_MS));
+    } catch (err) {
+      // e.g. the re-check database function is not installed yet: never block the sync.
+      console.error(`[SYNC] Re-check skipped: ${err.message}`);
+      recheck = { error: err.message.slice(0, 300) };
+    }
   }
 
   const errors = steps.flatMap((s) => s.errors);
@@ -679,31 +687,33 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
 
 // ---------- weekly re-check of older pending orders ----------
 
-function recheckFilter() {
+function recheckParams() {
   const cutoff = new Date(Date.now() - RECHECK_AFTER_DAYS * 864e5);
-  const compact = `${utcDay(cutoff).replaceAll('-', '')}000000`;
-  const weekAgo = new Date(Date.now() - RECHECK_EVERY_DAYS * 864e5).toISOString();
-  return [
-    `lab_status=in.${encodeURIComponent('(Pending,"Pending Received")')}`,
-    `requisition_datetime=lt.${compact}`,
-    `or=${encodeURIComponent(`(retrieved_at.is.null,retrieved_at.lt."${weekAgo}")`)}`,
-  ].join('&');
+  return {
+    p_pending_before: `${utcDay(cutoff).replaceAll('-', '')}000000`,
+    p_read_before: new Date(Date.now() - RECHECK_EVERY_DAYS * 864e5).toISOString(),
+  };
 }
 
-// Re-reads orders still Pending or Pending Received more than 14 days after
-// they were ordered and not read in the last 7 days, oldest read first.
+// Re-reads, at most once a week and oldest read first: orders still Pending
+// or Pending Received 14 days after they were ordered, and Final orders with
+// no results saved. Chosen by stratus_recheck_candidates (migration).
 async function recheckPending(db, api, deadline) {
-  const filter = recheckFilter();
-  const rows = await db.select('lab_orders',
-    `select=id,stratus_guid,organization_id,facility_id&${filter}&order=retrieved_at.asc.nullsfirst&limit=${RECHECK_BATCH}`);
+  const params = recheckParams();
+  const rows = await db.rpc('stratus_recheck_candidates', { ...params, p_limit: RECHECK_BATCH });
   let checked = 0;
-  let gained = 0;
+  let gainedDates = 0;
+  let gainedResults = 0;
   let failed = 0;
   await runPool(rows || [], deadline, async (row) => {
     try {
       const outcome = await saveOrder(db, api, { accessionId: row.stratus_guid }, row);
       checked++;
-      if (outcome && outcome.hasProgress) gained++;
+      if (row.lab_status === 'Final') {
+        if (outcome && outcome.resultsSaved > 0) gainedResults++;
+      } else if (outcome && outcome.hasProgress) {
+        gainedDates++;
+      }
       return true;
     } catch (err) {
       failed++;
@@ -714,8 +724,8 @@ async function recheckPending(db, api, deadline) {
       return false;
     }
   }, RECHECK_CONCURRENCY);
-  const waiting = await db.count('lab_orders', filter).catch(() => null);
-  return { checked, gained_dates: gained, failed, waiting };
+  const waiting = await db.rpc('stratus_recheck_waiting', params).catch(() => null);
+  return { checked, gained_dates: gainedDates, gained_results: gainedResults, failed, waiting };
 }
 
 // ---------- count check ----------

@@ -228,9 +228,13 @@ export default function StratusSyncStatus() {
             )}
             {s.recheck && (
               <div>
-                <dt className="text-slate-400">Weekly re-check of orders still pending after 14 days (last run)</dt>
+                <dt className="text-slate-400">Weekly re-check of orders pending after 14 days, and finalized orders with no results (last run)</dt>
                 <dd className="text-white">
-                  {s.recheck.checked} re-checked, {s.recheck.gained_dates} now have dates
+                  {s.recheck.error ? `Not run: ${s.recheck.error}` : (
+                    <>
+                      {s.recheck.checked} re-checked, {s.recheck.gained_dates} now have dates, {s.recheck.gained_results || 0} now have results
+                    </>
+                  )}
                   {s.recheck.failed ? `, ${s.recheck.failed} failed` : ''}
                   {s.recheck.waiting != null ? ` · ${Number(s.recheck.waiting).toLocaleString()} waiting` : ''}
                 </dd>
