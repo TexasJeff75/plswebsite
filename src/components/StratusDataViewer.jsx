@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  getLabOrders, getLabResults,
-  assignOrderToFacility, assignResultToFacility,
+  searchLabOrders, countLabOrders, getLabOrderById, assignOrderAndResults, LAB_STATUSES,
   bulkAssignByAccession,
   getOrderPanels, getOrderTests, getOrderDiagnosisCodes, getOrderMedications, getOrderInsurance,
-  getResultObservations,
+  getResultObservations, getOrderResultObservations,
 } from '../services/labDataService';
 import { stratusMappingService } from '../services/stratusMappingService';
 import { organizationsService } from '../services/organizationsService';
@@ -12,26 +11,9 @@ import { facilitiesService } from '../services/facilitiesService';
 import {
   FlaskConical, Search, Building2, MapPin, X, Save, Link2, Plus,
   ChevronDown, ChevronRight, AlertTriangle, CheckCircle2,
-  Loader2, Filter, RefreshCw, ArrowRightCircle, Beaker,
+  Loader2, Filter, RefreshCw, ArrowRightCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-const SYNC_STATUS_COLORS = {
-  pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-  retrieved: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  acknowledged: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
-  synced: 'bg-green-500/10 text-green-400 border-green-500/30',
-  error: 'bg-red-500/10 text-red-400 border-red-500/30',
-};
-
-function StatusBadge({ status }) {
-  const cls = SYNC_STATUS_COLORS[status] || 'bg-slate-700 text-slate-300 border-slate-600';
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${cls}`}>
-      {status}
-    </span>
-  );
-}
 
 function extractStratusInfo(record, type) {
   if (type === 'orders') {
@@ -55,90 +37,124 @@ function extractStratusInfo(record, type) {
   return { facilityName: '', orgName: '', accessionId: record.accession_number || '', stratusGuid: record.stratus_guid || '' };
 }
 
+const PAGE_SIZE = 50;
+
+const LAB_STATUS_STYLES = {
+  Pending: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
+  'Pending Received': 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  Final: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+  Canceled: 'bg-red-500/10 text-red-300 border-red-500/30',
+  Rejected: 'bg-red-500/10 text-red-300 border-red-500/30',
+};
+
+function LabStatusBadge({ status }) {
+  if (!status) return <span className="text-slate-500 text-sm">--</span>;
+  const cls = LAB_STATUS_STYLES[status] || 'bg-slate-700 text-slate-300 border-slate-600';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border whitespace-nowrap ${cls}`}>{status}</span>;
+}
+
+// StratusDX clinical times are "yyyyMMddHHmmss" in US Central time.
+export function formatCompact(value, withTime = true) {
+  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(String(value || '').trim());
+  if (!m) return value || null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return format(d, withTime ? 'MMM d, yyyy h:mm a' : 'MMM d, yyyy');
+}
+
+const DATE_PRESETS = [
+  { key: '7', label: 'Last 7 days', days: 7 },
+  { key: '30', label: 'Last 30 days', days: 30 },
+  { key: '90', label: 'Last 90 days', days: 90 },
+  { key: 'year', label: 'This year' },
+  { key: 'all', label: 'All dates' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function presetRange(key) {
+  const today = new Date();
+  const iso = (d) => format(d, 'yyyy-MM-dd');
+  if (key === 'all' || key === 'custom') return { from: '', to: '' };
+  if (key === 'year') return { from: `${today.getFullYear()}-01-01`, to: iso(today) };
+  const days = DATE_PRESETS.find((p) => p.key === key)?.days || 30;
+  const from = new Date(today);
+  from.setDate(from.getDate() - (days - 1));
+  return { from: iso(from), to: iso(today) };
+}
+
 export default function StratusDataViewer() {
-  const [activeTab, setActiveTab] = useState('orders');
-  const [orders, setOrders] = useState([]);
-  const [results, setResults] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState(null);
+  const [page, setPage] = useState(0);
+  const [status, setStatus] = useState('');
+  const [preset, setPreset] = useState('30');
+  const [dateField, setDateField] = useState('ordered');
+  const [range, setRange] = useState(presetRange('30'));
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [unmappedOnly, setUnmappedOnly] = useState(false);
   const [organizations, setOrganizations] = useState([]);
   const [mappings, setMappings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterUnmapped, setFilterUnmapped] = useState(false);
-  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [expandedId, setExpandedId] = useState(null);
   const [assignModal, setAssignModal] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [assigning, setAssigning] = useState(false);
 
+  // Search runs a moment after typing stops.
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const filters = useMemo(
+    () => ({ search, dateField, from: range.from, to: range.to, unmappedOnly }),
+    [search, dateField, range, unmappedOnly],
+  );
+
+  // Back to the first page whenever the filters change.
+  useEffect(() => { setPage(0); }, [filters, status]);
+
+  useEffect(() => {
+    organizationsService.getAll().then((o) => setOrganizations(o || [])).catch(() => {});
+    stratusMappingService.getMappings().then((m) => setMappings(m || [])).catch(() => {});
+  }, []);
+
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [o, r, orgs, maps] = await Promise.all([
-        getLabOrders(),
-        getLabResults(),
-        organizationsService.getAll(),
-        stratusMappingService.getMappings(),
+      const [list, c] = await Promise.all([
+        searchLabOrders({ filters, status: status || null, page, pageSize: PAGE_SIZE }),
+        countLabOrders(filters),
       ]);
-      setOrders(o || []);
-      setResults(r || []);
-      setOrganizations(orgs || []);
-      setMappings(maps || []);
+      setRows(list.rows);
+      setTotal(list.total);
+      setCounts(c);
     } catch (err) {
       console.error('Error loading Stratus data:', err);
       setActionMessage({ type: 'error', text: 'Failed to load data: ' + err.message });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters, status, page]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const mappedIdentifiers = useMemo(() => {
     const set = new Set();
-    mappings.forEach(m => {
-      if (m.is_active) set.add(m.stratus_facility_identifier.toLowerCase());
-    });
+    mappings.forEach((m) => { if (m.is_active) set.add(m.stratus_facility_identifier.toLowerCase()); });
     return set;
   }, [mappings]);
 
-  const currentData = useMemo(() => {
-    let data = activeTab === 'orders' ? orders : results;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      data = data.filter(item => {
-        const info = extractStratusInfo(item, activeTab);
-        return (
-          info.accessionId?.toLowerCase().includes(q) ||
-          info.facilityName?.toLowerCase().includes(q) ||
-          info.orgName?.toLowerCase().includes(q) ||
-          item.stratus_guid?.toLowerCase().includes(q) ||
-          (item.organization?.name || '').toLowerCase().includes(q) ||
-          (item.facility?.name || '').toLowerCase().includes(q)
-        );
-      });
-    }
-    if (filterUnmapped) {
-      data = data.filter(item => !item.facility_id);
-    }
-    return data;
-  }, [activeTab, orders, results, searchTerm, filterUnmapped]);
-
-  const stats = useMemo(() => ({
-    totalOrders: orders.length,
-    unmappedOrders: orders.filter(o => !o.facility_id).length,
-    totalResults: results.length,
-    unmappedResults: results.filter(r => !r.facility_id).length,
-  }), [orders, results]);
-
-  function toggleRow(id) {
-    const next = new Set(expandedRows);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setExpandedRows(next);
+  function choosePreset(key) {
+    setPreset(key);
+    if (key !== 'custom') setRange(presetRange(key));
   }
 
-  function openAssignModal(record, type) {
-    const info = extractStratusInfo(record, type);
+  function openAssignModal(record) {
+    const info = extractStratusInfo(record, 'orders');
     setAssignModal({
-      record, type, info,
+      record, type: 'orders', info,
       organizationId: record.organization_id || '',
       facilityId: record.facility_id || '',
       createMapping: true,
@@ -168,46 +184,48 @@ export default function StratusDataViewer() {
     return facilitiesService.create({ name: name.trim(), organization_id: organizationId, status: 'Active' });
   }
 
+  async function createMappingFor(info, organizationId, facilityId, mappingType, note) {
+    if (!info.facilityName) return '';
+    try {
+      await stratusMappingService.createMapping({
+        organization_id: organizationId,
+        facility_id: facilityId || null,
+        stratus_facility_identifier: info.facilityName,
+        stratus_organization_identifier: info.orgName || null,
+        mapping_type: mappingType,
+        is_active: true,
+        notes: note,
+      });
+      return ` and mapping created for "${info.facilityName}"`;
+    } catch {
+      return '. Mapping already exists';
+    }
+  }
+
+  async function resolveTarget(modal) {
+    let organizationId = modal.organizationId;
+    let facilityId = modal.facilityId;
+    if (modal.createOrganization) {
+      const organizationName = modal.newOrganizationName?.trim();
+      if (!organizationName) throw new Error('Enter an organization name');
+      const organization = await resolveOrganization(organizationName);
+      organizationId = organization.id;
+      if (modal.info.facilityName) facilityId = (await resolveFacility(modal.info.facilityName, organizationId)).id;
+    }
+    if (!organizationId || organizationId === '__new__') throw new Error('Please select an organization');
+    return { organizationId, facilityId };
+  }
+
   async function handleAssign() {
     if (assigning || !assignModal) return;
     setAssigning(true);
-    const { record, type, organizationId, facilityId, info, createMapping, mappingType } = assignModal;
-    let resolvedOrganizationId = organizationId;
-    let resolvedFacilityId = facilityId;
     try {
-      if (assignModal.createOrganization) {
-        const organizationName = assignModal.newOrganizationName?.trim();
-        if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
-        const organization = await resolveOrganization(organizationName);
-        resolvedOrganizationId = organization.id;
-        if (info.facilityName) {
-          const facility = await resolveFacility(info.facilityName, resolvedOrganizationId);
-          resolvedFacilityId = facility.id;
-        }
-      }
-
-      if (!resolvedOrganizationId) { showMessage('error', 'Please select an organization'); return; }
-      if (type === 'orders') await assignOrderToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
-      else await assignResultToFacility(record.id, resolvedOrganizationId, resolvedFacilityId || null);
-
-      if (createMapping && info.facilityName) {
-        try {
-          await stratusMappingService.createMapping({
-            organization_id: resolvedOrganizationId,
-            facility_id: resolvedFacilityId || null,
-            stratus_facility_identifier: info.facilityName,
-            stratus_organization_identifier: info.orgName || null,
-            mapping_type: mappingType,
-            is_active: true,
-            notes: `Auto-created from Stratus Data Viewer (${type})`,
-          });
-          showMessage('success', `Record assigned and mapping created for "${info.facilityName}"`);
-        } catch (mapErr) {
-          showMessage('success', `Record assigned. Mapping already exists for "${info.facilityName}"`);
-        }
-      } else {
-        showMessage('success', 'Record assigned successfully');
-      }
+      const { organizationId, facilityId } = await resolveTarget(assignModal);
+      await assignOrderAndResults(assignModal.record.id, organizationId, facilityId || null);
+      const extra = assignModal.createMapping
+        ? await createMappingFor(assignModal.info, organizationId, facilityId, assignModal.mappingType, 'Auto-created from Stratus Data Viewer')
+        : '';
+      showMessage('success', `Order assigned${extra}`);
       setAssignModal(null);
       loadData();
     } catch (err) {
@@ -220,39 +238,13 @@ export default function StratusDataViewer() {
   async function handleBulkAssign(accessionId, info) {
     if (!assignModal || assigning) return;
     setAssigning(true);
-    let { organizationId, facilityId, createMapping, mappingType } = assignModal;
     try {
-      if (assignModal.createOrganization) {
-        const organizationName = assignModal.newOrganizationName?.trim();
-        if (!organizationName) { showMessage('error', 'Enter an organization name'); return; }
-        const organization = await resolveOrganization(organizationName);
-        organizationId = organization.id;
-        if (info.facilityName) {
-          const facility = await resolveFacility(info.facilityName, organizationId);
-          facilityId = facility.id;
-        }
-      }
-
-      if (!organizationId) { showMessage('error', 'Please select an organization'); return; }
-      const counts = await bulkAssignByAccession(accessionId, organizationId, facilityId || null);
-      if (createMapping && info.facilityName) {
-        try {
-          await stratusMappingService.createMapping({
-            organization_id: organizationId,
-            facility_id: facilityId || null,
-            stratus_facility_identifier: info.facilityName,
-            stratus_organization_identifier: info.orgName || null,
-            mapping_type: mappingType,
-            is_active: true,
-            notes: 'Auto-created from Stratus Data Viewer (bulk by accession)',
-          });
-          showMessage('success', `${counts.orders + counts.results} records assigned and mapping created for "${info.facilityName}"`);
-        } catch (mapErr) {
-          showMessage('success', `${counts.orders + counts.results} records assigned. Mapping already exists.`);
-        }
-      } else {
-        showMessage('success', `Assigned ${counts.orders} orders and ${counts.results} results`);
-      }
+      const { organizationId, facilityId } = await resolveTarget(assignModal);
+      const c = await bulkAssignByAccession(accessionId, organizationId, facilityId || null);
+      const extra = assignModal.createMapping
+        ? await createMappingFor(info, organizationId, facilityId, assignModal.mappingType, 'Auto-created from Stratus Data Viewer (bulk by accession)')
+        : '';
+      showMessage('success', `Assigned ${c.orders} orders and ${c.results} results${extra}`);
       setAssignModal(null);
       loadData();
     } catch (err) {
@@ -262,28 +254,28 @@ export default function StratusDataViewer() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
-      </div>
-    );
-  }
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const statusChips = [
+    { key: '', label: 'All', count: counts?.total },
+    ...LAB_STATUSES
+      .filter((s) => ['Pending', 'Pending Received', 'Final'].includes(s) || (counts?.byStatus?.[s] || 0) > 0)
+      .map((s) => ({ key: s, label: s, count: counts?.byStatus?.[s] })),
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xl font-semibold text-white mb-1">StratusDX Data Viewer</h3>
-        <p className="text-slate-400 text-sm">
-          Browse all synced lab records and assign them to organizations and facilities
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Orders" value={stats.totalOrders} icon={FlaskConical} color="text-teal-400" />
-        <StatCard label="Unmapped" value={stats.unmappedOrders} icon={AlertTriangle} color="text-yellow-400" />
-        <StatCard label="Results" value={stats.totalResults} icon={Beaker} color="text-blue-400" />
-        <StatCard label="Unmapped" value={stats.unmappedResults} icon={AlertTriangle} color="text-yellow-400" />
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-semibold text-white mb-1">StratusDX Data Viewer</h3>
+          <p className="text-slate-400 text-sm">Lab orders and their results from StratusDX. Expand an order to see its tests and results.</p>
+        </div>
+        <button
+          onClick={loadData}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700 text-slate-400 hover:text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {actionMessage && (
@@ -297,39 +289,71 @@ export default function StratusDataViewer() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
-          <TabButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon={FlaskConical} label="Orders" count={stats.totalOrders} />
-          <TabButton active={activeTab === 'results'} onClick={() => setActiveTab('results')} icon={Beaker} label="Results" count={stats.totalResults} />
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {statusChips.map((c) => (
+            <button
+              key={c.key || 'all'}
+              onClick={() => setStatus(c.key)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                status === c.key ? 'bg-teal-500/10 text-teal-300 border-teal-500/40' : 'text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              {c.label}
+              <span className="text-xs tabular-nums px-1.5 py-0.5 rounded bg-slate-700/70">{c.count ?? '·'}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setUnmappedOnly(!unmappedOnly)}
+            className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+              unmappedOnly ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/40' : 'text-slate-400 border-slate-700 hover:text-white'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Unmapped only
+            <span className="text-xs tabular-nums px-1.5 py-0.5 rounded bg-slate-700/70">{counts?.unmapped ?? '·'}</span>
+          </button>
         </div>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by accession, facility name, organization..."
-            className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-          />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search accession, patient, facility or organization"
+              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+            />
+          </div>
+          <select
+            value={dateField}
+            onChange={(e) => setDateField(e.target.value)}
+            aria-label="Date to filter on"
+            className="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+          >
+            <option value="ordered">Ordered</option>
+            <option value="received">Received</option>
+            <option value="finalized">Finalized</option>
+          </select>
+          <select
+            value={preset}
+            onChange={(e) => choosePreset(e.target.value)}
+            aria-label="Date range"
+            className="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+          >
+            {DATE_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+          {preset === 'custom' && (
+            <>
+              <input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })}
+                aria-label="From" className="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm" />
+              <span className="text-slate-500 text-sm">to</span>
+              <input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })}
+                aria-label="To" className="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm" />
+            </>
+          )}
         </div>
-        <button
-          onClick={() => setFilterUnmapped(!filterUnmapped)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-            filterUnmapped
-              ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-              : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
-          }`}
-        >
-          <Filter className="w-4 h-4" />
-          Unmapped Only
-        </button>
-        <button
-          onClick={loadData}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700 text-slate-400 hover:text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
       </div>
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
@@ -338,56 +362,48 @@ export default function StratusDataViewer() {
             <thead className="bg-slate-900/50 border-b border-slate-700">
               <tr>
                 <th className="px-3 py-3 w-8"></th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Accession</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">StratusDX Facility</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Mapped To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sync Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                {['Accession', 'Status', 'Patient', 'StratusDX Facility', 'Mapped To', 'Ordered', 'Received', 'Finalized'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {currentData.length === 0 ? (
+              {!loading && rows.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center">
+                  <td colSpan="10" className="px-4 py-12 text-center">
                     <FlaskConical className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400">No records found</p>
+                    <p className="text-slate-400">No orders match these filters</p>
                   </td>
                 </tr>
               ) : (
-                currentData.map((record) => {
-                  const info = extractStratusInfo(record, activeTab);
-                  const isExpanded = expandedRows.has(record.id);
+                rows.map((record) => {
+                  const info = extractStratusInfo(record, 'orders');
+                  const isExpanded = expandedId === record.id;
                   const isMapped = !!record.facility_id;
                   const hasMapping = info.facilityName ? mappedIdentifiers.has(info.facilityName.toLowerCase()) : false;
+                  const patient = [record.patient_last_name, record.patient_first_name].filter(Boolean).join(', ');
                   return (
                     <React.Fragment key={record.id}>
-                      <tr className={`hover:bg-slate-700/30 transition-colors ${!isMapped ? 'bg-yellow-500/[0.03]' : ''}`}>
+                      <tr className={`hover:bg-slate-700/30 transition-colors ${loading ? 'opacity-60' : ''}`}>
                         <td className="px-3 py-3">
-                          <button onClick={() => toggleRow(record.id)} className="p-1 text-slate-400 hover:text-white">
+                          <button onClick={() => setExpandedId(isExpanded ? null : record.id)} aria-label={isExpanded ? 'Collapse' : 'Expand'} className="p-1 text-slate-400 hover:text-white">
                             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </button>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="text-white text-sm font-medium">{info.accessionId || info.stratusGuid}</p>
-                          {info.stratusGuid && info.accessionId && (
-                            <p className="text-slate-500 text-xs">{info.stratusGuid}</p>
-                          )}
-                        </td>
+                        <td className="px-4 py-3 text-white text-sm font-medium whitespace-nowrap">{info.accessionId || info.stratusGuid}</td>
+                        <td className="px-4 py-3"><LabStatusBadge status={record.lab_status} /></td>
+                        <td className="px-4 py-3 text-slate-200 text-sm">{patient || '--'}</td>
                         <td className="px-4 py-3">
                           {info.facilityName ? (
                             <div>
                               <p className="text-white text-sm">{info.facilityName}</p>
-                              {info.orgName && <p className="text-slate-400 text-xs">{info.orgName}</p>}
+                              {info.orgName && info.orgName !== info.facilityName && <p className="text-slate-400 text-xs">{info.orgName}</p>}
+                              {!isMapped && hasMapping && (
+                                <span className="inline-flex items-center gap-1 text-teal-400 text-xs mt-0.5"><Link2 className="w-3 h-3" /> mapping exists</span>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-slate-500 text-sm">--</span>
-                          )}
-                          {hasMapping && (
-                            <span className="inline-flex items-center gap-1 text-teal-400 text-xs mt-1">
-                              <Link2 className="w-3 h-3" /> mapping exists
-                            </span>
-                          )}
+                          ) : <span className="text-slate-500 text-sm">--</span>}
                         </td>
                         <td className="px-4 py-3">
                           {isMapped ? (
@@ -401,20 +417,15 @@ export default function StratusDataViewer() {
                                 <span className="text-slate-300 text-sm">{record.facility?.name || 'Org level'}</span>
                               </div>
                             </div>
-                          ) : (
-                            <span className="text-yellow-400 text-sm font-medium">Not mapped</span>
-                          )}
+                          ) : <span className="text-yellow-400 text-sm font-medium">Not mapped</span>}
                         </td>
-                        <td className="px-4 py-3"><StatusBadge status={record.sync_status} /></td>
-                        <td className="px-4 py-3">
-                          <span className="text-slate-400 text-sm">
-                            {record.created_at ? format(new Date(record.created_at), 'MMM d, yyyy') : '--'}
-                          </span>
-                        </td>
+                        <td className="px-4 py-3 text-slate-300 text-sm whitespace-nowrap">{formatCompact(record.requisition_datetime, false) || '--'}</td>
+                        <td className="px-4 py-3 text-slate-300 text-sm whitespace-nowrap">{formatCompact(record.received_datetime, false) || '--'}</td>
+                        <td className="px-4 py-3 text-slate-300 text-sm whitespace-nowrap">{formatCompact(record.finalized_datetime, false) || '--'}</td>
                         <td className="px-4 py-3 text-right">
                           <button
-                            onClick={() => openAssignModal(record, activeTab)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 rounded-lg text-xs font-medium transition-colors"
+                            onClick={() => openAssignModal(record)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
                           >
                             <ArrowRightCircle className="w-3.5 h-3.5" />
                             {isMapped ? 'Reassign' : 'Assign'}
@@ -423,8 +434,8 @@ export default function StratusDataViewer() {
                       </tr>
                       {isExpanded && (
                         <tr className="bg-slate-900/30">
-                          <td colSpan="7" className="px-4 py-4">
-                            <ExpandedDetail record={record} type={activeTab} info={info} />
+                          <td colSpan="10" className="px-4 py-4">
+                            <OrderDetail orderId={record.id} info={info} />
                           </td>
                         </tr>
                       )}
@@ -434,6 +445,18 @@ export default function StratusDataViewer() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-700 text-sm text-slate-400">
+          <span>
+            {loading ? 'Loading...' : total === 0 ? 'No orders' : `Showing ${page * PAGE_SIZE + 1} to ${Math.min(total, (page + 1) * PAGE_SIZE)} of ${total.toLocaleString()}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button disabled={page === 0 || loading} onClick={() => setPage(page - 1)}
+              className="px-3 py-1.5 rounded-lg border border-slate-700 disabled:opacity-40 hover:text-white">Previous</button>
+            <span className="tabular-nums">Page {page + 1} of {pages}</span>
+            <button disabled={page + 1 >= pages || loading} onClick={() => setPage(page + 1)}
+              className="px-3 py-1.5 rounded-lg border border-slate-700 disabled:opacity-40 hover:text-white">Next</button>
+          </div>
         </div>
       </div>
 
@@ -463,31 +486,20 @@ export default function StratusDataViewer() {
   );
 }
 
-function StatCard({ label, value, icon: Icon, color }) {
-  return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className={`w-4 h-4 ${color}`} />
-        <span className="text-xs text-slate-400">{label}</span>
-      </div>
-      <p className="text-xl font-bold text-white">{value}</p>
-    </div>
-  );
-}
-
-function TabButton({ active, onClick, icon: Icon, label, count }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-        active ? 'bg-teal-500/10 text-teal-400' : 'text-slate-400 hover:text-white'
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-      <span className={`text-xs px-1.5 py-0.5 rounded ${active ? 'bg-teal-500/20' : 'bg-slate-700'}`}>{count}</span>
-    </button>
-  );
+// Loads the full order when a row is expanded.
+function OrderDetail({ orderId, info }) {
+  const [record, setRecord] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getLabOrderById(orderId)
+      .then((r) => { if (!cancelled) setRecord(r); })
+      .catch((err) => { if (!cancelled) setError(err.message); });
+    return () => { cancelled = true; };
+  }, [orderId]);
+  if (error) return <p className="text-red-300 text-sm">Could not load this order: {error}</p>;
+  if (!record) return <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>;
+  return <ExpandedDetail record={record} type="orders" info={info} />;
 }
 
 function ExpandedDetail({ record, type, info }) {
@@ -507,14 +519,16 @@ function ExpandedDetail({ record, type, info }) {
       setLoadingRel(true);
       try {
         if (type === 'orders') {
-          const [p, t, d, m, i] = await Promise.all([
+          const [p, t, d, m, i, o] = await Promise.all([
             getOrderPanels(record.id),
             getOrderTests(record.id),
             getOrderDiagnosisCodes(record.id),
             getOrderMedications(record.id),
             getOrderInsurance(record.id),
+            getOrderResultObservations(record.id),
           ]);
           if (cancelled) return;
+          setObservations(o || []);
           setPanels(p || []);
           setTests(t || []);
           setDxCodes(d || []);
@@ -541,7 +555,8 @@ function ExpandedDetail({ record, type, info }) {
         <InfoCard title="Identifiers">
           <DetailRow label="Accession ID" value={info.accessionId} />
           <DetailRow label="Stratus GUID" value={info.stratusGuid} />
-          {type === 'orders' && <DetailRow label="Order Status" value={record.order_status} />}
+          {type === 'orders' && <DetailRow label="Status" value={record.lab_status} />}
+          {type === 'orders' && <DetailRow label="StratusDX Status" value={record.order_status} />}
           {type === 'results' && <DetailRow label="Result Status" value={record.result_status} />}
           <DetailRow label="Sync Status" value={record.sync_status} />
           {record.sync_error && <DetailRow label="Sync Error" value={record.sync_error} />}
@@ -573,10 +588,12 @@ function ExpandedDetail({ record, type, info }) {
 
         {type === 'orders' && (
           <InfoCard title="Order Timeline">
-            <DetailRow label="Collected" value={record.collected_datetime} />
-            <DetailRow label="Requisition" value={record.requisition_datetime} />
-            <DetailRow label="Received" value={record.received_datetime} />
-            <DetailRow label="Finalized" value={record.finalized_datetime} />
+            <DetailRow label="Collected" value={formatCompact(record.collected_datetime)} />
+            <DetailRow label="Ordered" value={formatCompact(record.requisition_datetime)} />
+            <DetailRow label="Received" value={formatCompact(record.received_datetime)} />
+            <DetailRow label="Finalized" value={formatCompact(record.finalized_datetime)} />
+            <DetailRow label="Canceled" value={formatCompact(record.canceled_at)} />
+            <DetailRow label="Rejected" value={formatCompact(record.rejected_at)} />
             <DetailRow label="Requisition By" value={record.requisition_by} />
             <DetailRow label="Comments" value={record.order_comments} />
           </InfoCard>
@@ -657,6 +674,25 @@ function ExpandedDetail({ record, type, info }) {
             ins.payer_name || '--',
           ])}
         />
+      )}
+
+      {!loadingRel && type === 'orders' && (
+        observations.length > 0 ? (
+          <DataTable
+            title="Results"
+            columns={['Panel', 'Test', 'Result', 'Units', 'Flag']}
+            rows={observations.map((obs) => [
+              panels.find((p) => p.id === obs.order_panel_id)?.panel_name || '--',
+              obs.test_name || obs.test_code || '--',
+              obs.result_display || obs.result_value || '--',
+              obs.result_uom || '--',
+              obs.result_flag || '',
+            ])}
+            highlightCol={4}
+          />
+        ) : (
+          <p className="text-slate-500 text-sm">No results yet.</p>
+        )
       )}
 
       {!loadingRel && type === 'results' && observations.length > 0 && (

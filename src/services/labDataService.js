@@ -342,3 +342,103 @@ export async function getResultObservations(resultId) {
   if (error) throw error;
   return data;
 }
+
+// ---------- StratusDX Data Viewer (server-side filtering and paging) ----------
+
+export const LAB_STATUSES = ['Pending', 'Pending Received', 'Final', 'Canceled', 'Rejected'];
+
+// Which order date a date range applies to. The values are StratusDX compact
+// strings (yyyyMMddHHmmss, US Central), which sort correctly as text.
+export const LAB_DATE_FIELDS = {
+  ordered: 'requisition_datetime',
+  received: 'received_datetime',
+  finalized: 'finalized_datetime',
+};
+
+const ORDER_LIST_COLUMNS = `
+  id, stratus_guid, accession_id, accession_number, lab_status, order_status,
+  patient_first_name, patient_last_name, location_name, organization_name,
+  organization_id, facility_id, requisition_datetime, received_datetime, finalized_datetime,
+  processed_at_utc, sync_status, sync_error,
+  organization:organizations(id, name),
+  facility:facilities(id, name)
+`;
+
+function compactDay(day, endOfDay) {
+  return `${day.replaceAll('-', '')}${endOfDay ? '235959' : '000000'}`;
+}
+
+// filters: { search, dateField, from, to, unmappedOnly } (from/to as YYYY-MM-DD)
+function applyOrderFilters(query, filters = {}) {
+  const field = LAB_DATE_FIELDS[filters.dateField] || LAB_DATE_FIELDS.ordered;
+  if (filters.from) query = query.gte(field, compactDay(filters.from, false));
+  if (filters.to) query = query.lte(field, compactDay(filters.to, true));
+  if (filters.unmappedOnly) query = query.is('facility_id', null);
+  const term = (filters.search || '').replace(/[,()*%"'\\]/g, ' ').trim();
+  if (term) {
+    const like = `*${term}*`;
+    query = query.or([
+      `accession_id.ilike.${like}`,
+      `patient_last_name.ilike.${like}`,
+      `patient_first_name.ilike.${like}`,
+      `location_name.ilike.${like}`,
+      `organization_name.ilike.${like}`,
+    ].join(','));
+  }
+  return query;
+}
+
+// One page of orders, newest first, with the total that match.
+export async function searchLabOrders({ filters = {}, status = null, page = 0, pageSize = 50 } = {}) {
+  let query = supabase.from('lab_orders').select(ORDER_LIST_COLUMNS, { count: 'exact' });
+  query = applyOrderFilters(query, filters);
+  if (status) query = query.eq('lab_status', status);
+  const from = page * pageSize;
+  const { data, error, count } = await query
+    .order('requisition_datetime', { ascending: false, nullsFirst: false })
+    .order('processed_at_utc', { ascending: false, nullsFirst: false })
+    .range(from, from + pageSize - 1);
+  if (error) throw error;
+  return { rows: data || [], total: count || 0 };
+}
+
+// How many orders match the filters, per status, plus how many are unmapped.
+export async function countLabOrders(filters = {}) {
+  const head = (extra) => {
+    let q = applyOrderFilters(supabase.from('lab_orders').select('id', { count: 'exact', head: true }), filters);
+    return extra(q);
+  };
+  const results = await Promise.all([
+    ...LAB_STATUSES.map((s) => head((q) => q.eq('lab_status', s))),
+    head((q) => q),
+    head((q) => q.is('facility_id', null)),
+  ]);
+  const failed = results.find((r) => r.error);
+  if (failed) throw failed.error;
+  const byStatus = {};
+  LAB_STATUSES.forEach((s, i) => { byStatus[s] = results[i].count || 0; });
+  return { byStatus, total: results[LAB_STATUSES.length].count || 0, unmapped: results[LAB_STATUSES.length + 1].count || 0 };
+}
+
+// All test results saved for an order.
+export async function getOrderResultObservations(orderId) {
+  const { data, error } = await supabase
+    .from('stratus_result_observations')
+    .select('*')
+    .eq('lab_order_id', orderId)
+    .order('sort_order');
+  if (error) throw error;
+  return data || [];
+}
+
+// Assigns an order and its results to an organization (and facility).
+export async function assignOrderAndResults(orderId, organizationId, facilityId = null) {
+  const updates = { organization_id: organizationId, facility_id: facilityId || null };
+  const [orderRes, resultsRes] = await Promise.all([
+    supabase.from('lab_orders').update(updates).eq('id', orderId).select('id').single(),
+    supabase.from('lab_results').update(updates).eq('lab_order_id', orderId),
+  ]);
+  if (orderRes.error) throw orderRes.error;
+  if (resultsRes.error) throw resultsRes.error;
+  return orderRes.data;
+}
