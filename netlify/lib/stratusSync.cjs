@@ -200,12 +200,16 @@ function makeApi(cfg, db) {
     for (;;) {
       const sep = path.includes('?') ? '&' : '?';
       const page = await get(`${path}${sep}top=${PAGE_SIZE}&skip=${skip}`);
-      const data = Array.isArray(page && page.data) ? page.data : [];
+      if (!page || !Array.isArray(page.data)) {
+        const shape = page && typeof page === 'object' ? Object.keys(page).slice(0, 10).join(', ') : typeof page;
+        throw new Error(`StratusDX ${path.split('?')[0]} did not return a "data" list (got: ${shape || 'empty'})`);
+      }
+      const data = page.data;
       rows.push(...data);
       skip += data.length;
-      const total = Number(page && page.totalCount) || 0;
-      if (data.length === 0 || skip >= total) return { rows, complete: true };
-      if (Date.now() > deadline) return { rows, complete: false };
+      const total = Number(page.totalCount) || 0;
+      if (data.length === 0 || skip >= total) return { rows, complete: true, total };
+      if (Date.now() > deadline) return { rows, complete: false, total };
     }
   }
 
@@ -497,6 +501,8 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
   const windowFinished = newList.complete && notDone.length === 0;
   return {
     windowFrom, windowTo, saved, unchanged, errors, fetched: queue.length, nextCheckpoint, changedDone,
+    listed: newList.rows.length + changedList.rows.length,
+    filteredRows: newList.rows.length - newRows.length,
     // Move straight on to the next window when this one is fully done and is not the last.
     canContinue: windowFinished && windowTo < today,
     caughtUp: windowFinished && windowTo >= today && changedDone,
@@ -515,6 +521,24 @@ async function runSync({ budgetMs, trigger }) {
 
   // Keep stepping through date windows until caught up or the time is nearly used.
   const steps = [];
+  // Connection check on manual runs: what the API holds in total, how new its
+  // newest order is, and which field names it uses (names only, no values).
+  let apiCheck = null;
+  if (trigger === 'manual') {
+    try {
+      const page = await api.get('/orders?top=1');
+      const first = page && Array.isArray(page.data) ? page.data[0] : null;
+      apiCheck = {
+        total_orders: page && page.totalCount !== undefined ? page.totalCount : null,
+        newest_processed_at: first ? first.processedAtUtc || null : null,
+        fields: first ? Object.keys(first).slice(0, 40) : [],
+        response_keys: page && typeof page === 'object' ? Object.keys(page).slice(0, 10) : [],
+      };
+    } catch (err) {
+      apiCheck = { error: err.message };
+    }
+  }
+
   let step = await syncStep({ cfg, db, api, deadline, includeChanged: true });
   steps.push(step);
   while (step.canContinue && Date.now() < deadline - 1500) {
@@ -529,6 +553,10 @@ async function runSync({ budgetMs, trigger }) {
     window: `${steps[0].windowFrom} to ${step.windowTo}`,
     windows: steps.length,
     total_fetched: sum('fetched'),
+    api_rows_listed: sum('listed'),
+    api_rows_filtered: sum('filteredRows'),
+    api_check: apiCheck,
+    base_url: cfg.baseUrl,
     total_processed: sum('saved'),
     unchanged: sum('unchanged'),
     errors: errors.length,
