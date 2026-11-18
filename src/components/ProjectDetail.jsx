@@ -238,8 +238,8 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
             bVal = b.milestoneProgress;
             break;
           case 'go_live':
-            aVal = a.projected_go_live_date ? new Date(a.projected_go_live_date).getTime() : 0;
-            bVal = b.projected_go_live_date ? new Date(b.projected_go_live_date).getTime() : 0;
+            aVal = a.projected_go_live ? new Date(a.projected_go_live).getTime() : 0;
+            bVal = b.projected_go_live ? new Date(b.projected_go_live).getTime() : 0;
             break;
           default:
             return 0;
@@ -635,8 +635,8 @@ function OverviewTab({ project, organization, facilities, isEditor, onRefresh })
                         )}
                       </td>
                       <td className="px-6 py-4 text-slate-400 text-sm">
-                        {facility.projected_go_live_date
-                          ? format(new Date(facility.projected_go_live_date), 'MMM d, yyyy')
+                        {facility.projected_go_live
+                          ? format(new Date(facility.projected_go_live), 'MMM d, yyyy')
                           : '-'}
                       </td>
                       <td className="px-6 py-4">

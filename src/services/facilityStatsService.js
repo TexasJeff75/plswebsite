@@ -88,7 +88,7 @@ export const facilityStatsService = {
   calculateOverallStatus(facility) {
     if (!facility) return 'not_started';
 
-    if (facility.actual_go_live_date) {
+    if (facility.actual_go_live) {
       return 'live';
     }
 

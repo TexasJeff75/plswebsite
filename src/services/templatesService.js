@@ -347,12 +347,14 @@ export const templatesService = {
       .eq('id', facilityId)
       .maybeSingle();
 
-    const facilityComplexityLevel = targetComplexityLevel || facility?.complexity_level || 'CLIA Waived';
+    // The template is built for a complexity level; the facility takes that level.
+    const facilityComplexityLevel = targetComplexityLevel || template.target_complexity_level || facility?.complexity_level || 'CLIA Waived';
 
-    await supabase
+    const { error: facilityError } = await supabase
       .from('facilities')
-      .update({ deployment_template_id: templateId })
+      .update({ deployment_template_id: templateId, complexity_level: facilityComplexityLevel })
       .eq('id', facilityId);
+    if (facilityError) throw facilityError;
 
     let addedMilestones = 0;
     let skippedMilestones = 0;
