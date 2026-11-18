@@ -10,6 +10,7 @@ export const facilityStatsService = {
           status,
           state,
           projected_go_live,
+          organization:organizations(archived_at),
           milestones(id, status),
           facility_contacts(id)
         `);
@@ -22,9 +23,13 @@ export const facilityStatsService = {
         query = query.eq('project_id', filters.project_id);
       }
 
-      const { data: facilities, error } = await query;
+      const { data: allFacilities, error } = await query;
 
       if (error) throw error;
+      // hideArchived: leave out facilities of archived organizations.
+      const facilities = filters.hideArchived
+        ? (allFacilities || []).filter((f) => !f.organization?.archived_at)
+        : allFacilities;
 
       const totalFacilities = facilities.length;
       const liveFacilities = facilities.filter(f => f.status === 'Live').length;
