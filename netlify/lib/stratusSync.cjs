@@ -29,6 +29,8 @@ const PAGE_SIZE = 200;
 const WINDOW_DAYS = 1; // about 300 orders a day, so a window lists in 1 or 2 pages
 const CONCURRENCY = 8;
 const MAX_ERRORS_REPORTED = 20;
+// v2: finalized orders with no listed results also ask the results endpoint.
+const FINGERPRINT_VERSION = 'v2';
 
 function config() {
   return {
@@ -242,7 +244,8 @@ function makeApi(cfg, db) {
 function fingerprint(row) {
   const panels = (Array.isArray(row.panels) ? row.panels : [])
     .map((p) => `${p.panelName || ''}:${p.resultCount ?? ''}`).sort().join('|');
-  return [row.statusUpdatedAtUtc, row.status, row.finalizedDatetime, row.canceledDatetime, row.rejectedDatetime, panels]
+  // The leading version makes every order refresh once when the saving rules change.
+  return [FINGERPRINT_VERSION, row.statusUpdatedAtUtc, row.status, row.finalizedDatetime, row.canceledDatetime, row.rejectedDatetime, panels]
     .map((v) => (v === null || v === undefined ? '' : String(v))).join('~');
 }
 
@@ -301,7 +304,10 @@ async function saveOrder(db, api, listRow, existing) {
   // fewer than the panels say exist, page the dedicated results endpoint.
   let results = Array.isArray(detail.results) ? detail.results : [];
   const expected = (Array.isArray(detail.panels) ? detail.panels : []).reduce((n, p) => n + (Number(p.resultCount) || 0), 0);
-  if (expected > results.length) {
+  // Also ask when a finalized order lists no results: the panel counts are
+  // not always filled in.
+  const finalized = hasValue(detail.finalizedDatetime !== undefined ? detail.finalizedDatetime : listRow.finalizedDatetime);
+  if (expected > results.length || (finalized && results.length === 0)) {
     const all = await api.list(`/orders/${enc}/results`, Infinity);
     if (all.rows.length > results.length) results = all.rows;
   }
@@ -401,6 +407,7 @@ async function saveOrder(db, api, listRow, existing) {
       sort_order: i,
     })));
   }
+  return { finalizedWithoutResults: finalized && results.length === 0 };
 }
 
 async function markError(db, listRow, message) {
@@ -471,13 +478,15 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
 
   const errors = [];
   let saved = 0;
+  let finalizedNoResults = 0;
   let unchanged = 0;
   const finished = await runPool(queue, deadline, async (row) => {
     const accessionId = String(row.accessionId);
     const existing = existingByAccession.get(accessionId);
     if (existing && existing.sync_fingerprint === fingerprint(row)) { unchanged++; return true; }
     try {
-      await saveOrder(db, api, row, existing);
+      const outcome = await saveOrder(db, api, row, existing);
+      if (outcome && outcome.finalizedWithoutResults) finalizedNoResults++;
       saved++;
       return true;
     } catch (err) {
@@ -520,7 +529,7 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
 
   const windowFinished = newList.complete && notDone.length === 0;
   return {
-    windowFrom, windowTo, saved, unchanged, errors, fetched: queue.length, nextCheckpoint, changedDone,
+    windowFrom, windowTo, saved, unchanged, finalizedNoResults, errors, fetched: queue.length, nextCheckpoint, changedDone,
     listed: newList.rows.length + changedList.rows.length,
     filteredRows: newList.rows.length - newRows.length,
     // Move straight on to the next window when this one is fully done and is not the last.
@@ -600,6 +609,7 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
     base_url: cfg.baseUrl,
     total_processed: sum('saved'),
     unchanged: sum('unchanged'),
+    finalized_without_results: sum('finalizedNoResults'),
     errors: errors.length,
     error_list: errors.slice(0, MAX_ERRORS_REPORTED),
     more: !step.caughtUp,
