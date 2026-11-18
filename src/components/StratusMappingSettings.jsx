@@ -332,8 +332,8 @@ export default function StratusMappingSettings() {
                     <tr>
                       <th className="text-left px-3 py-2">Organization</th>
                       <th className="text-left px-3 py-2">Location</th>
-                      <th className="text-left px-3 py-2">City, State</th>
                       <th className="text-right px-3 py-2">Orders</th>
+                      <th className="text-right px-3 py-2">Not assigned</th>
                       <th className="text-center px-3 py-2">Status</th>
                     </tr>
                   </thead>
@@ -342,8 +342,8 @@ export default function StratusMappingSettings() {
                       <tr key={i} className="hover:bg-slate-700/30">
                         <td className="px-3 py-2 text-white">{item.organization_name}</td>
                         <td className="px-3 py-2 text-slate-300">{item.location_name}</td>
-                        <td className="px-3 py-2 text-slate-400">{item.loc_city}, {item.loc_state}</td>
-                        <td className="px-3 py-2 text-right text-slate-300">{item.order_count}</td>
+                        <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{Number(item.order_count || 0).toLocaleString()}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${item.unassigned_count ? 'text-yellow-300' : 'text-slate-500'}`}>{Number(item.unassigned_count || 0).toLocaleString()}</td>
                         <td className="px-3 py-2 text-center">
                           {item.is_mapped ? (
                             <span className="text-green-400 text-xs flex items-center justify-center gap-1">
