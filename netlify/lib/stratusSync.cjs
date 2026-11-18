@@ -452,13 +452,20 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
   // 1. New orders, one date window at a time (whole UTC days, both ends inclusive).
   const windowFrom = utcDay(new Date(sinceMs));
   const windowTo = addDays(windowFrom, WINDOW_DAYS - 1) < today ? addDays(windowFrom, WINDOW_DAYS - 1) : today;
-  const newList = await api.list(`/orders?dateField=processedAt&from=${windowFrom}&to=${windowTo}`, deadline);
-  const newRows = newList.rows.filter((r) => r && hasValue(r.accessionId) && Date.parse(r.processedAtUtc) >= sinceMs);
+  // The live API treats "to" as the start of that day, so ask up to the next
+  // day and keep only rows before it. A one-day window "D to D" comes back empty.
+  const windowEnd = addDays(windowTo, 1);
+  const windowEndMs = Date.parse(`${windowEnd}T00:00:00Z`);
+  const newList = await api.list(`/orders?dateField=processedAt&from=${windowFrom}&to=${windowEnd}`, deadline);
+  const newRows = newList.rows.filter((r) => {
+    const t = r && Date.parse(r.processedAtUtc);
+    return r && hasValue(r.accessionId) && t >= sinceMs && t < windowEndMs;
+  });
 
   // 2. Orders changed since the last finished pass (results added, status changes).
   let changedList = { rows: [], complete: false };
   if (includeChanged && Date.now() < deadline) {
-    changedList = await api.list(`/orders?dateField=statusUpdated&from=${statusFrom}&to=${today}`, deadline);
+    changedList = await api.list(`/orders?dateField=statusUpdated&from=${statusFrom}&to=${addDays(today, 1)}`, deadline);
   }
 
   // One queue, oldest first, each accession once.
@@ -584,6 +591,16 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
         fields: first ? Object.keys(first).slice(0, 40) : [],
         response_keys: page && typeof page === 'object' ? Object.keys(page).slice(0, 10) : [],
       };
+      // How the API reads a date range: count the newest order's day asked as
+      // "D to D" and as "D to D+1".
+      if (first && first.processedAtUtc) {
+        const day = utcDay(new Date(Date.parse(first.processedAtUtc)));
+        const count = async (to) => {
+          const p = await api.get(`/orders?dateField=processedAt&from=${day}&to=${to}&top=1`);
+          return p && p.totalCount !== undefined ? p.totalCount : null;
+        };
+        apiCheck.range_check = { day, same_day: await count(day), to_next_day: await count(addDays(day, 1)) };
+      }
     } catch (err) {
       apiCheck = { error: err.message };
     }
