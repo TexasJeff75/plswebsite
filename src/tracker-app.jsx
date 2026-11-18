@@ -23,7 +23,7 @@ import Notifications from './components/Notifications';
 import Templates from './components/Templates';
 import ReferenceData from './components/ReferenceData';
 import StratusMappingSettings from './components/StratusMappingSettings';
-import StratusAPIViewer from './components/StratusAPIViewer';
+import StratusSyncStatus from './components/StratusSyncStatus';
 import StratusDataViewer from './components/StratusDataViewer';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
@@ -177,11 +177,12 @@ function App() {
                   <Route path="supply-catalog" element={<SupplyCatalog />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
                   <Route path="stratus-data" element={<StratusDataViewer />} />
-                  <Route path="stratus-api-viewer" element={
+                  <Route path="stratus-sync" element={
                     <ProtectedRoute requireAdmin>
-                      <StratusAPIViewer />
+                      <StratusSyncStatus />
                     </ProtectedRoute>
                   } />
+                  <Route path="stratus-api-viewer" element={<Navigate to="/settings/stratus-sync" replace />} />
                 </Route>
               </Route>
 

@@ -46,8 +46,8 @@ function extractStratusInfo(record, type) {
   if (type === 'results') {
     const rd = record.result_data || {};
     return {
-      facilityName: rd.location_name || rd.facility_name || rd.facility?.name || '',
-      orgName: rd.organization_name || rd.organization?.name || '',
+      facilityName: rd.locationName || rd.location_name || rd.facility_name || rd.facility?.name || '',
+      orgName: rd.organizationName || rd.organization_name || rd.organization?.name || '',
       accessionId: record.accession_id || record.accession_number || '',
       stratusGuid: record.stratus_guid || '',
     };

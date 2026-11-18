@@ -1,0 +1,157 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { labOrdersService } from '../services/labOrdersService';
+
+// StratusDX Sync: shows how far the LIS Integration API import has got and
+// lets a Super Admin run it now. The import also runs every 5 minutes.
+
+const MAX_ROUNDS = 15;
+
+function when(ts) {
+  if (!ts) return 'Never';
+  const d = new Date(ts);
+  return `${format(d, 'MMM d, yyyy h:mm a')} (${formatDistanceToNow(d, { addSuffix: true })})`;
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="bg-slate-900/50 rounded-lg p-3">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className="text-lg font-semibold text-white tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+export default function StratusSyncStatus() {
+  const [checkpoint, setCheckpoint] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [runError, setRunError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('stratus_sync_checkpoint')
+      .select('last_processed_at_utc, status_updated_from, last_sync_run_at, last_sync_summary')
+      .eq('id', 1)
+      .maybeSingle();
+    setLoadError(error ? error.message : null);
+    setCheckpoint(data || null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function runNow() {
+    setRunning(true);
+    setRunError(null);
+    const totals = { rounds: 0, saved: 0, unchanged: 0, failed: 0 };
+    setProgress({ ...totals });
+    try {
+      for (let i = 0; i < MAX_ROUNDS; i++) {
+        const result = await labOrdersService.syncAll();
+        const s = result.summary || {};
+        totals.rounds += 1;
+        totals.saved += s.total_processed || 0;
+        totals.unchanged += s.unchanged || 0;
+        totals.failed += s.errors || 0;
+        setProgress({ ...totals, more: s.more });
+        if (!s.more) break;
+      }
+    } catch (err) {
+      setRunError(err.message);
+    } finally {
+      setRunning(false);
+      await load();
+    }
+  }
+
+  const s = checkpoint?.last_sync_summary || {};
+  const hasRun = Boolean(s.trigger);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-white">StratusDX Sync</h2>
+          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            Orders and results come from the StratusDX LIS Integration API. The import runs every 5 minutes
+            and carries on where it stopped. Use Run now to catch up straight away.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={runNow}
+          disabled={running}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white text-sm font-medium"
+        >
+          {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {running ? 'Running...' : 'Run now'}
+        </button>
+      </div>
+
+      {progress && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-sm text-slate-300">
+          {running ? 'Working' : 'Finished'}: {progress.rounds} round{progress.rounds === 1 ? '' : 's'},{' '}
+          {progress.saved} orders saved, {progress.unchanged} unchanged, {progress.failed} failed.
+          {!running && progress.more && ' There is more to import; the schedule will carry on, or press Run now again.'}
+        </div>
+      )}
+
+      {runError && (
+        <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-300">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{runError}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-400"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
+      ) : loadError ? (
+        <div className="text-sm text-red-300">Could not load the sync status: {loadError}</div>
+      ) : (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-5">
+          <div className="flex items-center gap-2 text-sm">
+            {hasRun && !s.errors ? <CheckCircle2 className="w-4 h-4 text-teal-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
+            <span className="text-slate-300">
+              {hasRun
+                ? `Last run: ${when(checkpoint?.last_sync_run_at)}, ${s.trigger === 'schedule' ? 'by the schedule' : 'started by hand'}.`
+                : 'The new import has not run yet.'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="Orders saved" value={s.total_processed ?? 0} />
+            <Stat label="Unchanged" value={s.unchanged ?? 0} />
+            <Stat label="Failed" value={s.errors ?? 0} />
+            <Stat label="Caught up" value={hasRun ? (s.more ? 'Not yet' : 'Yes') : '·'} />
+          </div>
+
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div><dt className="text-slate-400">New orders read up to</dt><dd className="text-white">{when(checkpoint?.last_processed_at_utc)}</dd></div>
+            <div><dt className="text-slate-400">Changed orders checked from</dt><dd className="text-white">{checkpoint?.status_updated_from || '·'}</dd></div>
+            {s.window && <div><dt className="text-slate-400">Last date window</dt><dd className="text-white">{s.window}</dd></div>}
+          </dl>
+
+          {Array.isArray(s.error_list) && s.error_list.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-white mb-2">Orders that failed in the last run</h3>
+              <ul className="space-y-1 text-sm">
+                {s.error_list.map((e) => (
+                  <li key={e.accessionId} className="text-slate-300">
+                    <span className="font-mono text-slate-200">{e.accessionId}</span>: {e.error}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-500 mt-2">Failed orders are tried again on every run.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

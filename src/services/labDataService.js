@@ -342,24 +342,3 @@ export async function getResultObservations(resultId) {
   if (error) throw error;
   return data;
 }
-
-export async function exploreStratusAPI(endpoint, method = 'GET', testParams = {}) {
-  const response = await fetch('/.netlify/functions/explore-stratus-api', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      endpoint,
-      method,
-      testParams,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to explore API');
-  }
-
-  return await response.json();
-}

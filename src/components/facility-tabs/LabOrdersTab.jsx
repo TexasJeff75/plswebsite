@@ -78,7 +78,9 @@ export default function LabOrdersTab({ facility }) {
       const summary = syncResult.summary || {};
       const parts = [];
       parts.push(`${summary.total_processed || 0} orders processed`);
+      if (summary.unchanged > 0) parts.push(`${summary.unchanged} unchanged`);
       if (summary.errors > 0) parts.push(`${summary.errors} errors`);
+      if (summary.more) parts.push('more to import (the sync runs every 5 minutes, or press Sync again)');
       if (syncResult.errors?.length > 0) {
         parts.push(`Errors: ${syncResult.errors.slice(0, 3).map(e => e.accessionId || e.error).join(', ')}`);
       }

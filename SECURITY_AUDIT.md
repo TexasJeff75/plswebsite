@@ -20,16 +20,16 @@
 
 ```js
 // stratus-api-proxy.js, explore-stratus-api.js, sync-stratus-orders.js
-const STRATUS_USERNAME = "novagen_stratusdx_11";
-const STRATUS_PASSWORD = "9b910d57-49cb";
+const STRATUS_USERNAME = "[removed]";
+const STRATUS_PASSWORD = "[removed]";
 
 // sync-stratus-confirmations.js
-const STRATUS_USERNAME = "novagen_stratusdx_13";
-const STRATUS_PASSWORD = "be917642-d7c6";
+const STRATUS_USERNAME = "[removed]";
+const STRATUS_PASSWORD = "[removed]";
 
 // sync-stratus-results.js
-const STRATUS_USERNAME = "novagen_stratusdx_12";
-const STRATUS_PASSWORD = "a9943167-93f1";
+const STRATUS_USERNAME = "[removed]";
+const STRATUS_PASSWORD = "[removed]";
 ```
 
 **Risk:** Anyone with read access to this repository has full access to these API credentials. Even if the repo is private, this violates the principle of least privilege and makes credential rotation painful.
