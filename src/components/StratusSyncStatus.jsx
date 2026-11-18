@@ -135,7 +135,33 @@ export default function StratusSyncStatus() {
             <div><dt className="text-slate-400">New orders read up to</dt><dd className="text-white">{when(checkpoint?.last_processed_at_utc)}</dd></div>
             <div><dt className="text-slate-400">Changed orders checked from</dt><dd className="text-white">{checkpoint?.status_updated_from || '·'}</dd></div>
             {s.window && <div><dt className="text-slate-400">Last date window</dt><dd className="text-white">{s.window}</dd></div>}
+            {s.api_rows_listed !== undefined && (
+              <div>
+                <dt className="text-slate-400">Orders StratusDX returned in the last run</dt>
+                <dd className="text-white">
+                  {s.api_rows_listed}
+                  {s.api_rows_filtered ? ` (${s.api_rows_filtered} older than the saved point or without a date)` : ''}
+                </dd>
+              </div>
+            )}
+            {s.base_url && <div><dt className="text-slate-400">API address</dt><dd className="text-white break-all">{s.base_url}</dd></div>}
           </dl>
+
+          {s.api_check && (
+            <div className="bg-slate-900/50 rounded-lg p-4 text-sm space-y-1">
+              <h3 className="font-medium text-white">Connection check (last Run now)</h3>
+              {s.api_check.error ? (
+                <p className="text-red-300">{s.api_check.error}</p>
+              ) : (
+                <>
+                  <p className="text-slate-300">Orders the API holds in total: <span className="text-white">{s.api_check.total_orders ?? 'not reported'}</span></p>
+                  <p className="text-slate-300">Newest order received by StratusDX: <span className="text-white">{s.api_check.newest_processed_at ? when(s.api_check.newest_processed_at) : 'none'}</span></p>
+                  <p className="text-slate-300">Response parts: <span className="text-white font-mono text-xs">{(s.api_check.response_keys || []).join(', ') || 'none'}</span></p>
+                  <p className="text-slate-300">Order fields: <span className="text-white font-mono text-xs break-all">{(s.api_check.fields || []).join(', ') || 'none'}</span></p>
+                </>
+              )}
+            </div>
+          )}
 
           {Array.isArray(s.error_list) && s.error_list.length > 0 && (
             <div>
