@@ -28,6 +28,14 @@ const DEFAULT_BASE_URL = 'https://func-stratusdx-poll-dev.azurewebsites.net/api'
 const PAGE_SIZE = 200;
 const WINDOW_DAYS = 1; // about 300 orders a day, so a window lists in 1 or 2 pages
 const CONCURRENCY = 8;
+// Weekly re-check of orders still pending after RECHECK_AFTER_DAYS (StratusDX
+// may fill in received/finalized dates later without marking the order as
+// changed). Gentler than the import: fewer at a time, short slice per run.
+const RECHECK_AFTER_DAYS = 14;
+const RECHECK_EVERY_DAYS = 7;
+const RECHECK_CONCURRENCY = 4;
+const RECHECK_BATCH = 200;
+const RECHECK_MAX_MS = 12000;
 const MAX_ERRORS_REPORTED = 20;
 // v2: finalized orders with no listed results also ask the results endpoint.
 const FINGERPRINT_VERSION = 'v2';
@@ -309,6 +317,8 @@ async function saveOrder(db, api, listRow, existing) {
   const enc = encodeURIComponent(accessionId);
   const detail = await api.get(`/orders/${enc}`);
   if (detail.notFound) throw new Error('Order not found in StratusDX (404)');
+  // A re-check starts from our own row, not a list row: use the detail.
+  if (!listRow.processedAtUtc) listRow = { ...detail, accessionId };
 
   // Results: the detail call includes them, but is not paginated. If it holds
   // fewer than the panels say exist, page the dedicated results endpoint.
@@ -417,7 +427,10 @@ async function saveOrder(db, api, listRow, existing) {
       sort_order: i,
     })));
   }
-  return { finalizedWithoutResults: finalized && results.length === 0 };
+  return {
+    finalizedWithoutResults: finalized && results.length === 0,
+    hasProgress: ['receivedDatetime', 'finalizedDatetime', 'canceledDatetime', 'rejectedDatetime'].some((k) => hasValue(detail[k])),
+  };
 }
 
 async function markError(db, listRow, message) {
@@ -433,7 +446,7 @@ async function markError(db, listRow, message) {
 }
 
 // Runs fn over items with a small worker pool, starting no new item after the deadline.
-async function runPool(items, deadline, fn) {
+async function runPool(items, deadline, fn, concurrency = CONCURRENCY) {
   const done = new Set();
   let next = 0;
   async function worker() {
@@ -442,7 +455,7 @@ async function runPool(items, deadline, fn) {
       if (await fn(items[i])) done.add(i);
     }
   }
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
   return done;
 }
 
@@ -626,6 +639,12 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
     steps.push(step);
   }
 
+  // Once caught up, spend a short slice re-checking older pending orders.
+  let recheck = null;
+  if (step.caughtUp && Date.now() < deadline - 3000) {
+    recheck = await recheckPending(db, api, Math.min(deadline - 1000, Date.now() + RECHECK_MAX_MS));
+  }
+
   const errors = steps.flatMap((s) => s.errors);
   const sum = (k) => steps.reduce((n, s) => n + s[k], 0);
   const summary = {
@@ -641,6 +660,7 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
     unchanged: sum('unchanged'),
     finalized_without_results: sum('finalizedNoResults'),
     repeated_accessions: sum('repeatedAccessions'),
+    recheck,
     errors: errors.length,
     error_list: errors.slice(0, MAX_ERRORS_REPORTED),
     more: !step.caughtUp,
@@ -655,6 +675,47 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
 
   console.log(`[SYNC] ${trigger}: ${summary.windows} windows, ${summary.total_processed} saved, ${summary.unchanged} unchanged, ${errors.length} failed, more=${summary.more}`);
   return { ok: true, summary, errors: summary.error_list };
+}
+
+// ---------- weekly re-check of older pending orders ----------
+
+function recheckFilter() {
+  const cutoff = new Date(Date.now() - RECHECK_AFTER_DAYS * 864e5);
+  const compact = `${utcDay(cutoff).replaceAll('-', '')}000000`;
+  const weekAgo = new Date(Date.now() - RECHECK_EVERY_DAYS * 864e5).toISOString();
+  return [
+    `lab_status=in.${encodeURIComponent('(Pending,"Pending Received")')}`,
+    `requisition_datetime=lt.${compact}`,
+    `or=${encodeURIComponent(`(retrieved_at.is.null,retrieved_at.lt."${weekAgo}")`)}`,
+  ].join('&');
+}
+
+// Re-reads orders still Pending or Pending Received more than 14 days after
+// they were ordered and not read in the last 7 days, oldest read first.
+async function recheckPending(db, api, deadline) {
+  const filter = recheckFilter();
+  const rows = await db.select('lab_orders',
+    `select=id,stratus_guid,organization_id,facility_id&${filter}&order=retrieved_at.asc.nullsfirst&limit=${RECHECK_BATCH}`);
+  let checked = 0;
+  let gained = 0;
+  let failed = 0;
+  await runPool(rows || [], deadline, async (row) => {
+    try {
+      const outcome = await saveOrder(db, api, { accessionId: row.stratus_guid }, row);
+      checked++;
+      if (outcome && outcome.hasProgress) gained++;
+      return true;
+    } catch (err) {
+      failed++;
+      console.error(`[SYNC] Re-check of ${row.stratus_guid} failed: ${err.message}`);
+      // Wait a week before trying this one again.
+      await db.update('lab_orders', `id=eq.${row.id}`, { retrieved_at: new Date().toISOString(), sync_error: err.message.slice(0, 500) })
+        .catch(() => {});
+      return false;
+    }
+  }, RECHECK_CONCURRENCY);
+  const waiting = await db.count('lab_orders', filter).catch(() => null);
+  return { checked, gained_dates: gained, failed, waiting };
 }
 
 // ---------- count check ----------
