@@ -4,7 +4,7 @@
   The preview and import can time out from the web page while the
   background StratusDX import is loading the database (the page gets 8
   seconds). They can now also be run from the Supabase SQL Editor, which
-  allows longer:
+  allows longer (a direct database session, with no API request claims):
 
     select get_unmapped_stratus_orgs_and_locations();
     select import_stratus_organizations_and_facilities() - 'details';
@@ -25,8 +25,9 @@ DECLARE
     v_org_id uuid;
     v_fac_id uuid;
 BEGIN
-    -- The Supabase SQL Editor (a database admin session) may also run it.
-    IF session_user NOT IN ('postgres', 'supabase_admin') AND NOT EXISTS (
+    -- A direct database session (the Supabase SQL Editor) has no API request
+    -- claims and may run it. Every call through the app's API carries claims.
+    IF coalesce(current_setting('request.jwt.claims', true), '') <> '' AND NOT EXISTS (
         SELECT 1 FROM user_roles
         WHERE user_id = auth.uid()
           AND lower(replace(role, '_', ' ')) IN ('super admin', 'proximity admin')
@@ -95,8 +96,9 @@ DECLARE
     v_results_updated int := 0;
     v_details jsonb := '[]'::jsonb;
 BEGIN
-    -- The Supabase SQL Editor (a database admin session) may also run it.
-    IF session_user NOT IN ('postgres', 'supabase_admin') AND NOT EXISTS (
+    -- A direct database session (the Supabase SQL Editor) has no API request
+    -- claims and may run it. Every call through the app's API carries claims.
+    IF coalesce(current_setting('request.jwt.claims', true), '') <> '' AND NOT EXISTS (
         SELECT 1 FROM user_roles
         WHERE user_id = auth.uid()
           AND lower(replace(role, '_', ' ')) IN ('super admin', 'proximity admin')
@@ -205,4 +207,9 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION import_stratus_organizations_and_facilities() TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION get_unmapped_stratus_orgs_and_locations() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION import_stratus_organizations_and_facilities() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION get_unmapped_stratus_orgs_and_locations() TO authenticated;
 GRANT EXECUTE ON FUNCTION import_stratus_organizations_and_facilities() TO authenticated;
