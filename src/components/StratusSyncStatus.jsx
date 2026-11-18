@@ -148,6 +148,12 @@ export default function StratusSyncStatus() {
                 </dd>
               </div>
             )}
+            {s.finalized_without_results !== undefined && (
+              <div>
+                <dt className="text-slate-400">Finalized orders with no results in StratusDX (last run)</dt>
+                <dd className="text-white">{s.finalized_without_results}</dd>
+              </div>
+            )}
             {s.base_url && <div><dt className="text-slate-400">API address</dt><dd className="text-white break-all">{s.base_url}</dd></div>}
           </dl>
 
