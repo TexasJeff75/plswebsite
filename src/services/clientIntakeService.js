@@ -32,6 +32,30 @@ export const clientIntakeService = {
     return data || [];
   },
 
+  // One intake with the submitted form (internal staff only, by RLS).
+  async get(id) {
+    const { data, error } = await supabase
+      .from('client_intakes')
+      .select('id, organization_id, project_id, facility_id, status, payload, created_at, updated_at, submitted_at, converted_at, organization:organizations(name), project:projects(name), facility:facilities(name)')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Every intake for one organization, newest first, with the submitted form.
+  async listForOrganization(organizationId) {
+    const { data, error } = await supabase
+      .from('client_intakes')
+      .select('id, access_token, status, payload, facility_id, created_at, updated_at, submitted_at, converted_at, project:projects(name), facility:facilities(name)')
+      .eq('organization_id', organizationId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async getPublic(accessToken) {
     const { data, error } = await supabase.rpc('get_public_client_intake', {
       p_access_token: accessToken,
