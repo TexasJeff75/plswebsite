@@ -19,6 +19,11 @@ import ContactsTab from './facility-tabs/ContactsTab';
 import FacilityMapEmbed from './maps/FacilityMapEmbed';
 import SupplyOrdersTab from './facility-tabs/SupplyOrdersTab';
 
+// A plain date ('2026-12-14') read as local time, so it doesn't show a day early.
+function localDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+}
+
 export default function FacilityDetail() {
   const { id } = useParams();
   const { isEditor, isStaff, isCourier } = useAuth();
@@ -87,8 +92,8 @@ export default function FacilityDetail() {
     setDateForm({
       projected_deployment_date: facility.projected_deployment_date || '',
       actual_deployment_date: facility.actual_deployment_date || '',
-      projected_go_live_date: facility.projected_go_live_date || '',
-      actual_go_live_date: facility.actual_go_live_date || '',
+      projected_go_live_date: facility.projected_go_live || '',
+      actual_go_live_date: facility.actual_go_live || '',
     });
     setEditingDates(true);
   }
@@ -108,7 +113,14 @@ export default function FacilityDetail() {
   async function saveDates() {
     setSaving(true);
     try {
-      await facilitiesService.update(id, dateForm);
+      // The go-live columns are projected_go_live / actual_go_live (no _date),
+      // and blank dates must be saved as empty (null), not ''.
+      await facilitiesService.update(id, {
+        projected_deployment_date: dateForm.projected_deployment_date || null,
+        actual_deployment_date: dateForm.actual_deployment_date || null,
+        projected_go_live: dateForm.projected_go_live_date || null,
+        actual_go_live: dateForm.actual_go_live_date || null,
+      });
       await loadFacility();
       setEditingDates(false);
     } catch (err) {
@@ -394,7 +406,7 @@ export default function FacilityDetail() {
                   <p className="text-slate-400 text-xs mb-1">Projected Deployment</p>
                   <p className="text-white text-sm">
                     {facility.projected_deployment_date
-                      ? new Date(facility.projected_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      ? localDate(facility.projected_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                       : 'Not set'}
                   </p>
                 </div>
@@ -402,23 +414,23 @@ export default function FacilityDetail() {
                   <p className="text-slate-400 text-xs mb-1">Actual Deployment</p>
                   <p className="text-white text-sm">
                     {facility.actual_deployment_date
-                      ? new Date(facility.actual_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                      ? localDate(facility.actual_deployment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                       : 'Not set'}
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-400 text-xs mb-1">Projected Go-Live</p>
                   <p className="text-white text-sm">
-                    {facility.projected_go_live_date
-                      ? new Date(facility.projected_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    {facility.projected_go_live
+                      ? localDate(facility.projected_go_live).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                       : 'Not set'}
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-400 text-xs mb-1">Actual Go-Live</p>
                   <p className="text-white text-sm">
-                    {facility.actual_go_live_date
-                      ? new Date(facility.actual_go_live_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    {facility.actual_go_live
+                      ? localDate(facility.actual_go_live).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                       : 'Not set'}
                   </p>
                 </div>
