@@ -26,8 +26,8 @@
 
 const DEFAULT_BASE_URL = 'https://func-stratusdx-poll-dev.azurewebsites.net/api';
 const PAGE_SIZE = 200;
-const WINDOW_DAYS = 7;
-const CONCURRENCY = 4;
+const WINDOW_DAYS = 1; // about 300 orders a day, so a window lists in 1 or 2 pages
+const CONCURRENCY = 8;
 const MAX_ERRORS_REPORTED = 20;
 
 function config() {
@@ -63,7 +63,13 @@ function camelKeys(value) {
   if (Array.isArray(value)) return value.map(camelKeys);
   if (value && typeof value === 'object') {
     const out = {};
-    for (const [k, v] of Object.entries(value)) out[k.charAt(0).toLowerCase() + k.slice(1)] = camelKeys(v);
+    for (const [k, v] of Object.entries(value)) {
+      const key = k.charAt(0).toLowerCase() + k.slice(1);
+      // UTC times arrive without a zone ("2026-11-18T00:15:00"): mark them as UTC.
+      out[key] = /AtUtc$/.test(key) && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(v)
+        ? `${v}Z`
+        : camelKeys(v);
+    }
     return out;
   }
   return value;
@@ -125,6 +131,7 @@ function makeDb(cfg) {
       call('POST', `${table}?on_conflict=${onConflict}`, rows, 'return=representation,resolution=merge-duplicates'),
     insert: (table, rows) => call('POST', table, rows, 'return=representation'),
     update: (table, query, patch) => call('PATCH', `${table}?${query}`, patch, 'return=minimal'),
+    updateReturning: (table, query, patch) => call('PATCH', `${table}?${query}`, patch, 'return=representation'),
     remove: (table, query) => call('DELETE', `${table}?${query}`, undefined, 'return=minimal'),
     rpc: (fn, params) => call('POST', `rpc/${fn}`, params),
   };
@@ -532,6 +539,27 @@ async function runSync({ budgetMs, trigger }) {
   const db = makeDb(cfg);
   const api = makeApi(cfg, db);
 
+  // One run at a time: take the lock unless another run holds it.
+  const now = new Date().toISOString();
+  const locked = await db.updateReturning(
+    'stratus_sync_checkpoint',
+    `id=eq.1&or=${encodeURIComponent(`(run_lock_until.is.null,run_lock_until.lt."${now}")`)}`,
+    { run_lock_until: new Date(Date.now() + budgetMs + 120000).toISOString() },
+  );
+  if (!Array.isArray(locked) || locked.length === 0) {
+    console.log(`[SYNC] ${trigger}: another run is in progress, skipped`);
+    return { ok: true, busy: true, summary: { trigger, busy: true, more: true }, errors: [] };
+  }
+  try {
+    return await runLocked({ cfg, db, api, started, deadline, trigger });
+  } finally {
+    await db.update('stratus_sync_checkpoint', 'id=eq.1', { run_lock_until: null }).catch((err) => {
+      console.error(`[SYNC] Could not release the lock: ${err.message}`);
+    });
+  }
+}
+
+async function runLocked({ cfg, db, api, started, deadline, trigger }) {
   // Keep stepping through date windows until caught up or the time is nearly used.
   const steps = [];
   // Connection check on manual runs: what the API holds in total, how new its
@@ -588,4 +616,32 @@ async function runSync({ budgetMs, trigger }) {
   return { ok: true, summary, errors: summary.error_list };
 }
 
-module.exports = { runSync, centralToUtcIso, fingerprint, isAbnormalFlag, camelKeys };
+// ---------- background catch-up ----------
+
+// The background function accepts this key from the other sync functions. It
+// is derived from the service role key, so the key itself is never sent.
+function backgroundKey() {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!secret) return '';
+  return require('crypto').createHash('sha256').update(`stratus-sync-background:${secret}`).digest('hex');
+}
+
+// Starts sync-stratus-background (up to 15 minutes of work). Netlify answers
+// 202 at once and keeps running it. Returns true when it was started.
+async function startBackground() {
+  const base = process.env.URL || process.env.DEPLOY_PRIME_URL;
+  const key = backgroundKey();
+  if (!base || !key) return false;
+  try {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/.netlify/functions/sync-stratus-background`, {
+      method: 'POST',
+      headers: { 'x-stratus-sync-key': key },
+    });
+    return res.status === 202 || res.ok;
+  } catch (err) {
+    console.error(`[SYNC] Could not start the background run: ${err.message}`);
+    return false;
+  }
+}
+
+module.exports = { runSync, startBackground, backgroundKey, centralToUtcIso, fingerprint, isAbnormalFlag, camelKeys };

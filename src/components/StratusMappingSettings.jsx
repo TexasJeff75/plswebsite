@@ -279,29 +279,29 @@ export default function StratusMappingSettings() {
                   </p>
                 )}
                 {importResult.details && importResult.details.length > 0 && (
-                  <div className="mt-3 max-h-40 overflow-y-auto">
+                  <div className="mt-3 max-h-60 overflow-y-auto rounded-lg border border-slate-700/50">
                     <table className="w-full text-sm">
-                      <thead className="text-xs text-slate-400">
+                      <thead className="text-xs text-slate-400 bg-slate-900/40 sticky top-0">
                         <tr>
-                          <th className="text-left py-1 pr-2">Organization</th>
-                          <th className="text-left py-1 pr-2">Location</th>
-                          <th className="text-right py-1">Action</th>
+                          <th className="text-left font-medium py-2 px-3">Organization</th>
+                          <th className="text-left font-medium py-2 px-3">Location</th>
+                          <th className="text-left font-medium py-2 px-3">Org record</th>
+                          <th className="text-left font-medium py-2 px-3">Facility</th>
+                          <th className="text-left font-medium py-2 px-3">Mapping</th>
                         </tr>
                       </thead>
                       <tbody>
                         {importResult.details.map((d, i) => (
-                          <tr key={i} className="border-t border-slate-700/50">
-                            <td className="py-1 pr-2 text-white">{d.organization_name}</td>
-                            <td className="py-1 pr-2 text-slate-300">{d.location_name}</td>
-                            <td className="py-1 text-right">
-                              <span className={
-                                d.action === 'created'
-                                  ? 'text-green-400 text-xs'
-                                  : 'text-blue-400 text-xs'
-                              }>
-                                {d.action}
-                              </span>
-                            </td>
+                          <tr key={i} className="border-t border-slate-700/50 align-top">
+                            <td className="py-2 px-3 text-white">{d.organization || d.organization_name || '·'}</td>
+                            <td className="py-2 px-3 text-slate-300">{d.location || d.location_name || '·'}</td>
+                            {[d.org_action, d.facility_action, d.mapping_action].map((action, j) => (
+                              <td key={j} className="py-2 px-3">
+                                <span className={`text-xs font-medium ${action === 'created' ? 'text-green-400' : 'text-slate-400'}`}>
+                                  {action === 'created' ? 'Created' : action === 'existing' ? 'Already existed' : '·'}
+                                </span>
+                              </td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>
