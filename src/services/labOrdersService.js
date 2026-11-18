@@ -190,7 +190,7 @@ export const labOrdersService = {
       errors: orders?.filter(o => o.sync_status === 'error').length || 0,
       total_results: results?.length || 0,
       abnormal_results: results?.filter(r => r.abnormal_flag && r.abnormal_flag !== 'Normal').length || 0,
-      finalized_results: results?.filter(r => r.result_status === 'Final' || r.result_status === 'finalized').length || 0,
+      finalized_results: results?.filter(r => ['final', 'finalized'].includes(String(r.result_status || '').toLowerCase())).length || 0,
     };
 
     return stats;
