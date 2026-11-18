@@ -166,6 +166,12 @@ export default function StratusSyncStatus() {
                 <>
                   <p className="text-slate-300">Orders the API holds in total: <span className="text-white">{s.api_check.total_orders ?? 'not reported'}</span></p>
                   <p className="text-slate-300">Newest order received by StratusDX: <span className="text-white">{s.api_check.newest_processed_at ? when(s.api_check.newest_processed_at) : 'none'}</span></p>
+                  {s.api_check.range_check && (
+                    <p className="text-slate-300">
+                      Orders on {s.api_check.range_check.day}: <span className="text-white">{s.api_check.range_check.same_day ?? '?'}</span> asked as that day only,{' '}
+                      <span className="text-white">{s.api_check.range_check.to_next_day ?? '?'}</span> asked up to the next day
+                    </p>
+                  )}
                   <p className="text-slate-300">Response parts: <span className="text-white font-mono text-xs">{(s.api_check.response_keys || []).join(', ') || 'none'}</span></p>
                   <p className="text-slate-300">Order fields: <span className="text-white font-mono text-xs break-all">{(s.api_check.fields || []).join(', ') || 'none'}</span></p>
                 </>
