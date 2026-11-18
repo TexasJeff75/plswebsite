@@ -128,7 +128,8 @@ export default function Organizations() {
       mini_lab_network: { label: 'Network', color: 'bg-teal-600' },
       hosted_lab: { label: 'Hosted', color: 'bg-blue-600' },
       hybrid: { label: 'Hybrid', color: 'bg-cyan-600' },
-      prospect: { label: 'Prospect', color: 'bg-slate-600' }
+      prospect: { label: 'Prospect', color: 'bg-slate-600' },
+      customer_site: { label: 'Customer Site', color: 'bg-violet-600' }
     };
     return badges[clientType] || badges.mini_lab_network;
   };
@@ -260,6 +261,7 @@ export default function Organizations() {
                   <option value="hosted_lab">Hosted</option>
                   <option value="hybrid">Hybrid</option>
                   <option value="prospect">Prospect</option>
+                  <option value="customer_site">Customer Site</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
@@ -591,6 +593,7 @@ export function OrganizationModal({ organization, onClose, onSave, suggested = n
                   <option value="hosted_lab">Hosted Lab</option>
                   <option value="hybrid">Hybrid</option>
                   <option value="prospect">Prospect</option>
+                  <option value="customer_site">Customer Site</option>
                 </select>
               </div>
 
