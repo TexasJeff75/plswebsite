@@ -56,6 +56,19 @@ function missingSettings(cfg) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// The live API sends PascalCase names (Data, TotalCount, AccessionId,
+// ProcessedAtUtc), while the guide shows camelCase. Lower-case the first
+// letter of every key so the rest of the code can use the guide's names.
+function camelKeys(value) {
+  if (Array.isArray(value)) return value.map(camelKeys);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k.charAt(0).toLowerCase() + k.slice(1)] = camelKeys(v);
+    return out;
+  }
+  return value;
+}
+
 // ---------- dates ----------
 
 // "YYYY-MM-DD" for a Date, in UTC.
@@ -183,11 +196,11 @@ function makeApi(cfg, db) {
       if (res.status >= 500 && attempt < 2) { await sleep(400 * 2 ** attempt + Math.random() * 200); continue; }
       if (res.status === 404) return { notFound: true };
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = camelKeys(await res.json().catch(() => ({})));
         const why = body.reason || body.error || res.statusText;
         throw new Error(`StratusDX ${path.split('?')[0]} returned ${res.status}: ${why}`.slice(0, 300));
       }
-      return res.json();
+      return camelKeys(await res.json());
     }
     throw new Error('StratusDX request failed after retries');
   }
@@ -575,4 +588,4 @@ async function runSync({ budgetMs, trigger }) {
   return { ok: true, summary, errors: summary.error_list };
 }
 
-module.exports = { runSync, centralToUtcIso, fingerprint, isAbnormalFlag };
+module.exports = { runSync, centralToUtcIso, fingerprint, isAbnormalFlag, camelKeys };
