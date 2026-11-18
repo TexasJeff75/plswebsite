@@ -463,7 +463,9 @@ export default function Organizations() {
   );
 }
 
-function OrganizationModal({ organization, onClose, onSave }) {
+// Add or edit an organization. `suggested` pre-fills fields (e.g. from an onboarding intake)
+// for the user to review before saving.
+export function OrganizationModal({ organization, onClose, onSave, suggested = null }) {
   const { isProximityAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: organization?.name || '',
@@ -482,7 +484,9 @@ function OrganizationModal({ organization, onClose, onSave }) {
     region: organization?.region || '',
     monthly_recurring_revenue: organization?.monthly_recurring_revenue || 0,
     annual_contract_value: organization?.annual_contract_value || 0,
-    notes: organization?.notes || ''
+    notes: organization?.notes || '',
+    // Only fields the intake actually filled in replace what is saved.
+    ...Object.fromEntries(Object.entries(suggested || {}).filter(([, v]) => String(v || '').trim()))
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -507,11 +511,17 @@ function OrganizationModal({ organization, onClose, onSave }) {
     setError('');
 
     try {
+      // Blank dates must be saved as empty, not '' (the database rejects '').
+      const values = {
+        ...formData,
+        contract_start_date: formData.contract_start_date || null,
+        contract_end_date: formData.contract_end_date || null,
+      };
       if (organization) {
-        await organizationsService.update(organization.id, formData);
+        await organizationsService.update(organization.id, values);
       } else {
         await organizationsService.create({
-          ...formData,
+          ...values,
           type: 'customer'
         });
       }
@@ -543,6 +553,11 @@ function OrganizationModal({ organization, onClose, onSave }) {
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                 {error}
+              </div>
+            )}
+            {suggested && (
+              <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-lg text-teal-200 text-sm">
+                The address and contact details below were filled in from the onboarding form. Review them, then save.
               </div>
             )}
 

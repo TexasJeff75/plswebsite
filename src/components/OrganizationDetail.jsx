@@ -9,11 +9,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Building2, Users, FileText, CreditCard, MessageSquare, Activity, MapPin, Phone, Mail, Calendar, DollarSign, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Plus, Pencil, ExternalLink, Clock, UserPlus, Trash2, Folder, Upload, X as XIcon, Image } from 'lucide-react';
 import { format } from 'date-fns';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { OrganizationModal } from './Organizations';
+import IntakeSummary, { organizationFieldsFromIntake } from './IntakeSummary';
+import { clientIntakeService } from '../services/clientIntakeService';
+import { ClipboardList, ChevronDown, ChevronRight } from 'lucide-react';
 
 export default function OrganizationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isProximityAdmin, isInternalUser } = useAuth();
+  const { isProximityAdmin, isInternalUser, isStaff } = useAuth();
+  // null: closed; {}: plain edit; { suggested }: edit pre-filled from an intake
+  const [editing, setEditing] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [projects, setProjects] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -115,6 +121,7 @@ export default function OrganizationDetail() {
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'contacts', label: 'Contacts', icon: Mail },
     { id: 'documents', label: 'Documents', icon: FileText },
+    ...(isStaff ? [{ id: 'onboarding', label: 'Onboarding', icon: ClipboardList }] : []),
     { id: 'activity', label: 'Activity', icon: Activity }
   ];
 
@@ -240,7 +247,25 @@ export default function OrganizationDetail() {
             </p>
           </div>
         </div>
+        {isStaff && (
+          <button
+            onClick={() => setEditing({})}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit organization
+          </button>
+        )}
       </div>
+
+      {editing && (
+        <OrganizationModal
+          organization={organization}
+          suggested={editing.suggested || null}
+          onClose={() => setEditing(null)}
+          onSave={() => { setEditing(null); loadOrganization(); }}
+        />
+      )}
 
       <div className="border-b border-slate-700">
         <nav className="flex gap-1 overflow-x-auto">
@@ -286,7 +311,114 @@ export default function OrganizationDetail() {
         {activeTab === 'activity' && (
           <ActivityTab organization={organization} />
         )}
+        {activeTab === 'onboarding' && isStaff && (
+          <OnboardingTab
+            organization={organization}
+            onUseDetails={(payload) => setEditing({ suggested: organizationFieldsFromIntake(payload) })}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+const INTAKE_STATUS = {
+  draft: { label: 'In progress', color: 'bg-slate-700 text-slate-300' },
+  submitted: { label: 'Submitted', color: 'bg-amber-500/15 text-amber-300' },
+  converted: { label: 'Completed', color: 'bg-emerald-500/15 text-emerald-300' },
+  expired: { label: 'Expired', color: 'bg-red-500/15 text-red-300' },
+};
+
+// Every onboarding form (client intake) sent to this organization, including closed ones.
+function OnboardingTab({ organization, onUseDetails }) {
+  const [intakes, setIntakes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [openId, setOpenId] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    clientIntakeService.listForOrganization(organization.id)
+      .then((rows) => {
+        if (!live) return;
+        setIntakes(rows);
+        setOpenId(rows.find((r) => r.status !== 'draft')?.id || rows[0]?.id || null);
+      })
+      .catch((err) => { console.error('Unable to load onboarding forms:', err); if (live) setError('Unable to load onboarding forms.'); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [organization.id]);
+
+  const when = (d) => (d ? format(new Date(d), 'MMM d, yyyy') : null);
+
+  if (loading) return <div className="flex justify-center p-12"><div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" /></div>;
+  if (error) return <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-300 text-sm">{error}</div>;
+  if (!intakes.length) {
+    return (
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center">
+        <ClipboardList className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <p className="text-white font-medium">No onboarding forms for this organization</p>
+        <p className="text-slate-400 text-sm mt-1">Onboarding forms are sent from Client Intakes. Choose this organization when you create the link.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {intakes.map((intake) => {
+        const st = INTAKE_STATUS[intake.status] || INTAKE_STATUS.draft;
+        const open = openId === intake.id;
+        const dates = [
+          `Started ${when(intake.created_at)}`,
+          intake.submitted_at && `submitted ${when(intake.submitted_at)}`,
+          intake.converted_at && `completed ${when(intake.converted_at)}`,
+        ].filter(Boolean).join(', ');
+        return (
+          <div key={intake.id} className="bg-slate-800 border border-slate-700 rounded-xl">
+            <button
+              onClick={() => setOpenId(open ? null : intake.id)}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left"
+            >
+              {open ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium">{intake.payload?.clinic?.name || 'Onboarding form'}</p>
+                <p className="text-slate-400 text-sm">
+                  {dates}
+                  {intake.project?.name ? ` · Project: ${intake.project.name}` : ''}
+                  {intake.facility?.name ? ` · Facility: ${intake.facility.name}` : ''}
+                </p>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${st.color}`}>{st.label}</span>
+            </button>
+            {open && (
+              <div className="border-t border-slate-700 p-5 space-y-4">
+                {intake.status !== 'draft' && (
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => onUseDetails(intake.payload)}
+                      className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg text-sm font-semibold"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Update organization from this form
+                    </button>
+                    {intake.facility_id && (
+                      <Link to={`/facilities/${intake.facility_id}`} className="flex items-center gap-2 px-4 py-2 border border-slate-600 text-slate-200 hover:bg-slate-700 rounded-lg text-sm font-semibold">
+                        <ExternalLink className="w-4 h-4" />
+                        Open facility
+                      </Link>
+                    )}
+                  </div>
+                )}
+                {intake.status === 'draft' && (
+                  <p className="text-sm text-slate-400">The client has not submitted this form yet. This is what they have saved so far.</p>
+                )}
+                <IntakeSummary payload={intake.payload} />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
