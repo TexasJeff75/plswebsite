@@ -108,7 +108,8 @@ export default function MapView() {
     try {
       setLoading(true);
       console.log('Loading facilities from database...');
-      const filters = {};
+      // Archived organizations' facilities stay off the map.
+      const filters = { hideArchived: true };
       if (selectedProject) {
         filters.project_id = selectedProject.id;
       } else if (selectedOrganization) {

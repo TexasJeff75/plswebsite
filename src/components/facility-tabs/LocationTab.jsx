@@ -25,7 +25,7 @@ export default function LocationTab({ facility, isEditor, onUpdate }) {
     if (!facility.latitude || !facility.longitude) return;
 
     try {
-      const allFacilities = await facilitiesService.getAll();
+      const allFacilities = await facilitiesService.getAll({ hideArchived: true });
       const nearby = allFacilities
         .filter(f => f.id !== facility.id && f.latitude && f.longitude)
         .map(f => ({
