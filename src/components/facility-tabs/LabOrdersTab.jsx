@@ -1,518 +1,319 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlaskConical, RefreshCw, Search, User, Users, Beaker, CheckCircle2, Clock, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { labOrdersService } from '../../services/labOrdersService';
-import {
-  FlaskConical, RefreshCw, CheckCircle2, XCircle, Clock,
-  AlertTriangle, FileText, Download, ChevronDown, ChevronRight,
-  Beaker, Activity, User, Building2, Stethoscope,
-  ZapOff, TrendingUp
-} from 'lucide-react';
-import { format } from 'date-fns';
+import { listFacilityOrders, getObservationsForOrders } from '../../services/labDataService';
+import { referenceRangesService } from '../../services/referenceRangesService';
+import PanelReport from '../lab/PanelReport';
+import TrendChart from '../lab/TrendChart';
+import { classify, findRange, formatDob, numericValue, parseLabDate, patientKey, patientName, rangeLabel } from '../lab/labResults';
 
-const ORDER_STATUS_COLORS = {
-  pending: { label: 'Pending', color: 'bg-slate-500/20 text-slate-400', icon: Clock },
-  retrieved: { label: 'Retrieved', color: 'bg-blue-500/20 text-blue-400', icon: Download },
-  acknowledged: { label: 'Acknowledged', color: 'bg-green-500/20 text-green-400', icon: CheckCircle2 },
-  synced: { label: 'Synced', color: 'bg-teal-500/20 text-teal-400', icon: CheckCircle2 },
-  error: { label: 'Error', color: 'bg-red-500/20 text-red-400', icon: XCircle },
+const STATUS_STYLE = {
+  Final: 'bg-emerald-500/15 text-emerald-300',
+  'Pending Received': 'bg-blue-500/15 text-blue-300',
+  Pending: 'bg-slate-700 text-slate-300',
+  Canceled: 'bg-red-500/15 text-red-300',
+  Rejected: 'bg-red-500/15 text-red-300',
 };
 
-const RESULT_STATUS_COLORS = {
-  preliminary: { label: 'Preliminary', color: 'bg-amber-500/20 text-amber-400' },
-  final: { label: 'Final', color: 'bg-green-500/20 text-green-400' },
-  canceled: { label: 'Canceled', color: 'bg-red-500/20 text-red-400' },
-  corrected: { label: 'Corrected', color: 'bg-blue-500/20 text-blue-400' },
-};
-
-function getSyncBadge(status) {
-  return ORDER_STATUS_COLORS[status] || ORDER_STATUS_COLORS.pending;
+function shortDate(value) {
+  const d = parseLabDate(value);
+  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
 }
 
-function getTurnaroundHours(processedAt, resultedAt) {
-  if (!processedAt || !resultedAt) return null;
-  const diff = new Date(resultedAt) - new Date(processedAt);
-  return Math.round(diff / (1000 * 60 * 60) * 10) / 10;
-}
-
+// Lab orders for one facility: patients and their history, and each order's
+// results grouped by panel with ranges, cut-offs and trend charts.
 export default function LabOrdersTab({ facility }) {
-  const [activeView, setActiveView] = useState('orders');
+  const { isStaff } = useAuth();
   const [orders, setOrders] = useState([]);
-  const [results, setResults] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [ranges, setRanges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [view, setView] = useState('patients');
+  const [search, setSearch] = useState('');
+  const [patientId, setPatientId] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  const [expandedOrder, setExpandedOrder] = useState(null);
   const [syncMessage, setSyncMessage] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, [facility.id]);
-
   async function loadData() {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      const [ordersData, resultsData, statsData] = await Promise.all([
-        labOrdersService.getOrders({ facility_id: facility.id }),
-        labOrdersService.getResults({ facility_id: facility.id }),
-        labOrdersService.getOrderStats(facility.id)
+      const [orderRows, rangeRows] = await Promise.all([
+        listFacilityOrders(facility.id),
+        referenceRangesService.list().catch(() => []),
       ]);
-
-      setOrders(ordersData);
-      setResults(resultsData);
-      setStats(statsData);
-    } catch (error) {
-      console.error('Error loading lab data:', error);
+      setOrders(orderRows);
+      setRanges(rangeRows);
+    } catch (err) {
+      console.error('Error loading lab orders:', err);
+      setError('Unable to load lab orders: ' + err.message);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSync() {
-    try {
-      setSyncing(true);
-      setSyncMessage(null);
-      const syncResult = await labOrdersService.syncAll();
+  useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [facility.id]);
 
-      const summary = syncResult.summary || {};
-      const parts = [];
-      parts.push(`${summary.total_processed || 0} orders processed`);
-      if (summary.unchanged > 0) parts.push(`${summary.unchanged} unchanged`);
-      if (summary.errors > 0) parts.push(`${summary.errors} errors`);
-      if (summary.more) parts.push('more to import (the sync runs every 5 minutes, or press Sync again)');
-      if (syncResult.errors?.length > 0) {
-        parts.push(`Errors: ${syncResult.errors.slice(0, 3).map(e => e.accessionId || e.error).join(', ')}`);
-      }
-      setSyncMessage({ type: 'success', text: `Sync complete: ${parts.join(', ')}` });
+  const patients = useMemo(() => {
+    const map = new Map();
+    orders.forEach((o) => {
+      const key = patientKey(o);
+      if (!map.has(key)) map.set(key, { key, name: patientName(o), dob: o.patient_dob, orders: [] });
+      map.get(key).orders.push(o);
+    });
+    return [...map.values()];
+  }, [orders]);
+
+  const stats = useMemo(() => ({
+    orders: orders.length,
+    patients: patients.length,
+    final: orders.filter((o) => o.lab_status === 'Final').length,
+    pending: orders.filter((o) => o.lab_status === 'Pending' || o.lab_status === 'Pending Received').length,
+    canceled: orders.filter((o) => o.lab_status === 'Canceled' || o.lab_status === 'Rejected').length,
+  }), [orders, patients]);
+
+  const term = search.trim().toLowerCase();
+  const filteredPatients = useMemo(() => patients.filter((p) => !term
+    || p.name.toLowerCase().includes(term)
+    || formatDob(p.dob).toLowerCase().includes(term)
+    || p.orders.some((o) => String(o.accession_number || o.stratus_guid).includes(term))), [patients, term]);
+  const filteredOrders = useMemo(() => orders.filter((o) => !term
+    || patientName(o).toLowerCase().includes(term)
+    || String(o.accession_number || o.stratus_guid).includes(term)), [orders, term]);
+
+  const patient = patients.find((p) => p.key === patientId) || null;
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const result = await labOrdersService.syncAll();
+      const s = result.summary || {};
+      setSyncMessage({ type: 'success', text: `Sync complete: ${s.total_processed || 0} orders processed${s.more ? ', more to import (the sync runs every 5 minutes)' : ''}.` });
       await loadData();
-    } catch (error) {
-      console.error('Error syncing:', error);
-      setSyncMessage({ type: 'error', text: 'Sync failed: ' + error.message });
+    } catch (err) {
+      setSyncMessage({ type: 'error', text: 'Sync failed: ' + err.message });
     } finally {
       setSyncing(false);
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" /></div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-teal-500/10 rounded-lg flex items-center justify-center">
-            <FlaskConical className="w-5 h-5 text-teal-400" />
-          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10"><FlaskConical className="h-5 w-5 text-teal-400" /></div>
           <div>
             <h3 className="text-lg font-semibold text-white">Lab Orders & Results</h3>
-            <p className="text-slate-400 text-sm">StratusDX Integration</p>
+            <p className="text-sm text-slate-400">History by patient, with results grouped by panel</p>
           </div>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Sync Now'}
-        </button>
+        {isStaff && (
+          <button type="button" onClick={handleSync} disabled={syncing} className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-teal-400 disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />{syncing ? 'Syncing...' : 'Sync Now'}
+          </button>
+        )}
       </div>
 
-      {syncMessage && (
-        <div className={`p-3 rounded-lg text-sm flex items-start gap-2 ${
-          syncMessage.type === 'success'
-            ? 'bg-teal-500/10 border border-teal-500/20 text-teal-300'
-            : 'bg-red-500/10 border border-red-500/20 text-red-300'
-        }`}>
-          {syncMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-          <span>{syncMessage.text}</span>
-        </div>
-      )}
+      {syncMessage && <div className={`rounded-lg border p-3 text-sm ${syncMessage.type === 'success' ? 'border-teal-500/20 bg-teal-500/10 text-teal-300' : 'border-red-500/20 bg-red-500/10 text-red-300'}`}>{syncMessage.text}</div>}
+      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
 
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Beaker className="w-4 h-4 text-teal-400" />
-              <span className="text-xs text-slate-400">Total Orders</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stats.total_orders}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-slate-400">Synced</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stats.synced || stats.acknowledged}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-slate-400">Total Results</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stats.total_results}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-slate-400">Finalized</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stats.finalized_results || 0}</p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-slate-400">Abnormal</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{stats.abnormal_results || 0}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="border-b border-slate-700">
-        <nav className="flex gap-1">
-          <button
-            onClick={() => setActiveView('orders')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeView === 'orders'
-                ? 'text-teal-400 border-teal-400'
-                : 'text-slate-400 border-transparent hover:text-white hover:border-slate-600'
-            }`}
-          >
-            <Beaker className="w-4 h-4" />
-            Orders ({orders.length})
-          </button>
-          <button
-            onClick={() => setActiveView('results')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeView === 'results'
-                ? 'text-teal-400 border-teal-400'
-                : 'text-slate-400 border-transparent hover:text-white hover:border-slate-600'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            Results ({results.length})
-          </button>
-        </nav>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <Stat icon={Beaker} color="text-teal-400" label="Orders" value={stats.orders} />
+        <Stat icon={Users} color="text-blue-400" label="Patients" value={stats.patients} />
+        <Stat icon={CheckCircle2} color="text-emerald-400" label="Final" value={stats.final} />
+        <Stat icon={Clock} color="text-slate-300" label="Pending" value={stats.pending} />
+        <Stat icon={AlertTriangle} color="text-red-400" label="Canceled / rejected" value={stats.canceled} />
       </div>
 
-      {activeView === 'orders' && (
-        <div className="space-y-3">
+      {patient ? (
+        <PatientHistory patient={patient} ranges={ranges} onBack={() => setPatientId(null)} />
+      ) : (
+        <div className="rounded-xl border border-slate-700 bg-slate-800/50">
+          <div className="flex flex-col gap-3 border-b border-slate-700 p-4 sm:flex-row sm:items-center">
+            <div className="flex gap-1 rounded-lg bg-slate-900 p-1">
+              {[['patients', 'Patients'], ['orders', 'All orders']].map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setView(id)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${view === id ? 'bg-teal-500/15 text-teal-300' : 'text-slate-400 hover:text-white'}`}>{label}</button>
+              ))}
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search patient name, date of birth or accession" className="w-full rounded-lg border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
+            </div>
+          </div>
+
           {orders.length === 0 ? (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <Beaker className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400 mb-4">No lab orders found</p>
-              <button
-                onClick={handleSync}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 rounded-lg hover:bg-teal-400 transition-colors font-medium text-sm"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Sync Orders
-              </button>
+            <p className="p-10 text-center text-slate-400">No lab orders for this facility yet.</p>
+          ) : view === 'patients' ? (
+            <div className="divide-y divide-slate-700">
+              {filteredPatients.slice(0, 300).map((p) => {
+                const last = p.orders[0];
+                const finals = p.orders.filter((o) => o.lab_status === 'Final').length;
+                return (
+                  <button key={p.key} type="button" onClick={() => setPatientId(p.key)} className="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-slate-700/30">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700"><User className="h-4 w-4 text-slate-300" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-white">{p.name}</p>
+                      <p className="text-sm text-slate-400">DOB {formatDob(p.dob) || 'unknown'}</p>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p className="text-white">{p.orders.length} order{p.orders.length === 1 ? '' : 's'}</p>
+                      <p className="text-slate-400">{finals} final · last {shortDate(last.requisition_datetime)}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-500" />
+                  </button>
+                );
+              })}
+              {filteredPatients.length > 300 && <p className="px-4 py-3 text-sm text-slate-400">Showing 300 of {filteredPatients.length} patients. Search to narrow the list.</p>}
+              {filteredPatients.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-400">No patients match your search.</p>}
             </div>
           ) : (
-            orders.map((order) => {
-              const statusBadge = getSyncBadge(order.sync_status);
-              const StatusIcon = statusBadge.icon;
-              const isExpanded = expandedOrder === order.id;
-              const panels = Array.isArray(order.panels) ? order.panels : [];
-              const orderResults = results.filter(r => r.accession_id === order.accession_id || r.accession_number === order.accession_number);
-              const turnaround = getTurnaroundHours(order.processed_at_utc, orderResults[0]?.resulted_at_utc);
-
-              return (
-                <div key={order.id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                  <div
-                    onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                    className="p-4 cursor-pointer hover:bg-slate-700/30 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <p className="text-white font-medium">
-                              {order.accession_id || order.accession_number || order.stratus_guid}
-                            </p>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge.color} flex items-center gap-1`}>
-                              <StatusIcon className="w-3 h-3" />
-                              {statusBadge.label}
-                            </span>
-                            {order.order_status && order.order_status !== order.sync_status && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-slate-600/20 text-slate-300">
-                                {order.order_status}
-                              </span>
-                            )}
-                            {order.abnormal_flag && order.abnormal_flag !== 'Normal' && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-400 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
-                                Abnormal
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-400 flex-wrap">
-                            <span>{format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}</span>
-                            {order.patient_initials && (
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {order.patient_initials}
-                              </span>
-                            )}
-                            {order.provider_name && (
-                              <span className="flex items-center gap-1">
-                                <Stethoscope className="w-3 h-3" />
-                                {order.provider_name}
-                              </span>
-                            )}
-                            {order.location_name && (
-                              <span className="flex items-center gap-1">
-                                <Building2 className="w-3 h-3" />
-                                {order.location_name}
-                              </span>
-                            )}
-                            {panels.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <Beaker className="w-3 h-3" />
-                                {panels.length} panel{panels.length > 1 ? 's' : ''}
-                              </span>
-                            )}
-                            {turnaround !== null && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {turnaround}h turnaround
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-slate-700 p-4 bg-slate-900/30">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Accession ID</p>
-                            <p className="text-white text-sm font-mono">{order.accession_id || order.stratus_guid}</p>
-                          </div>
-                          {order.organization_name && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-1">Organization</p>
-                              <p className="text-white text-sm">{order.organization_name}</p>
-                            </div>
-                          )}
-                          {order.location_name && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-1">Location</p>
-                              <p className="text-white text-sm">{order.location_name}</p>
-                            </div>
-                          )}
-                          {order.provider_name && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-1">Ordering Provider</p>
-                              <p className="text-white text-sm">{order.provider_name}</p>
-                            </div>
-                          )}
-                          {order.patient_initials && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-1">Patient Initials</p>
-                              <p className="text-white text-sm">{order.patient_initials}</p>
-                            </div>
-                          )}
-                          {order.processed_at_utc && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-1">Processed At</p>
-                              <p className="text-white text-sm">{format(new Date(order.processed_at_utc), 'MMM d, yyyy h:mm a')}</p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-3">
-                          {panels.length > 0 && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-2">Panels Ordered</p>
-                              <div className="space-y-1">
-                                {panels.map((panel, idx) => (
-                                  <div key={idx} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300">
-                                    {typeof panel === 'string' ? panel : (panel.name || panel.panelName || panel.description || JSON.stringify(panel))}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {orderResults.length > 0 && (
-                            <div>
-                              <p className="text-xs text-slate-400 mb-2">Results ({orderResults.length})</p>
-                              <div className="space-y-1">
-                                {orderResults.map((result, idx) => {
-                                  const resStatus = result.result_status?.toLowerCase();
-                                  const resBadge = RESULT_STATUS_COLORS[resStatus];
-                                  return (
-                                    <div key={idx} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="text-slate-300">
-                                          {result.result_value || 'Result'}
-                                          {result.units && <span className="text-slate-500 ml-1">{result.units}</span>}
-                                        </span>
-                                        {resBadge && (
-                                          <span className={`px-2 py-0.5 rounded text-xs ${resBadge.color}`}>{resBadge.label}</span>
-                                        )}
-                                      </div>
-                                      {result.reference_range && (
-                                        <p className="text-xs text-slate-500 mt-1">Ref: {result.reference_range}</p>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          {order.sync_error && (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                              <p className="text-xs text-red-400 mb-1">Error Message</p>
-                              <p className="text-red-300 text-sm">{order.sync_error}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {order.order_data && Object.keys(order.order_data).length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-xs text-slate-400 mb-2">Raw Order Data</p>
-                          <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-300 overflow-x-auto max-h-64">
-                            {JSON.stringify(order.order_data, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead><tr className="text-left text-xs uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-2">Accession</th><th className="px-4 py-2">Patient</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Ordered</th><th className="px-4 py-2">Finalized</th>
+                </tr></thead>
+                <tbody className="divide-y divide-slate-800">
+                  {filteredOrders.slice(0, 300).map((o) => (
+                    <tr key={o.id} onClick={() => setPatientId(patientKey(o))} className="cursor-pointer hover:bg-slate-700/30">
+                      <td className="px-4 py-2 font-medium text-white">{o.accession_number || o.stratus_guid}</td>
+                      <td className="px-4 py-2 text-slate-200">{patientName(o)}</td>
+                      <td className="px-4 py-2"><span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[o.lab_status] || STATUS_STYLE.Pending}`}>{o.lab_status || 'Pending'}</span></td>
+                      <td className="px-4 py-2 text-slate-300">{shortDate(o.requisition_datetime)}</td>
+                      <td className="px-4 py-2 text-slate-300">{shortDate(o.finalized_datetime)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredOrders.length > 300 && <p className="px-4 py-3 text-sm text-slate-400">Showing 300 of {filteredOrders.length} orders. Search to narrow the list.</p>}
+            </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
 
-      {activeView === 'results' && (
-        <div className="space-y-3">
-          {results.length === 0 ? (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">No results found</p>
-            </div>
-          ) : (
-            results.map((result) => {
-              const statusBadge = getSyncBadge(result.sync_status);
-              const StatusIcon = statusBadge.icon;
-              const isExpanded = expandedOrder === result.id;
-              const resStatus = result.result_status?.toLowerCase();
-              const resBadge = RESULT_STATUS_COLORS[resStatus];
-              const isAbnormal = result.abnormal_flag && result.abnormal_flag !== 'Normal';
+function Stat({ icon: Icon, color, label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+      <div className="mb-2 flex items-center gap-2"><Icon className={`h-4 w-4 ${color}`} /><span className="text-xs text-slate-400">{label}</span></div>
+      <p className="text-2xl font-bold text-white">{Number(value).toLocaleString()}</p>
+    </div>
+  );
+}
 
+// One patient's orders over time; pick an order to see its report, or a test to see its trend.
+function PatientHistory({ patient, ranges, onBack }) {
+  const [observations, setObservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [orderId, setOrderId] = useState(() => (patient.orders.find((o) => o.lab_status === 'Final') || patient.orders[0])?.id);
+  const [trend, setTrend] = useState(null); // { test, panel }
+
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    getObservationsForOrders(patient.orders.map((o) => o.id))
+      .then((rows) => { if (live) setObservations(rows); })
+      .catch((err) => { if (live) setError('Unable to load results: ' + err.message); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [patient]);
+
+  const byOrder = useMemo(() => {
+    const map = new Map();
+    observations.forEach((o) => {
+      if (!map.has(o.lab_order_id)) map.set(o.lab_order_id, []);
+      map.get(o.lab_order_id).push(o);
+    });
+    return map;
+  }, [observations]);
+
+  const order = patient.orders.find((o) => o.id === orderId) || null;
+
+  const trendData = useMemo(() => {
+    if (!trend) return null;
+    const t = trend.test.trim().toLowerCase();
+    const range = findRange(ranges, trend.test, trend.panel);
+    const points = [...patient.orders].reverse().flatMap((o) => (byOrder.get(o.id) || [])
+      .filter((obs) => (obs.test_name || '').trim().toLowerCase() === t)
+      .map((obs) => ({ obs, o, value: numericValue(obs) }))
+      .filter((p) => p.value != null)
+      .map(({ obs, o, value }) => ({ label: shortDate(o.requisition_datetime), value, display: obs.result_display || obs.result_value })));
+    const unit = (observations.find((obs) => (obs.test_name || '').trim().toLowerCase() === t) || {}).result_uom || range?.unit || '';
+    return { range, points, unit };
+  }, [trend, patient, byOrder, ranges, observations]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+        <button type="button" onClick={onBack} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700">Back to list</button>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/10"><User className="h-5 w-5 text-teal-300" /></div>
+        <div>
+          <p className="text-lg font-semibold text-white">{patient.name}</p>
+          <p className="text-sm text-slate-400">DOB {formatDob(patient.dob) || 'unknown'} · {patient.orders.length} order{patient.orders.length === 1 ? '' : 's'}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+        <div className="rounded-xl border border-slate-700 bg-slate-800/50">
+          <p className="border-b border-slate-700 px-4 py-3 text-sm font-semibold text-white">Order history</p>
+          <div className="max-h-[640px] divide-y divide-slate-800 overflow-y-auto">
+            {patient.orders.map((o) => {
+              const obs = byOrder.get(o.id) || [];
+              const flagged = obs.filter((x) => ['positive', 'high', 'low', 'abnormal'].includes(classify(x, findRange(ranges, x.test_name, x.panel_name)))).length;
               return (
-                <div key={result.id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                  <div
-                    onClick={() => setExpandedOrder(isExpanded ? null : result.id)}
-                    className="p-4 cursor-pointer hover:bg-slate-700/30 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <p className="text-white font-medium">
-                              {result.accession_id || result.accession_number || result.stratus_guid}
-                            </p>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge.color} flex items-center gap-1`}>
-                              <StatusIcon className="w-3 h-3" />
-                              {statusBadge.label}
-                            </span>
-                            {resBadge && (
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${resBadge.color}`}>{resBadge.label}</span>
-                            )}
-                            {isAbnormal && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-400 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
-                                Abnormal
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-400 flex-wrap">
-                            <span>{result.result_date ? format(new Date(result.result_date), 'MMM d, yyyy h:mm a') : format(new Date(result.created_at), 'MMM d, yyyy h:mm a')}</span>
-                            {result.result_value && (
-                              <span className="text-slate-300">
-                                {result.result_value}{result.units && <span className="text-slate-500 ml-1">{result.units}</span>}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                <button key={o.id} type="button" onClick={() => { setOrderId(o.id); setTrend(null); }} className={`block w-full px-4 py-3 text-left ${o.id === orderId ? 'bg-teal-500/10' : 'hover:bg-slate-700/30'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-white">{shortDate(o.requisition_datetime)}</span>
+                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[o.lab_status] || STATUS_STYLE.Pending}`}>{o.lab_status || 'Pending'}</span>
                   </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-slate-700 p-4 bg-slate-900/30">
-                      <div className="space-y-3">
-                        {result.result_value && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Result Value</p>
-                            <p className="text-white text-sm">{result.result_value} {result.units && <span className="text-slate-400">{result.units}</span>}</p>
-                          </div>
-                        )}
-                        {result.reference_range && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Reference Range</p>
-                            <p className="text-white text-sm">{result.reference_range}</p>
-                          </div>
-                        )}
-                        {result.abnormal_flag && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Abnormal Flag</p>
-                            <p className="text-white text-sm">{result.abnormal_flag}</p>
-                          </div>
-                        )}
-                        {result.resulted_at_utc && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Resulted At (UTC)</p>
-                            <p className="text-white text-sm">{format(new Date(result.resulted_at_utc), 'MMM d, yyyy h:mm a')}</p>
-                          </div>
-                        )}
-                        {result.hl7_result && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-2">HL7 Result</p>
-                            <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
-                              {result.hl7_result}
-                            </pre>
-                          </div>
-                        )}
-                        {result.result_data && Object.keys(result.result_data).length > 0 && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-2">Result Data</p>
-                            <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-300 overflow-x-auto max-h-64">
-                              {JSON.stringify(result.result_data, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  <p className="mt-1 text-xs text-slate-400">#{o.accession_number || o.stratus_guid}{Array.isArray(o.panels) && o.panels.length ? ` · ${o.panels.join(', ')}` : ''}</p>
+                  {!loading && obs.length > 0 && (
+                    <p className={`mt-1 text-xs ${flagged ? 'text-red-300' : 'text-emerald-300'}`}>{flagged ? `${flagged} flagged result${flagged === 1 ? '' : 's'}` : 'Nothing flagged'}</p>
                   )}
-                </div>
+                </button>
               );
-            })
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
+          {trend && trendData && (
+            <div className="rounded-xl border border-teal-500/30 bg-slate-800/50 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-white">{trend.test} over time</p>
+                  <p className="text-xs text-slate-400">{rangeLabel(trendData.range) || 'No range or cut-off set for this test (Settings > Reference Ranges)'}</p>
+                </div>
+                <button type="button" onClick={() => setTrend(null)} className="text-slate-400 hover:text-white"><X className="h-5 w-5" /></button>
+              </div>
+              <TrendChart points={trendData.points} range={trendData.range} unit={trendData.unit} />
+            </div>
+          )}
+          {order && (
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+              <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <p className="text-lg font-semibold text-white">Order #{order.accession_number || order.stratus_guid}</p>
+                <p className="text-sm text-slate-400">Ordered {shortDate(order.requisition_datetime)} · Received {shortDate(order.received_datetime)} · Finalized {shortDate(order.finalized_datetime)}</p>
+                {order.provider_name && <p className="text-sm text-slate-400">Provider: {order.provider_name}</p>}
+              </div>
+              {loading ? (
+                <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" /></div>
+              ) : (
+                <PanelReport observations={byOrder.get(order.id) || []} ranges={ranges} onTrend={(test, panel) => setTrend({ test, panel })} />
+              )}
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

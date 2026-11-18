@@ -25,6 +25,7 @@ import ReferenceData from './components/ReferenceData';
 import StratusMappingSettings from './components/StratusMappingSettings';
 import StratusSyncStatus from './components/StratusSyncStatus';
 import StratusDataViewer from './components/StratusDataViewer';
+import ReferenceRanges from './components/ReferenceRanges';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import Commissions from './components/Commissions';
@@ -175,6 +176,7 @@ function App() {
                   <Route path="templates" element={<Templates />} />
                   <Route path="reference-data" element={<ReferenceData />} />
                   <Route path="supply-catalog" element={<SupplyCatalog />} />
+                  <Route path="reference-ranges" element={<ReferenceRanges />} />
                   <Route path="stratus-mappings" element={<StratusMappingSettings />} />
                   <Route path="stratus-data" element={<StratusDataViewer />} />
                   <Route path="stratus-sync" element={

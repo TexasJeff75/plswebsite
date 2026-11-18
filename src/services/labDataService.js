@@ -442,3 +442,50 @@ export async function assignOrderAndResults(orderId, organizationId, facilityId 
   if (resultsRes.error) throw resultsRes.error;
   return orderRes.data;
 }
+
+// ---------- Facility Lab Orders tab (patient history and result reports) ----------
+
+const FACILITY_ORDER_COLUMNS = `
+  id, stratus_guid, accession_number, lab_status, patient_first_name, patient_last_name,
+  patient_dob, provider_name, panels, requisition_datetime, received_datetime, finalized_datetime
+`;
+
+// Every order for a facility (light columns), newest first. Read in pages,
+// since the API returns at most 1,000 rows per request.
+export async function listFacilityOrders(facilityId, maxRows = 20000) {
+  const pageSize = 1000;
+  const rows = [];
+  for (let from = 0; from < maxRows; from += pageSize) {
+    const { data, error } = await supabase
+      .from('lab_orders')
+      .select(FACILITY_ORDER_COLUMNS)
+      .eq('facility_id', facilityId)
+      .order('requisition_datetime', { ascending: false, nullsFirst: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+
+// All saved results for a set of orders, with each result's panel name.
+export async function getObservationsForOrders(orderIds) {
+  const ids = [...new Set(orderIds)].filter(Boolean);
+  const out = [];
+  for (let i = 0; i < ids.length; i += 25) {
+    const batch = ids.slice(i, i + 25);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('stratus_result_observations')
+        .select('id, lab_order_id, test_code, test_name, result_value, result_display, result_flag, result_uom, test_uom, is_abnormal, sort_order, panel:stratus_order_panels(panel_name)')
+        .in('lab_order_id', batch)
+        .order('sort_order')
+        .range(from, from + 999);
+      if (error) throw error;
+      out.push(...(data || []).map((o) => ({ ...o, panel_name: o.panel?.panel_name || null })));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  return out;
+}
