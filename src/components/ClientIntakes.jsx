@@ -28,7 +28,7 @@ export default function ClientIntakes() {
   const [copied, setCopied] = useState(false);
   const [viewing, setViewing] = useState(null); // { loading } or the intake with its form
 
-  const customerOrganizations = useMemo(() => organizations.filter((organization) => organization.type === 'customer'), [organizations]);
+  const customerOrganizations = useMemo(() => organizations.filter((organization) => organization.type === 'customer' && !organization.archived_at), [organizations]);
 
   useEffect(() => {
     loadData();

@@ -12,7 +12,7 @@ import { useOrganization } from '../contexts/OrganizationContext';
 import { OrganizationModal } from './Organizations';
 import IntakeSummary, { organizationFieldsFromIntake } from './IntakeSummary';
 import { clientIntakeService } from '../services/clientIntakeService';
-import { ClipboardList, ChevronDown, ChevronRight } from 'lucide-react';
+import { ClipboardList, ChevronDown, ChevronRight, Archive } from 'lucide-react';
 
 export default function OrganizationDetail() {
   const { id } = useParams();
@@ -36,7 +36,7 @@ export default function OrganizationDetail() {
     try {
       const [orgData, orgWithStats] = await Promise.all([
         organizationsService.getById(id),
-        organizationsService.getWithStats()
+        organizationsService.getWithStats({ includeArchived: true })
       ]);
 
       const stats = orgWithStats.find(o => o.id === id);
@@ -57,6 +57,23 @@ export default function OrganizationDetail() {
       console.error('Error loading organization:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Archiving hides the organization from active lists; nothing is deleted.
+  async function toggleArchived() {
+    const archiving = !organization.archived_at;
+    const question = archiving
+      ? `Archive ${organization.name}? It will be hidden from the Organizations list and the Dashboard. Nothing is deleted, and you can restore it at any time.`
+      : `Restore ${organization.name} to the active Organizations list?`;
+    if (!window.confirm(question)) return;
+    try {
+      if (archiving) await organizationsService.archive(organization.id);
+      else await organizationsService.restore(organization.id);
+      await loadOrganization();
+    } catch (error) {
+      console.error('Error archiving organization:', error);
+      alert(`Failed to ${archiving ? 'archive' : 'restore'} organization: ${error.message}`);
     }
   }
 
@@ -220,6 +237,11 @@ export default function OrganizationDetail() {
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
                 {statusBadge.label}
               </span>
+              {organization.archived_at && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium text-amber-300 bg-amber-500/10">
+                  Archived {format(new Date(organization.archived_at), 'MMM d, yyyy')}
+                </span>
+              )}
               {canManageLogo && logoUrl && (
                 <button
                   onClick={handleLogoRemove}
@@ -248,6 +270,15 @@ export default function OrganizationDetail() {
             </p>
           </div>
         </div>
+        {isStaff && (
+          <button
+            onClick={toggleArchived}
+            className={`flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm font-medium transition-colors ${organization.archived_at ? 'text-teal-300' : 'text-amber-300'}`}
+          >
+            <Archive className="w-4 h-4" />
+            {organization.archived_at ? 'Restore' : 'Archive'}
+          </button>
+        )}
         {isStaff && (
           <button
             onClick={() => setEditing({})}

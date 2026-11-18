@@ -12,6 +12,7 @@ export default function Organizations() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -23,11 +24,11 @@ export default function Organizations() {
 
   useEffect(() => {
     filterOrganizations();
-  }, [organizations, searchTerm, typeFilter, statusFilter, sortConfig]);
+  }, [organizations, searchTerm, typeFilter, statusFilter, sortConfig, showArchived]);
 
   async function loadOrganizations() {
     try {
-      const data = await organizationsService.getWithStats();
+      const data = await organizationsService.getWithStats({ includeArchived: true });
       setOrganizations(data);
     } catch (error) {
       console.error('Error loading organizations:', error);
@@ -37,7 +38,8 @@ export default function Organizations() {
   }
 
   function filterOrganizations() {
-    let filtered = [...organizations];
+    // The main list shows active organizations; "Archived" shows only archived ones.
+    let filtered = organizations.filter(org => (showArchived ? !!org.archived_at : !org.archived_at));
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -109,11 +111,31 @@ export default function Organizations() {
       : <ChevronDown className="w-3.5 h-3.5 text-teal-400" />;
   };
 
+  // Totals count active (not archived) organizations only.
+  const liveOrgs = organizations.filter(o => !o.archived_at);
+  const archivedCount = organizations.length - liveOrgs.length;
   const stats = {
-    total: organizations.length,
-    active: organizations.filter(o => o.contract_status === 'active').length,
-    prospects: organizations.filter(o => o.client_type === 'prospect').length,
-    totalMRR: organizations.reduce((sum, o) => sum + (o.monthly_recurring_revenue || 0), 0)
+    total: liveOrgs.length,
+    active: liveOrgs.filter(o => o.contract_status === 'active').length,
+    prospects: liveOrgs.filter(o => o.client_type === 'prospect').length,
+    totalMRR: liveOrgs.reduce((sum, o) => sum + (o.monthly_recurring_revenue || 0), 0)
+  };
+
+  const handleArchive = async (org) => {
+    setOpenMenuId(null);
+    const archiving = !org.archived_at;
+    const question = archiving
+      ? `Archive ${org.name}? It will be hidden from the Organizations list and the Dashboard. Nothing is deleted, and you can restore it at any time.`
+      : `Restore ${org.name} to the active Organizations list?`;
+    if (!window.confirm(question)) return;
+    try {
+      if (archiving) await organizationsService.archive(org.id);
+      else await organizationsService.restore(org.id);
+      await loadOrganizations();
+    } catch (error) {
+      console.error('Error archiving organization:', error);
+      alert(`Failed to ${archiving ? 'archive' : 'restore'} organization: ${error.message}`);
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -279,6 +301,18 @@ export default function Organizations() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
+              <button
+                type="button"
+                onClick={() => setShowArchived(v => !v)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm whitespace-nowrap transition-colors ${
+                  showArchived
+                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                    : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Archive className="w-4 h-4" />
+                {showArchived ? 'Back to active' : `Archived (${archivedCount})`}
+              </button>
             </div>
           </div>
         </div>
@@ -331,7 +365,9 @@ export default function Organizations() {
               {filteredOrgs.length === 0 ? (
                 <tr>
                   <td colSpan={isProximityAdmin ? "7" : "6"} className="px-6 py-12 text-center text-slate-400">
-                    {searchTerm || typeFilter !== 'all' || statusFilter !== 'all'
+                    {showArchived && !(searchTerm || typeFilter !== 'all' || statusFilter !== 'all')
+                      ? 'No archived organizations.'
+                      : searchTerm || typeFilter !== 'all' || statusFilter !== 'all'
                       ? 'No organizations match your filters'
                       : 'No organizations found. Add your first organization to get started.'}
                   </td>
@@ -364,7 +400,12 @@ export default function Organizations() {
                             )}
                           </div>
                           <div>
-                            <div className="text-white font-medium group-hover:text-teal-400 transition-colors">{org.name}</div>
+                            <div className="text-white font-medium group-hover:text-teal-400 transition-colors">
+                              {org.name}
+                              {org.archived_at && (
+                                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium text-amber-300 bg-amber-500/10 align-middle">Archived</span>
+                              )}
+                            </div>
                             <div className="text-slate-400 text-xs">
                               {org.totalFacilities} site{org.totalFacilities !== 1 ? 's' : ''} {org.region ? `in ${org.region}` : ''}
                             </div>
@@ -434,11 +475,11 @@ export default function Organizations() {
                                   Edit
                                 </button>
                                 <button
-                                  onClick={() => setOpenMenuId(null)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                                  onClick={() => handleArchive(org)}
+                                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-700 transition-colors ${org.archived_at ? 'text-teal-400' : 'text-amber-400'}`}
                                 >
                                   <Archive className="w-4 h-4" />
-                                  Archive
+                                  {org.archived_at ? 'Restore' : 'Archive'}
                                 </button>
                               </div>
                             </>

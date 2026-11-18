@@ -64,14 +64,17 @@ export const organizationsService = {
     return data;
   },
 
-  async getWithStats() {
-    const { data: orgs, error: orgsError } = await supabase
+  // Customer organizations with facility and ticket counts. Archived
+  // organizations are left out unless includeArchived is set.
+  async getWithStats(options = {}) {
+    const { data: allOrgs, error: orgsError } = await supabase
       .from('organizations')
       .select('*')
       .eq('type', 'customer')
       .order('name');
 
     if (orgsError) throw orgsError;
+    const orgs = options?.includeArchived ? allOrgs : allOrgs.filter((o) => !o.archived_at);
 
     const orgsWithStats = await Promise.all(
       orgs.map(async (org) => {
@@ -130,6 +133,16 @@ export const organizationsService = {
 
     if (error) throw error;
     return data;
+  },
+
+  // Hides an organization from the active lists. Nothing is deleted.
+  async archive(id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    return this.update(id, { archived_at: new Date().toISOString(), archived_by: user?.id || null });
+  },
+
+  async restore(id) {
+    return this.update(id, { archived_at: null, archived_by: null });
   },
 
   async update(id, updates) {
