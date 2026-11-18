@@ -30,6 +30,21 @@ export default function StratusSyncStatus() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(null);
   const [runError, setRunError] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [counts, setCounts] = useState(null);
+  const [countsError, setCountsError] = useState(null);
+
+  async function compareCounts() {
+    setChecking(true);
+    setCountsError(null);
+    try {
+      setCounts(await labOrdersService.checkStratusCounts());
+    } catch (err) {
+      setCountsError(err.message);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +106,7 @@ export default function StratusSyncStatus() {
             and carries on where it stopped. Use Run now to catch up straight away.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={runNow}
@@ -100,7 +116,69 @@ export default function StratusSyncStatus() {
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {running ? 'Running...' : 'Run now'}
         </button>
+        <button
+          type="button"
+          onClick={compareCounts}
+          disabled={checking}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-60 text-sm font-medium"
+        >
+          {checking && <Loader2 className="w-4 h-4 animate-spin" />}
+          {checking ? 'Comparing...' : 'Compare counts'}
+        </button>
+        </div>
       </div>
+
+      {countsError && (
+        <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-300">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{countsError}</span>
+        </div>
+      )}
+
+      {counts && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-sm">
+          <h3 className="font-medium text-white">Orders per month: StratusDX compared with saved here</h3>
+          <p className="text-slate-400 text-xs mt-1 mb-3">
+            By the date StratusDX received each order. Months not fully read yet are still importing, so their counts will rise.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full max-w-2xl">
+              <thead>
+                <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                  <th className="py-2 pr-4 font-medium">Month</th>
+                  <th className="py-2 pr-4 font-medium text-right">In StratusDX</th>
+                  <th className="py-2 pr-4 font-medium text-right">Saved here</th>
+                  <th className="py-2 pr-4 font-medium text-right">Difference</th>
+                  <th className="py-2 font-medium">Import</th>
+                </tr>
+              </thead>
+              <tbody>
+                {counts.months.map((m) => {
+                  const diff = m.saved - m.api;
+                  return (
+                    <tr key={m.month} className="border-b border-slate-800">
+                      <td className="py-1.5 pr-4 text-slate-200">{m.month}</td>
+                      <td className="py-1.5 pr-4 text-right tabular-nums text-white">{m.api.toLocaleString()}</td>
+                      <td className="py-1.5 pr-4 text-right tabular-nums text-white">{m.saved.toLocaleString()}</td>
+                      <td className={`py-1.5 pr-4 text-right tabular-nums ${diff === 0 ? 'text-slate-400' : m.fully_read ? 'text-amber-300' : 'text-slate-400'}`}>
+                        {diff === 0 ? '0' : diff.toLocaleString()}
+                      </td>
+                      <td className="py-1.5 text-slate-400">{m.fully_read ? 'Done' : 'In progress'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="font-medium">
+                  <td className="py-2 pr-4 text-white">Total</td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-white">{counts.api_total.toLocaleString()}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-white">{counts.saved_total.toLocaleString()}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-slate-300">{(counts.saved_total - counts.api_total).toLocaleString()}</td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {progress && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-sm text-slate-300">{progress.text}</div>
@@ -146,6 +224,12 @@ export default function StratusSyncStatus() {
                   {s.api_rows_listed}
                   {s.api_rows_filtered ? ` (${s.api_rows_filtered} older than the saved point or without a date)` : ''}
                 </dd>
+              </div>
+            )}
+            {s.repeated_accessions !== undefined && (
+              <div>
+                <dt className="text-slate-400">Accession numbers listed more than once (last run)</dt>
+                <dd className="text-white">{s.repeated_accessions}</dd>
               </div>
             )}
             {s.finalized_without_results !== undefined && (

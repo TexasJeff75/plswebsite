@@ -4,7 +4,7 @@
 // about 7 seconds of work, then starts the background catch-up if there is
 // more to import. busy = true means another run is already going.
 const { requireSuperAdmin } = require('../lib/requireSuperAdmin.cjs');
-const { runSync, startBackground } = require('../lib/stratusSync.cjs');
+const { runSync, countCheck, startBackground } = require('../lib/stratusSync.cjs');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +23,21 @@ exports.handler = async (event) => {
   if (!access.ok) return respond(access.status, { error: access.error, details: access.error });
 
   if (event.httpMethod !== 'POST') return respond(405, { error: 'Method not allowed' });
+
+  let action = '';
+  try { action = JSON.parse(event.body || '{}').action || ''; } catch { action = ''; }
+
+  // Read-only comparison of order counts per month (runs even during an import).
+  if (action === 'check') {
+    try {
+      const result = await countCheck();
+      if (!result.ok) return respond(result.status || 500, { error: result.error, details: result.error });
+      return respond(200, result);
+    } catch (error) {
+      console.error('[SYNC] Count check failed:', error.message);
+      return respond(500, { error: 'Count check failed', details: error.message });
+    }
+  }
 
   try {
     const budgetMs = Number(process.env.STRATUS_SYNC_BUDGET_MS) || 7000;

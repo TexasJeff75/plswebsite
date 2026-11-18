@@ -132,6 +132,19 @@ export const labOrdersService = {
     };
   },
 
+  // Orders per month in StratusDX next to orders saved here (read only).
+  async checkStratusCounts() {
+    const headers = await this._getSyncHeaders();
+    const response = await fetch('/.netlify/functions/sync-stratus', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'check' }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.details || body.error || `Count check failed (${response.status})`);
+    return body;
+  },
+
   async syncAll() {
     const headers = await this._getSyncHeaders();
     const response = await fetch('/.netlify/functions/sync-stratus', {

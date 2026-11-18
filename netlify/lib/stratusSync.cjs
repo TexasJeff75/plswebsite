@@ -136,6 +136,16 @@ function makeDb(cfg) {
     updateReturning: (table, query, patch) => call('PATCH', `${table}?${query}`, patch, 'return=representation'),
     remove: (table, query) => call('DELETE', `${table}?${query}`, undefined, 'return=minimal'),
     rpc: (fn, params) => call('POST', `rpc/${fn}`, params),
+    // Number of rows matching a filter (no rows are read).
+    count: async (table, query) => {
+      const res = await fetch(`${cfg.supabaseUrl}/rest/v1/${table}?select=id&${query}`, {
+        method: 'HEAD',
+        headers: { ...headers, Prefer: 'count=exact' },
+      });
+      if (!res.ok) throw new Error(`Database count ${table} failed (${res.status})`);
+      const range = res.headers.get('content-range') || '';
+      return Number(range.split('/')[1]) || 0;
+    },
   };
 }
 
@@ -457,6 +467,9 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
   const windowEnd = addDays(windowTo, 1);
   const windowEndMs = Date.parse(`${windowEnd}T00:00:00Z`);
   const newList = await api.list(`/orders?dateField=processedAt&from=${windowFrom}&to=${windowEnd}`, deadline);
+  // The same accession listed more than once on one day (counted for the summary).
+  const sameDayRows = newList.rows.filter((r) => r && hasValue(r.accessionId));
+  const repeatedAccessions = sameDayRows.length - new Set(sameDayRows.map((r) => String(r.accessionId))).size;
   const newRows = newList.rows.filter((r) => {
     const t = r && Date.parse(r.processedAtUtc);
     return r && hasValue(r.accessionId) && t >= sinceMs && t < windowEndMs;
@@ -536,7 +549,7 @@ async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBef
 
   const windowFinished = newList.complete && notDone.length === 0;
   return {
-    windowFrom, windowTo, saved, unchanged, finalizedNoResults, errors, fetched: queue.length, nextCheckpoint, changedDone,
+    windowFrom, windowTo, saved, unchanged, finalizedNoResults, repeatedAccessions, errors, fetched: queue.length, nextCheckpoint, changedDone,
     listed: newList.rows.length + changedList.rows.length,
     filteredRows: newList.rows.length - newRows.length,
     // Move straight on to the next window when this one is fully done and is not the last.
@@ -627,6 +640,7 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
     total_processed: sum('saved'),
     unchanged: sum('unchanged'),
     finalized_without_results: sum('finalizedNoResults'),
+    repeated_accessions: sum('repeatedAccessions'),
     errors: errors.length,
     error_list: errors.slice(0, MAX_ERRORS_REPORTED),
     more: !step.caughtUp,
@@ -641,6 +655,47 @@ async function runLocked({ cfg, db, api, started, deadline, trigger }) {
 
   console.log(`[SYNC] ${trigger}: ${summary.windows} windows, ${summary.total_processed} saved, ${summary.unchanged} unchanged, ${errors.length} failed, more=${summary.more}`);
   return { ok: true, summary, errors: summary.error_list };
+}
+
+// ---------- count check ----------
+
+// Orders per month in StratusDX (by processedAtUtc) next to orders saved here
+// (by processed_at_utc). Read only: it takes no lock and changes nothing.
+async function countCheck() {
+  const cfg = config();
+  const missing = missingSettings(cfg);
+  if (missing.length) return { ok: false, status: 500, error: `StratusDX sync is not set up. Missing Netlify settings: ${missing.join(', ')}` };
+  const db = makeDb(cfg);
+  const api = makeApi(cfg, db);
+  const [checkpoint] = (await db.select('stratus_sync_checkpoint', 'select=last_processed_at_utc&id=eq.1')) || [];
+
+  const today = utcDay(new Date());
+  const months = [];
+  for (let m = cfg.backfillFrom.slice(0, 7); `${m}-01` <= today;) {
+    const [y, mo] = m.split('-').map(Number);
+    const next = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+    months.push({ month: m, from: `${m}-01`, to: `${next}-01` });
+    m = next;
+  }
+  const rows = await Promise.all(months.map(async ({ month, from, to }) => {
+    const [page, saved] = await Promise.all([
+      api.get(`/orders?dateField=processedAt&from=${from}&to=${to}&top=1`),
+      db.count('lab_orders', `processed_at_utc=gte.${from}T00:00:00.000Z&processed_at_utc=lt.${to}T00:00:00.000Z`),
+    ]);
+    // The live API's "to" is exclusive (the connection check shows "D to D" is
+    // empty), so first-of-month to first-of-next-month is exactly one month.
+    const apiCount = Number(page && page.totalCount) || 0;
+    const imported = checkpoint && checkpoint.last_processed_at_utc && Date.parse(checkpoint.last_processed_at_utc) >= Date.parse(`${to}T00:00:00Z`);
+    return { month, api: apiCount, saved, fully_read: Boolean(imported) };
+  }));
+  return {
+    ok: true,
+    checked_at: new Date().toISOString(),
+    read_up_to: checkpoint ? checkpoint.last_processed_at_utc : null,
+    months: rows,
+    api_total: rows.reduce((n, r) => n + r.api, 0),
+    saved_total: rows.reduce((n, r) => n + r.saved, 0),
+  };
 }
 
 // ---------- background catch-up ----------
@@ -671,4 +726,4 @@ async function startBackground() {
   }
 }
 
-module.exports = { runSync, startBackground, backgroundKey, centralToUtcIso, fingerprint, isAbnormalFlag, camelKeys };
+module.exports = { runSync, countCheck, startBackground, backgroundKey, centralToUtcIso, fingerprint, isAbnormalFlag, camelKeys };
