@@ -407,16 +407,9 @@ async function runPool(items, deadline, fn) {
 
 // ---------- the sync run ----------
 
-async function runSync({ budgetMs, trigger }) {
-  const started = Date.now();
-  const deadline = started + budgetMs;
-  const cfg = config();
-  const missing = missingSettings(cfg);
-  if (missing.length) return { ok: false, status: 500, error: `StratusDX sync is not set up. Missing Netlify settings: ${missing.join(', ')}` };
-
-  const db = makeDb(cfg);
-  const api = makeApi(cfg, db);
-
+// One step: one date window of new orders, plus (on the first step of a run)
+// the changed-orders pass. Saves the checkpoint before returning.
+async function syncStep({ cfg, db, api, deadline, includeChanged, changedDoneBefore }) {
   const [checkpoint] = (await db.select('stratus_sync_checkpoint', 'select=*&id=eq.1')) || [];
   const today = utcDay(new Date());
   const since = (checkpoint && checkpoint.last_processed_at_utc) || `${cfg.backfillFrom}T00:00:00.000Z`;
@@ -433,7 +426,7 @@ async function runSync({ budgetMs, trigger }) {
 
   // 2. Orders changed since the last finished pass (results added, status changes).
   let changedList = { rows: [], complete: false };
-  if (Date.now() < deadline) {
+  if (includeChanged && Date.now() < deadline) {
     changedList = await api.list(`/orders?dateField=statusUpdated&from=${statusFrom}&to=${today}`, deadline);
   }
 
@@ -490,32 +483,67 @@ async function runSync({ budgetMs, trigger }) {
   }
 
   // The changed-orders pass restarts from yesterday once it fully finishes.
-  const changedDone = changedList.complete && changedList.rows.every((r) => doneAccessions.has(String(r.accessionId)));
-  const nextStatusFrom = changedDone ? addDays(today, -1) : statusFrom;
-
-  const caughtUp = notDone.length === 0 && newList.complete && windowTo >= today && changedDone;
-  const summary = {
-    trigger,
-    window: `${windowFrom} to ${windowTo}`,
-    total_fetched: queue.length,
-    total_processed: saved,
-    unchanged,
-    errors: errors.length,
-    error_list: errors.slice(0, MAX_ERRORS_REPORTED),
-    more: !caughtUp,
-    new_checkpoint: nextCheckpoint,
-    seconds: Math.round((Date.now() - started) / 100) / 10,
-  };
+  const changedDone = includeChanged
+    ? changedList.complete && changedList.rows.every((r) => doneAccessions.has(String(r.accessionId)))
+    : changedDoneBefore;
+  const nextStatusFrom = includeChanged && changedDone ? addDays(today, -1) : statusFrom;
 
   await db.upsert('stratus_sync_checkpoint', [{
     id: 1,
     last_processed_at_utc: nextCheckpoint,
     status_updated_from: nextStatusFrom,
+  }], 'id');
+
+  const windowFinished = newList.complete && notDone.length === 0;
+  return {
+    windowFrom, windowTo, saved, unchanged, errors, fetched: queue.length, nextCheckpoint, changedDone,
+    // Move straight on to the next window when this one is fully done and is not the last.
+    canContinue: windowFinished && windowTo < today,
+    caughtUp: windowFinished && windowTo >= today && changedDone,
+  };
+}
+
+async function runSync({ budgetMs, trigger }) {
+  const started = Date.now();
+  const deadline = started + budgetMs;
+  const cfg = config();
+  const missing = missingSettings(cfg);
+  if (missing.length) return { ok: false, status: 500, error: `StratusDX sync is not set up. Missing Netlify settings: ${missing.join(', ')}` };
+
+  const db = makeDb(cfg);
+  const api = makeApi(cfg, db);
+
+  // Keep stepping through date windows until caught up or the time is nearly used.
+  const steps = [];
+  let step = await syncStep({ cfg, db, api, deadline, includeChanged: true });
+  steps.push(step);
+  while (step.canContinue && Date.now() < deadline - 1500) {
+    step = await syncStep({ cfg, db, api, deadline, includeChanged: false, changedDoneBefore: step.changedDone });
+    steps.push(step);
+  }
+
+  const errors = steps.flatMap((s) => s.errors);
+  const sum = (k) => steps.reduce((n, s) => n + s[k], 0);
+  const summary = {
+    trigger,
+    window: `${steps[0].windowFrom} to ${step.windowTo}`,
+    windows: steps.length,
+    total_fetched: sum('fetched'),
+    total_processed: sum('saved'),
+    unchanged: sum('unchanged'),
+    errors: errors.length,
+    error_list: errors.slice(0, MAX_ERRORS_REPORTED),
+    more: !step.caughtUp,
+    new_checkpoint: step.nextCheckpoint,
+    seconds: Math.round((Date.now() - started) / 100) / 10,
+  };
+  await db.upsert('stratus_sync_checkpoint', [{
+    id: 1,
     last_sync_run_at: new Date().toISOString(),
     last_sync_summary: summary,
   }], 'id');
 
-  console.log(`[SYNC] ${trigger}: ${saved} saved, ${unchanged} unchanged, ${errors.length} failed, more=${summary.more}`);
+  console.log(`[SYNC] ${trigger}: ${summary.windows} windows, ${summary.total_processed} saved, ${summary.unchanged} unchanged, ${errors.length} failed, more=${summary.more}`);
   return { ok: true, summary, errors: summary.error_list };
 }
 
