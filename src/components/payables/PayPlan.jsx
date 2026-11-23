@@ -80,6 +80,7 @@ export default function PayPlan() {
   const [reviewNote, setReviewNote] = useState('');
   const [planDate, setPlanDate] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
+  const [picked, setPicked] = useState(() => new Set()); // pay-list installments picked for release
   const [paidWeeksBack, setPaidWeeksBack] = useState(1); // 1 = last week
   const [paid, setPaid] = useState(null); // { start, end, payments } or { error }
 
@@ -232,6 +233,31 @@ export default function PayPlan() {
     for (const w of weeks) w.rows.sort((a, b) => a.date.localeCompare(b.date));
     return weeks.filter((w) => w.rows.length);
   }, [bills, today]);
+
+  // Planned (or missed) payments not yet in BILL can be picked and released on their own.
+  const releasable = (r) => (r.status === 'planned' || r.status === 'missed') && !r.matched_payment_id;
+  const allPayRows = payWeeks.flatMap((w) => w.rows);
+  const pickedRows = allPayRows.filter((r) => picked.has(r.id) && releasable(r));
+
+  function togglePicked(id) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function releasePicked() {
+    const rows = [...pickedRows].sort((a, b) => a.date.localeCompare(b.date));
+    const weeksTouched = new Set(rows.map((r) => payWeeks.find((w) => w.rows.includes(r))?.start));
+    const start = [...weeksTouched].sort()[0];
+    setReleasing({
+      start,
+      rows,
+      mixed: weeksTouched.size > 1,
+      title: `${rows.length} selected ${rows.length === 1 ? 'payment' : 'payments'}`,
+    });
+  }
 
   if (error) return <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">Could not load pay plans: {error}</div>;
   if (!data) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-400" /></div>;
@@ -432,7 +458,19 @@ export default function PayPlan() {
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
         <h3 className="mb-1 text-base font-semibold text-white">Weekly pay list</h3>
-        <p className="mb-3 text-xs text-slate-500">Planned payments by week. Release a week to create its payments in BILL; released and scheduled ones show BILL's date and can be canceled until BILL starts processing.</p>
+        <p className="mb-3 text-xs text-slate-500">Planned payments by week. Release a whole week, or tick the payments you want and release only those, to create them in BILL; the rest stay planned. Released and scheduled ones show BILL's date and can be canceled until BILL starts processing.</p>
+        {pickedRows.length > 0 && (
+          <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-teal-500/40 bg-slate-900 p-3">
+            <span className="text-sm font-medium text-teal-200">
+              {pickedRows.length} selected · <span className="tabular-nums">{money(pickedRows.reduce((t, r) => t + Number(r.amount), 0), { cents: true })}</span>
+            </span>
+            <button type="button" onClick={releasePicked}
+              className="inline-flex items-center gap-1 rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-teal-400">
+              <Send className="h-3.5 w-3.5" />Release selected to BILL
+            </button>
+            <button type="button" onClick={() => setPicked(new Set())} className="ml-auto text-xs text-slate-400 hover:text-white">Clear selection</button>
+          </div>
+        )}
         {payWeeks.length ? (
           <div className="space-y-4">
             {payWeeks.map((w) => {
@@ -460,6 +498,11 @@ export default function PayPlan() {
                       return (
                         <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                           <span className="text-slate-200">
+                            {releasable(r) ? (
+                              <input type="checkbox" checked={picked.has(r.id)} onChange={() => togglePicked(r.id)}
+                                aria-label={`Select ${r.bill.vendor_name} ${money(r.amount, { cents: true })} to release`}
+                                className="mr-2 h-4 w-4 align-middle accent-teal-500" />
+                            ) : <span className="mr-2 inline-block w-4" />}
                             <span className="tabular-nums text-slate-400">{shortDay(r.date)}</span> · {r.bill.vendor_name}
                             <span className="text-slate-400"> · <BillLink bill={r.bill}>{r.bill.invoice_number || 'No invoice #'}</BillLink> · {r.seq} of {r.total}</span>
                             {late > 0 && <span className="ml-2 text-xs text-amber-300">{late} {late === 1 ? 'day' : 'days'} late</span>}
@@ -517,7 +560,7 @@ export default function PayPlan() {
       </section>
 
       {releasing && (
-        <ReleaseDialog week={releasing} onClose={() => setReleasing(null)} onDone={async () => { setReleasing(null); await load(); }} />
+        <ReleaseDialog week={releasing} onClose={() => setReleasing(null)} onDone={async () => { setReleasing(null); setPicked(new Set()); await load(); }} />
       )}
 
       {editing && (

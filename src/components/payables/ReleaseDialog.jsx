@@ -12,7 +12,8 @@ const statusText = (s) => {
   return s ? s.toLowerCase().replace(/_/g, ' ') : '';
 };
 
-// Release one week of planned installments to BILL as scheduled payments.
+// Release planned installments to BILL as scheduled payments: one week's, or
+// the ones picked on the pay list (week.title set, week.mixed when they span weeks).
 export default function ReleaseDialog({ week, onClose, onDone }) {
   const [check, setCheck] = useState(null);
   const [forecastWeek, setForecastWeek] = useState(null);
@@ -37,7 +38,7 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
       .then(([c, f, savedDefault]) => {
         if (cancelled) return;
         setCheck(c);
-        setForecastWeek((f.weeks || []).find((w) => w.week_start === week.start) || null);
+        setForecastWeek(week.mixed ? null : (f.weeks || []).find((w) => w.week_start === week.start) || null);
         setSelected(Object.fromEntries(c.rows.map((r) => [r.installment.id, r.ok])));
         // Prefer an account BILL says the tracker's user can pay from, then the default payables account.
         const offered = c.rows.flatMap((r) => r.banks).filter((b) => b.available);
@@ -54,7 +55,7 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
       })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
-  }, [ids, week.start]);
+  }, [ids, week.start, week.mixed]);
 
   // Bank accounts BILL offers, with whether each can pay every selected row.
   const banks = useMemo(() => {
@@ -113,7 +114,7 @@ export default function ReleaseDialog({ week, onClose, onDone }) {
         <div className="flex items-start justify-between gap-4 border-b border-slate-700 p-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-teal-400">Release to BILL</p>
-            <h2 className="text-lg font-bold text-white">Week of {format(parseISO(week.start), 'MMM d, yyyy')}</h2>
+            <h2 className="text-lg font-bold text-white">{week.title || `Week of ${format(parseISO(week.start), 'MMM d, yyyy')}`}</h2>
             <p className="text-sm text-slate-400">Creates these payments in BILL on their planned dates. Nothing else in the plan is sent.</p>
           </div>
           <button type="button" onClick={results ? onDone : onClose} className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Close"><X className="h-5 w-5" /></button>
