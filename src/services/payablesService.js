@@ -52,6 +52,32 @@ export const payablesService = {
     return data;
   },
 
+  // BILL payments with a process date from `from` to `to` (YYYY-MM-DD), with the
+  // bills each one paid. Canceled, voided and failed payments are left out.
+  async getPaymentsBetween(from, to) {
+    const DEAD = ['CANCELED', 'CANCELLATION_IN_PROGRESS', 'VOIDED', 'VOID_PENDING', 'FUNDING_FAILED_VOIDED',
+      'FUNDING_FAILED_ACTION_NEEDED', 'DISBURSEMENT_FAILED_ACTION_NEEDED', 'DISBURSEMENT_FAILED_VENDOR_BANK_REJECTED'];
+    const { data, error } = await supabase
+      .from('ap_payments')
+      .select('id, vendor_name, amount, process_date, single_status, ap_payment_bills(bill_id, amount)')
+      .gte('process_date', from)
+      .lte('process_date', to)
+      .order('process_date');
+    if (error) throw error;
+    const payments = (data || []).filter((p) => !DEAD.includes(p.single_status || ''));
+    const billIds = [...new Set(payments.flatMap((p) => (p.ap_payment_bills || []).map((b) => b.bill_id)))];
+    let invoices = {};
+    if (billIds.length) {
+      const { data: bills, error: billError } = await supabase.from('ap_bills').select('id, invoice_number').in('id', billIds);
+      if (billError) throw billError;
+      invoices = Object.fromEntries((bills || []).map((b) => [b.id, b.invoice_number]));
+    }
+    return payments.map((p) => ({
+      ...p,
+      bills: (p.ap_payment_bills || []).map((b) => ({ ...b, invoice_number: invoices[b.bill_id] || null })),
+    }));
+  },
+
   async getPayPlanView() {
     const { data, error } = await supabase.rpc('ap_pay_plan_view');
     if (error) throw error;
