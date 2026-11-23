@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarCheck, CalendarClock, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Trash2, Unlink, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Flag, Link2, Loader2, PauseCircle, Search, Send, Trash2, Unlink, XCircle } from 'lucide-react';
 import { payablesService } from '../../services/payablesService';
 import { billUrl, money } from './format';
 import { daysLate, fridayOnOrAfter, iso } from './installments';
@@ -80,6 +80,8 @@ export default function PayPlan() {
   const [reviewNote, setReviewNote] = useState('');
   const [planDate, setPlanDate] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
+  const [paidWeeksBack, setPaidWeeksBack] = useState(1); // 1 = last week
+  const [paid, setPaid] = useState(null); // { start, end, payments } or { error }
 
   async function load() {
     try {
@@ -92,6 +94,20 @@ export default function PayPlan() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // What went out: BILL payments processed in an earlier pay-list week (Monday to Sunday).
+  useEffect(() => {
+    if (!data?.today) return;
+    const monday = startOfWeek(parseISO(data.today), { weekStartsOn: 1 });
+    const start = iso(addDays(monday, -7 * paidWeeksBack));
+    const end = iso(addDays(monday, -7 * paidWeeksBack + 6));
+    let live = true;
+    setPaid(null);
+    payablesService.getPaymentsBetween(start, end)
+      .then((payments) => { if (live) setPaid({ start, end, payments }); })
+      .catch((err) => { if (live) setPaid({ start, end, error: err.message }); });
+    return () => { live = false; };
+  }, [data?.today, paidWeeksBack]);
 
   async function link(installmentId, paymentId) {
     setBusy(true);
@@ -412,6 +428,8 @@ export default function PayPlan() {
         </div>
       </section>
 
+      <PaidWeek paid={paid} weeksBack={paidWeeksBack} setWeeksBack={setPaidWeeksBack} bills={bills} />
+
       <section className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
         <h3 className="mb-1 text-base font-semibold text-white">Weekly pay list</h3>
         <p className="mb-3 text-xs text-slate-500">Planned payments by week. Release a week to create its payments in BILL; released and scheduled ones show BILL's date and can be canceled until BILL starts processing.</p>
@@ -532,5 +550,73 @@ export default function PayPlan() {
         </div>
       )}
     </div>
+  );
+}
+
+// BILL payments that went out in an earlier week, with the bills they paid and
+// whether each one was part of a pay plan.
+function PaidWeek({ paid, weeksBack, setWeeksBack, bills }) {
+  const planned = useMemo(() => {
+    const ids = new Set();
+    for (const b of bills) for (const i of b.plan?.installments || []) if (i.matched_payment_id) ids.add(i.matched_payment_id);
+    return ids;
+  }, [bills]);
+  const PENDING = ['SCHEDULED', 'WAITING_ON_APPROVAL', 'READY_TO_FUND'];
+  const payments = paid?.payments || [];
+  const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const title = weeksBack === 1 ? 'Paid last week' : `Paid the week of ${paid ? format(parseISO(paid.start), 'MMM d') : ''}`;
+
+  return (
+    <section className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-2">
+        <div>
+          <h3 className="text-base font-semibold text-white">{title}</h3>
+          {paid && <p className="text-xs text-slate-500">BILL payments processed {format(parseISO(paid.start), 'EEE MMM d')} to {format(parseISO(paid.end), 'EEE MMM d')}</p>}
+        </div>
+        <div className="flex items-center gap-3">
+          {paid && !paid.error && (
+            <span className="text-sm text-slate-300 tabular-nums">
+              {payments.length} {payments.length === 1 ? 'payment' : 'payments'} · <span className="font-semibold text-white">{money(total, { cents: true })}</span>
+            </span>
+          )}
+          <span className="inline-flex rounded-lg border border-slate-600">
+            <button type="button" onClick={() => setWeeksBack(weeksBack + 1)} title="Earlier week" aria-label="Earlier week"
+              className="rounded-l-lg p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" disabled={weeksBack <= 1} onClick={() => setWeeksBack(weeksBack - 1)} title="Later week" aria-label="Later week"
+              className="rounded-r-lg border-l border-slate-600 p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+          </span>
+        </div>
+      </div>
+      {!paid ? (
+        <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-teal-400" /></div>
+      ) : paid.error ? (
+        <p className="text-sm text-red-300">Could not load payments: {paid.error}</p>
+      ) : payments.length === 0 ? (
+        <p className="text-sm text-slate-500">No BILL payments went out this week.</p>
+      ) : (
+        <ul className="divide-y divide-slate-800 text-sm">
+          {payments.map((p) => (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+              <span className="text-slate-200">
+                <span className="tabular-nums text-slate-400">{shortDay(p.process_date)}</span> · {p.vendor_name || 'Unknown vendor'}
+                <span className="text-slate-400">
+                  {p.bills.map((b) => (
+                    <span key={b.bill_id}> · <BillLink bill={{ id: b.bill_id }}>{b.invoice_number || 'No invoice #'}</BillLink>
+                      {p.bills.length > 1 ? ` (${money(b.amount, { cents: true })})` : ''}</span>
+                  ))}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="tabular-nums text-white">{money(p.amount, { cents: true })}</span>
+                {PENDING.includes(p.single_status || '')
+                  ? <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-300">Not processed yet</span>
+                  : <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">Paid</span>}
+                {!planned.has(p.id) && <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-300" title="This payment was made in BILL, not from a pay plan">Not in a plan</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
