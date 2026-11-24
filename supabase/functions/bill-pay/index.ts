@@ -67,7 +67,7 @@ function supabasePayStore(db: SupabaseClient, userId: string): PayStore {
     },
     async logAction(row) {
       const { error } = await db.from("ap_payment_actions").insert({ ...row, requested_by: userId, finished_at: new Date().toISOString() });
-      check(error, "Recording the cancel");
+      check(error, "Recording the payment action");
     },
     async savePayment(payment) {
       const { error } = await db.from("ap_payments").upsert(mapPayment(payment));
@@ -170,6 +170,18 @@ Deno.serve(async (req: Request) => {
     }
     return json({ error: "Unknown action" }, 400);
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    const message = err instanceof Error ? err.message : String(err);
+    // A release that stops before sending anything is logged against each payment,
+    // so the pay list shows why it did not go through.
+    if (body?.action === "release" && Array.isArray(body.installmentIds)) {
+      try {
+        for (const inst of await store.loadInstallments(body.installmentIds)) {
+          await store.logAction({ action: "release", installment_id: inst.id, bill_id: inst.bill_id, vendor_name: inst.vendor_name, amount: inst.amount, status: "failed", error: `Release stopped: ${message}` });
+        }
+      } catch {
+        // Keep the original error.
+      }
+    }
+    return json({ error: message }, 400);
   }
 });

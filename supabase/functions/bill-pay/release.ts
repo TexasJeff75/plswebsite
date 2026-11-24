@@ -25,7 +25,7 @@ export interface PayStore {
   // earlier attempt whose outcome was unknown, so its transaction number is kept.
   claim(installmentId: string, fundingAccountId: string, processDate: string): Promise<{ actionId: string; transactionNumber: string }>;
   finishAction(actionId: string, patch: { status: "sent" | "failed" | "unknown"; bill_payment_id?: string | null; bill_status?: string | null; error?: string | null }): Promise<void>;
-  logAction(row: { action: "cancel"; installment_id: string; bill_id: string; vendor_name: string | null; amount: number; status: "sent" | "failed"; bill_payment_id: string; bill_status?: string | null; error?: string | null }): Promise<void>;
+  logAction(row: { action: "cancel" | "release"; installment_id: string; bill_id: string; vendor_name: string | null; amount: number; status: "sent" | "failed"; bill_payment_id?: string | null; bill_status?: string | null; error?: string | null }): Promise<void>;
   savePayment(payment: any): Promise<void>;
   saveBill(bill: any): Promise<void>;
   linkInstallment(installmentId: string, paymentId: string, processDate: string | null, pending: boolean): Promise<void>;
@@ -205,15 +205,24 @@ export async function releaseInstallments(
   }
 
   const results: ReleaseResult[] = [];
+  // A payment that is not sent still gets a log row, so the pay list can say why.
+  const skip = async (inst: Installment, message: string) => {
+    results.push({ installmentId: inst.id, status: "skipped", message });
+    try {
+      await store.logAction({ action: "release", installment_id: inst.id, bill_id: inst.bill_id, vendor_name: inst.vendor_name, amount: inst.amount, status: "failed", error: `Not sent: ${message}` });
+    } catch {
+      // Logging must never stop the rest of the release.
+    }
+  };
   for (const row of checked) {
     const inst = row.installment;
     if (!row.ok) {
-      results.push({ installmentId: inst.id, status: "skipped", message: row.problem });
+      await skip(inst, row.problem || "BILL would not accept this payment.");
       continue;
     }
     const bank = row.banks.find((b) => b.id === opts.fundingAccountId);
     if (!bank || !bank.available) {
-      results.push({ installmentId: inst.id, status: "skipped", message: bank?.reason || "That bank account cannot pay this vendor." });
+      await skip(inst, bank?.reason || "That bank account cannot pay this vendor.");
       continue;
     }
     // Never earlier than planned, today, or the earliest date BILL allows.
@@ -223,7 +232,7 @@ export async function releaseInstallments(
     try {
       action = await store.claim(inst.id, opts.fundingAccountId, processDate);
     } catch (err) {
-      results.push({ installmentId: inst.id, status: "skipped", message: err instanceof Error ? err.message : String(err) });
+      await skip(inst, err instanceof Error ? err.message : String(err));
       continue;
     }
 
